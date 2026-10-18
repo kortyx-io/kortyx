@@ -1,5 +1,53 @@
 # Changelog
 
+## Unreleased
+
+- Return recoverable, bounded model feedback for invalid named interrupt requests. Preserve strict human responses, request quotas, approval gates, and tool-loop limits.
+- Replace child execution snapshots natively while reading legacy object and single-element array snapshots.
+
+## [0.35.0](https://github.com/kortyx-io/kortyx/compare/hooks-v0.34.3...hooks-v0.35.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/providers bumped to 0.9.4
+    * @kortyx/telemetry-contracts bumped to 0.18.0
+    * @kortyx/prompts bumped to 0.2.2
+    * @kortyx/usage-telemetry bumped to 0.4.0
+
+## [0.34.3](https://github.com/kortyx-io/kortyx/compare/hooks-v0.34.2...hooks-v0.34.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
+## [0.34.2](https://github.com/kortyx-io/kortyx/compare/hooks-v0.34.1...hooks-v0.34.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **evals:** preserve diagnostics and separate postcondition failures ([#337](https://github.com/kortyx-io/kortyx/issues/337)) ([d4fce4e](https://github.com/kortyx-io/kortyx/commit/d4fce4e670971d3b755835fc681c8125f67a9c70))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/providers bumped to 0.9.3
+    * @kortyx/telemetry-contracts bumped to 0.17.2
+    * @kortyx/prompts bumped to 0.2.1
+    * @kortyx/usage-telemetry bumped to 0.3.0
+
 ## [0.34.1](https://github.com/kortyx-io/kortyx/compare/hooks-v0.34.0...hooks-v0.34.1) (2026-10-13)
 
 

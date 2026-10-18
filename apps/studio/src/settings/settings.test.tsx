@@ -41,7 +41,7 @@ beforeEach(() => {
 });
 const render = async () => {
   const { default: Page } = await import("../app/settings/page");
-  return renderToStaticMarkup(await Page());
+  return renderToStaticMarkup(await Page({}));
 };
 it("keeps OSS settings in a flat section layout without an overall header", async () => {
   const html = await render();
@@ -89,3 +89,8 @@ it("does not fall back to local settings after an adapter authorization failure"
   resolve.mockRejectedValue(new Error("Denied"));
   await expect(render()).rejects.toThrow("Denied");
 });
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+  headers: async () => new Headers(),
+}));

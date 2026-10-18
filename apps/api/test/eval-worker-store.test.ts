@@ -1,6 +1,11 @@
 import { createEvals, getEvalSuiteRevision } from "@kortyx/agent";
 import type { EvalSuite } from "@kortyx/agent/evals";
 import type { TelemetryDb } from "@kortyx/telemetry-db";
+import {
+  createUsageTelemetry,
+  type UsageRecord,
+} from "@kortyx/usage-telemetry";
+import { configureUsageTelemetry } from "@kortyx/usage-telemetry/node";
 import { describe, expect, it, vi } from "vitest";
 import {
   createEvalWorker,
@@ -47,8 +52,13 @@ describe("restricted evaluation job store composition", () => {
     const done = new Promise<void>((resolve) => {
       complete = resolve;
     });
+    let commit!: () => void;
+    const persisted = new Promise<void>((resolve) => {
+      commit = resolve;
+    });
     const finish = vi.fn(async () => {
       complete();
+      await persisted;
     });
     const claim = vi
       .fn()
@@ -77,14 +87,31 @@ describe("restricted evaluation job store composition", () => {
           headers: { "content-type": "application/x-ndjson" },
         }),
     );
+    const records: UsageRecord[] = [];
+    const usage = createUsageTelemetry({
+      context: {
+        product: "oss_studio",
+        component: "studio_api",
+        version: "1.0.0",
+      },
+      identity: () => crypto.randomUUID(),
+      transport: async (batch) => {
+        records.push(...batch);
+      },
+    });
+    configureUsageTelemetry("studio_api", usage);
     const worker = createEvalWorker({} as TelemetryDb, [], undefined, {
       store,
       resolveTarget,
       request,
+      usage,
     });
     worker.start();
     try {
       await done;
+      await usage.flush();
+      expect(records).toHaveLength(0); // Request completion is not durable completion.
+      commit();
       expect(finish).toHaveBeenCalledWith(run.id, expect.any(String), {
         result,
       });
@@ -96,7 +123,19 @@ describe("restricted evaluation job store composition", () => {
         run.id,
       );
     } finally {
+      commit();
       await worker.stop();
+      await usage.flush();
+      usage.dispose();
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        operation: "studio.eval.execution",
+        outcome: "success",
+        count: 1,
+        properties: { measurement_kind: "execution", origin: "server" },
+      });
+      expect(JSON.stringify(records)).not.toContain("Hello");
+      expect(JSON.stringify(records)).not.toContain("org-a");
     }
   });
   it("does not send a request if lease-bound target resolution fails", async () => {
@@ -116,6 +155,19 @@ describe("restricted evaluation job store composition", () => {
       }),
     };
     const request = vi.fn();
+    const records: UsageRecord[] = [];
+    const usage = createUsageTelemetry({
+      context: {
+        product: "oss_studio",
+        component: "studio_api",
+        version: "1.0.0",
+      },
+      identity: () => crypto.randomUUID(),
+      transport: async (batch) => {
+        records.push(...batch);
+      },
+    });
+    configureUsageTelemetry("studio_api", usage);
     const worker = createEvalWorker({} as TelemetryDb, [], undefined, {
       store,
       request,
@@ -134,6 +186,54 @@ describe("restricted evaluation job store composition", () => {
       );
     } finally {
       await worker.stop();
+      await usage.flush();
+      usage.dispose();
+      expect(records).toHaveLength(0); // A custom store retains ownership of its existing emitter.
     }
   });
+});
+it("does not report a terminal result when durable finish rejects", async () => {
+  const records: UsageRecord[] = [];
+  const usage = createUsageTelemetry({
+    context: {
+      product: "oss_studio",
+      component: "studio_api",
+      version: "1.0.0",
+    },
+    identity: () => crypto.randomUUID(),
+    transport: async (batch) => {
+      records.push(...batch);
+    },
+  });
+  let finished!: () => void;
+  const done = new Promise<void>((resolve) => {
+    finished = resolve;
+  });
+  const worker = createEvalWorker({} as TelemetryDb, [], undefined, {
+    usage,
+    store: {
+      claim: vi
+        .fn()
+        .mockResolvedValueOnce({ id: "private-run", request: {} })
+        .mockResolvedValue(undefined),
+      heartbeat: vi.fn(),
+      progress: vi.fn(),
+      finish: async () => {
+        finished();
+        throw new Error("private-storage-failure");
+      },
+    },
+    resolveTarget: async () => {
+      throw new Error("private-target-failure");
+    },
+  });
+  worker.start();
+  try {
+    await done;
+  } finally {
+    await worker.stop();
+    await usage.flush();
+    usage.dispose();
+  }
+  expect(records).toHaveLength(0);
 });

@@ -63,6 +63,27 @@ only repeat the implementation.
 Evidence: applicable integration tests and browser verification against a
 representative fixture or real execution, including a failure case.
 
+### 2a. Guided tours and page help
+
+- For affected Studio pages, features, or shared controls, assess current-page
+  help and related sample-project chapters alongside the product change. Update
+  or complete their copy, targets, sample evidence, and navigation when behavior
+  changes; retain stable lesson IDs and read-only sample boundaries.
+- After rebasing, inspect newly introduced routes, tabs, controls, and data states
+  for additional guidance needs. Reconcile coverage against the final combined
+  diff, including shared UI changes inherited from the base branch.
+- Complete the affected guided journeys and verify that each step explains
+  readable, visible evidence. Include relevant navigation/resume, empty/error,
+  and responsive states. Record manual/browser evidence and skipped checks;
+  adding a chapter for every change is not required.
+- Mark Not applicable with a concrete reason when guidance is unaffected. New
+  guidance should address a user task without making optional tours longer by
+  default. Unfinished guidance required for the advertised journey is not Complete.
+
+Evidence: updated guidance/fixtures/anchors where applicable, a route/control
+coverage assessment after rebase, and completed related walkthroughs with visual
+verification. Record this assessment explicitly in the PR checklist.
+
 ### 3. Documentation and examples
 
 - Update affected package READMEs, website documentation, runnable examples,
@@ -71,6 +92,18 @@ representative fixture or real execution, including a failure case.
   environments. Keep names and imports consistent with published exports.
 - Remove or correct obsolete instructions. State the supported scope of a
   partial feature so documentation does not promise future behavior.
+- Audit contextual help for affected Studio surfaces in OSS and Cloud: table
+  headers, metrics, statuses, filters, drawers, forms, settings, and empty/error
+  states, including existing symbol explanations. When understanding requires
+  explanation, include concise guidance, an arrow pointing to the trigger, and a
+  separate documentation footer; default to adding help when uncertain. Table
+  header titles and explained symbols own their help without extra question marks.
+  Other compact surfaces use help circles; align metric-card help to the right.
+  Use a documentation button only where there is enough space.
+  Keep essential prerequisites and recovery instructions visible. Verify hover,
+  keyboard, touch, and drawer interactions and link directly to an existing,
+  relevant page/anchor for the edition and supported version. Shared behavior
+  uses shared docs; differing setup/administration uses edition-specific docs.
 
 Evidence: links to affected guidance and applicable example/build verification.
 

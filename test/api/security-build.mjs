@@ -120,6 +120,7 @@ env.DATABASE_URL = database;
 const built = await run("build");
 assert.equal(built.code, 0, built.output);
 
+const preferenceScopes = new Map();
 async function smoke(mode) {
   const probe = createServer();
   await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));
@@ -174,7 +175,16 @@ async function smoke(mode) {
       ["alice", "bob"].map(async (actor) => {
         const response = await call("/v1/studio/context", `fixture-${actor}`);
         assert.equal(response.status, 200, await response.clone().text());
-        assert.deepEqual(await response.json(), {
+        const { tablePreferenceScope, ...context } = await response.json();
+        assert.equal(tablePreferenceScope.ownerKind, "user");
+        assert.match(tablePreferenceScope.cacheKey, /^[a-f0-9]{64}$/);
+        if (preferenceScopes.has(actor))
+          assert.equal(
+            tablePreferenceScope.cacheKey,
+            preferenceScopes.get(actor),
+          );
+        preferenceScopes.set(actor, tablePreferenceScope.cacheKey);
+        assert.deepEqual(context, {
           organization: { name: `fixture-org-${actor}` },
           project: { name: `fixture-project-${actor}` },
           environments: ["fixture-environment"],
@@ -187,6 +197,7 @@ async function smoke(mode) {
         });
       }),
     );
+    assert.notEqual(preferenceScopes.get("alice"), preferenceScopes.get("bob"));
     assert.notEqual((await call("/v1/studio/context", "invalid")).status, 200);
     assert.equal(
       (await call("/v1/studio/runs/run/review", "fixture-alice", "DELETE"))

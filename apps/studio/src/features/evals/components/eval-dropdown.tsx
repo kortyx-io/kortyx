@@ -63,18 +63,15 @@ export function EvalDropdown({
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           disabled={disabled}
           aria-label={label}
           title={displayLabel}
-          className={cn("h-8 max-w-full justify-between text-xs", className)}
+          className={cn("max-w-full justify-between", className)}
         >
           <span className="truncate">{displayLabel}</span>
-          <ChevronDown
-            aria-hidden="true"
-            className="size-4 shrink-0 opacity-50"
-          />
+          <ChevronDown aria-hidden="true" className="shrink-0 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

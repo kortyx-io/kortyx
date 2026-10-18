@@ -9,6 +9,8 @@ export type StudioConnectionStatus =
   | "unavailable";
 
 export type StudioShellContext = {
+  tablePreferenceScope?: StudioContextResponse["tablePreferenceScope"];
+  tablePreferencesRemote?: boolean;
   identity: {
     name: "Local Studio";
     access: string;
@@ -97,6 +99,11 @@ export const buildStudioShellContext = (
   if (!input.context.error) {
     return {
       identity,
+      tablePreferenceScope: input.context.data.tablePreferenceScope,
+      tablePreferencesRemote:
+        Boolean(input.context.data.tablePreferenceScope) &&
+        input.authMode !== "none" &&
+        input.authMode !== undefined,
       scope: {
         label: "Local installation",
         project: input.context.data.project.name,

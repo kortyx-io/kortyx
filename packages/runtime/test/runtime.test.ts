@@ -513,6 +513,23 @@ describe("session checkpoint store", () => {
 });
 
 describe("redis session checkpoint store", () => {
+  it("skips expired and null serialized records while retaining only ordered summaries", async () => {
+    const redis = createMemoryRedisStore();
+    vi.mocked(redis.scanKeys).mockResolvedValue([
+      "session-cp:session:s:null",
+      "session-cp:session:s:expired",
+    ]);
+    vi.mocked(redis.get)
+      .mockResolvedValueOnce("null")
+      .mockResolvedValueOnce(null);
+    const checkpoints = createRedisSessionCheckpointStore({
+      store: redis,
+      prefix: "session-cp:",
+      ttlMs: 1000,
+    });
+    expect(await checkpoints.list("s")).toEqual([]);
+  });
+
   it("persists, rolls back, prunes, and forks checkpoint state", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));

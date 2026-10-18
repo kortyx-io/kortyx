@@ -2,9 +2,87 @@
 
 ## Unreleased
 
+- Preserve completed tool results and addressed human answers across root and child execution-budget continuations. Continue renews only the saved allowance and does not answer a later review.
+
 - Add bounded, idempotent queued eval execution with shared consumer capacity,
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
+
+## [0.39.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.38.1...agent-v0.39.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/providers bumped to 0.9.4
+    * @kortyx/runtime bumped to 0.25.0
+    * @kortyx/stream bumped to 0.15.6
+    * @kortyx/utils bumped to 0.3.9
+    * @kortyx/prompts bumped to 0.2.2
+    * @kortyx/usage-telemetry bumped to 0.4.0
+    * @kortyx/telemetry-contracts bumped to 0.18.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.35.0
+    * @kortyx/openai bumped to 0.5.10
+
+## [0.38.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.38.0...agent-v0.38.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.24.1
+    * @kortyx/utils bumped to 0.3.8
+  * devDependencies
+    * @kortyx/hooks bumped to 0.34.3
+
+## [0.38.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.37.1...agent-v0.38.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+* **agent:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+
+### Features
+
+* **agent:** make concurrent eval execution resilient ([#339](https://github.com/kortyx-io/kortyx/issues/339)) ([84d0e4f](https://github.com/kortyx-io/kortyx/commit/84d0e4fe3d35e5cf80713f7550ef2b1d83e5a2ec))
+* **runtime:** add opt-in workflow data reducers ([#340](https://github.com/kortyx-io/kortyx/issues/340)) ([8be2c81](https://github.com/kortyx-io/kortyx/commit/8be2c81f74c5c51ab98443144f3491d4e8d54a88))
+
+
+### Bug Fixes
+
+* **evals:** preserve diagnostics and separate postcondition failures ([#337](https://github.com/kortyx-io/kortyx/issues/337)) ([d4fce4e](https://github.com/kortyx-io/kortyx/commit/d4fce4e670971d3b755835fc681c8125f67a9c70))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/providers bumped to 0.9.3
+    * @kortyx/runtime bumped to 0.24.0
+    * @kortyx/stream bumped to 0.15.5
+    * @kortyx/utils bumped to 0.3.7
+    * @kortyx/prompts bumped to 0.2.1
+    * @kortyx/usage-telemetry bumped to 0.3.0
+  * devDependencies
+    * @kortyx/hooks bumped to 0.34.2
+    * @kortyx/openai bumped to 0.5.9
 
 ## [0.37.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.37.0...agent-v0.37.1) (2026-10-13)
 

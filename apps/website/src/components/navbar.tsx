@@ -37,7 +37,7 @@ function StudioAnnouncement({
 }: Pick<NavbarProps, "maxWidth" | "containerClassName">) {
   return (
     <Link
-      href="/docs/studio/run-locally"
+      href="/docs/self-hosting/run-locally"
       className="group block min-h-9 border-b border-violet-300/10 bg-[linear-gradient(90deg,#151026,#101321,#101026)] text-[10px] text-white/60 transition-colors hover:text-white"
     >
       <span

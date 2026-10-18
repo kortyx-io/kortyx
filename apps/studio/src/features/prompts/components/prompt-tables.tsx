@@ -6,43 +6,38 @@ import {
 } from "@kortyx/agent/evals";
 import {
   type PromptDetail,
+  PromptDetailSchema,
   StudioRunSchema,
 } from "@kortyx/telemetry-contracts";
 import { RefreshCw } from "lucide-react";
-import { parseAsInteger, parseAsString, parseAsStringLiteral } from "nuqs";
+import { parseAsInteger, parseAsString } from "nuqs";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import {
-  DataTable,
-  DataTableColumnsMenu,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
-import {
-  createEvaluationColumns,
-  type EvaluationSort,
-} from "@/features/evals/components/evaluation-table-columns";
+import { createEvaluationColumns } from "@/features/evals/components/evaluation-table-columns";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { mapStudioRun } from "@/features/runs/lib/map-studio-run";
-import type { Run, SortKey } from "@/features/runs/schema";
+import type { Run } from "@/features/runs/schema";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 import { promptRequest } from "../api/client";
 
 const responseSchema = z.object({
   runs: z.array(StudioRunSchema),
   evaluations: z.array(StudioEvaluationSummarySchema),
+  evidence: PromptDetailSchema.shape.evidence.optional(),
 });
 
 export function PromptTables({
   id,
   version,
   kind,
-  evidence,
+  evidence: initialEvidence,
   onTest,
   canTest,
 }: {
@@ -57,6 +52,7 @@ export function PromptTables({
     runs: Run[];
     evaluations: StudioEvaluationSummary[];
   }>({ runs: [], evaluations: [] });
+  const [evidence, setEvidence] = useState(initialEvidence);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -65,28 +61,14 @@ export function PromptTables({
     {
       q: parseAsString.withDefault(""),
       status: parseAsString.withDefault("all"),
-      sort: parseAsStringLiteral([
-        "name",
-        "created",
-        "status",
-        "started",
-        "duration",
-        "tokens",
-        "cost",
-      ]).withDefault(kind === "runs" ? "started" : "created"),
-      dir: parseAsStringLiteral(["asc", "desc"]).withDefault("desc"),
       cursor: parseAsInteger.withDefault(0),
-      pageSize: parseAsInteger.withDefault(20),
     },
     {
       shallow: true,
       urlKeys: {
         q: `prompt${kind}Search`,
         status: `prompt${kind}Status`,
-        sort: `prompt${kind}Sort`,
-        dir: `prompt${kind}Dir`,
         cursor: `prompt${kind}Page`,
-        pageSize: `prompt${kind}PageSize`,
       },
     },
   );
@@ -111,6 +93,7 @@ export function PromptTables({
           runs: data.runs.map(mapStudioRun),
           evaluations: data.evaluations,
         });
+        setEvidence(data.evidence ?? initialEvidence);
         setNow(Date.now());
         setError("");
       } catch (cause) {
@@ -154,78 +137,6 @@ export function PromptTables({
       router.push(destination);
     }
   };
-  const needle = query.q.toLowerCase();
-  const runs = rows.runs.filter(
-    (run) =>
-      (query.status === "all" || run.status === query.status) &&
-      `${run.id} ${run.workflow} ${run.session} ${run.model} ${run.result} ${run.environment}`
-        .toLowerCase()
-        .includes(needle),
-  );
-  const evaluations = rows.evaluations.filter(
-    (run) =>
-      (query.status === "all" || run.status === query.status) &&
-      `${run.name} ${run.id} ${run.targetName} ${run.environment} ${run.metadata.source} ${run.metadata.commit ?? ""}`
-        .toLowerCase()
-        .includes(needle),
-  );
-  const direction = query.dir === "asc" ? 1 : -1;
-  const runSort: SortKey = [
-    "started",
-    "duration",
-    "tokens",
-    "cost",
-    "status",
-  ].includes(query.sort)
-    ? (query.sort as SortKey)
-    : "started";
-  const evalSort: EvaluationSort = ["name", "created", "status"].includes(
-    query.sort,
-  )
-    ? (query.sort as EvaluationSort)
-    : "created";
-  runs.sort(
-    (a, b) =>
-      direction *
-      (runSort === "started"
-        ? a.startedAt.localeCompare(b.startedAt)
-        : runSort === "status"
-          ? a.status.localeCompare(b.status)
-          : (a[runSort] ?? 0) - (b[runSort] ?? 0)),
-  );
-  evaluations.sort(
-    (a, b) =>
-      direction *
-      (evalSort === "name"
-        ? a.name.localeCompare(b.name)
-        : evalSort === "status"
-          ? a.status.localeCompare(b.status)
-          : a.createdAt.localeCompare(b.createdAt)),
-  );
-  const size = [10, 20, 50, 100].includes(query.pageSize) ? query.pageSize : 20;
-  const total = kind === "runs" ? runs.length : evaluations.length;
-  const pagination = {
-    cursor: Math.min(
-      Math.max(0, query.cursor),
-      Math.max(0, Math.ceil(total / size) - 1) * size,
-    ),
-    pageSize: size,
-    pageSizes: [10, 20, 50, 100],
-    totalCount: total,
-    onCursorChange: (cursor: number) => {
-      void setQuery({ cursor });
-    },
-    onPageSizeChange: (pageSize: number) => {
-      void setQuery({ pageSize, cursor: 0 });
-    },
-  };
-  const sort = (sort: SortKey | EvaluationSort) => {
-    void setQuery({
-      sort,
-      dir: query.sort === sort && query.dir === "desc" ? "asc" : "desc",
-      cursor: 0,
-    });
-  };
   const header = (
     <div className="shrink-0 space-y-3 border-b p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -235,7 +146,7 @@ export function PromptTables({
         <div className="flex items-center gap-2">
           <Button
             size="icon-sm"
-            variant="outline"
+            variant="secondary"
             aria-label={`Refresh prompt ${kind}`}
             onClick={() => setRefresh((value) => value + 1)}
           >
@@ -244,7 +155,7 @@ export function PromptTables({
           {kind === "evals" && (
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={!canTest}
               onClick={onTest}
             >
@@ -252,43 +163,6 @@ export function PromptTables({
             </Button>
           )}
         </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          aria-label={`Search prompt ${kind}`}
-          placeholder={
-            kind === "runs"
-              ? "Search workflow, model or run ID…"
-              : "Search evaluation runs…"
-          }
-          className="h-8 min-w-36 flex-1 text-xs"
-          value={query.q}
-          onChange={(event) => {
-            void setQuery({ q: event.target.value, cursor: 0 });
-          }}
-        />
-        <EvalDropdown
-          label={`Prompt ${kind} status filter`}
-          value={query.status}
-          options={[
-            { value: "all", label: "All statuses" },
-            ...(kind === "runs"
-              ? [
-                  "running",
-                  "completed",
-                  "interrupted",
-                  "incomplete",
-                  "failed",
-                  "cancelled",
-                ]
-              : ["queued", "running", "passed", "failed", "error", "cancelled"]
-            ).map((value) => ({ value, label: value })),
-          ]}
-          onChange={(status) => {
-            void setQuery({ status, cursor: 0 });
-          }}
-        />
-        <DataTableColumnsMenu />
       </div>
       {error && (
         <div role="alert" className="text-xs text-red-700 dark:text-red-400">
@@ -305,7 +179,10 @@ export function PromptTables({
     </div>
   );
   const empty = (
-    <div className="flex min-h-64 h-full flex-col items-center justify-center p-6 text-center">
+    <div
+      data-guide-empty={!loading && !error ? "true" : undefined}
+      className="flex min-h-64 h-full flex-col items-center justify-center p-6 text-center"
+    >
       <h3 className="text-sm font-medium">
         {loading
           ? "Loading…"
@@ -329,7 +206,7 @@ export function PromptTables({
       {(query.q || query.status !== "all") && (
         <Button
           size="sm"
-          variant="outline"
+          variant="secondary"
           className="mt-4"
           onClick={() => {
             void setQuery({ q: "", status: "all", cursor: 0 });
@@ -352,6 +229,15 @@ export function PromptTables({
       void navigator.clipboard.writeText(text).catch(() => undefined);
     },
   });
+  for (const column of columns) {
+    if (Array.isArray(column.filter))
+      column.filter = column.filter.filter(
+        (field) =>
+          !["hasTool", "toolName", "toolOutcome", "toolMode"].includes(
+            field.key,
+          ),
+      );
+  }
   const evalColumns = [
     ...createEvaluationColumns((run) =>
       navigate(
@@ -360,6 +246,26 @@ export function PromptTables({
     ),
     {
       key: "prompt-usage",
+      filter: [
+        columnFilter(
+          "promptUsage",
+          "Prompt usage",
+          "enum",
+          (run: StudioEvaluationSummary) =>
+            evidence
+              .filter((item) => (item.evaluationId ?? item.runId) === run.id)
+              .map((item) => item.usage),
+        ),
+        columnFilter(
+          "usageSuites",
+          "Prompt usage suites",
+          "number",
+          (run: StudioEvaluationSummary) =>
+            evidence.filter(
+              (item) => (item.evaluationId ?? item.runId) === run.id,
+            ).length,
+        ),
+      ],
       label: "Prompt usage",
       defaultWidth: 200,
       render: (run: StudioEvaluationSummary) => {
@@ -409,57 +315,78 @@ export function PromptTables({
   return (
     <div data-prompt-table={kind} className="h-full min-h-0 min-w-0">
       {kind === "runs" ? (
-        <DataTableProvider columns={columns}>
-          <DataTable
-            className="rounded-none border-0 shadow-none"
-            data={runs}
-            getRowKey={(run) => run.id}
-            header={header}
-            emptyState={empty}
-            emptyStateClassName="h-full"
-            pagination={pagination}
-            sort={runSort}
-            direction={query.dir}
-            onSort={sort}
-            onRowClick={(run, event) => {
-              const href = studioDetailHref(
-                "runs",
-                run.parentRunId ?? run.id,
-                run.invocationId
-                  ? {
-                      tab: "calls",
-                      call: run.invocationId,
-                      ...(run.branchId ? { branch: run.branchId } : {}),
-                    }
-                  : undefined,
-              );
-              navigate(href, event);
-            }}
-          />
-        </DataTableProvider>
+        <DataTable
+          help={{ filters: studioHelp.filters, views: studioHelp.views }}
+          query={{
+            defaults: { sort: "started" },
+            keys: {
+              q: `prompt${kind}Search`,
+              cursor: `prompt${kind}Page`,
+            },
+          }}
+          compatibility={{ aliases: { [`prompt${kind}Status`]: "status" } }}
+          columns={columns}
+          tableId={`prompt-${kind}`}
+          search={{
+            label: `Search prompt ${kind}`,
+            placeholder:
+              kind === "runs"
+                ? "Search workflow, model or run ID…"
+                : "Search evaluation runs…",
+          }}
+          className="rounded-none border-0 shadow-none"
+          data={rows.runs}
+          getRowKey={(run) => run.id}
+          header={header}
+          emptyState={empty}
+          emptyStateClassName="h-full"
+          onRowClick={(run, event) => {
+            const href = studioDetailHref(
+              "runs",
+              run.parentRunId ?? run.id,
+              run.invocationId
+                ? {
+                    tab: "calls",
+                    call: run.invocationId,
+                    ...(run.branchId ? { branch: run.branchId } : {}),
+                  }
+                : undefined,
+            );
+            navigate(href, event);
+          }}
+        />
       ) : (
-        <DataTableProvider columns={evalColumns}>
-          <DataTable
-            className="rounded-none border-0 shadow-none"
-            data={evaluations}
-            getRowKey={(run) => run.id}
-            header={header}
-            emptyState={empty}
-            emptyStateClassName="h-full"
-            pagination={pagination}
-            sort={evalSort}
-            direction={query.dir}
-            onSort={sort}
-            onRowClick={(run, event) =>
-              navigate(
-                run.legacy
-                  ? `/evals/runs/${run.id}`
-                  : `/evals/evaluations/${run.id}`,
-                event,
-              )
-            }
-          />
-        </DataTableProvider>
+        <DataTable
+          help={{ filters: studioHelp.filters, views: studioHelp.views }}
+          query={{
+            defaults: { sort: "created" },
+            keys: {
+              q: `prompt${kind}Search`,
+              cursor: `prompt${kind}Page`,
+            },
+          }}
+          compatibility={{ aliases: { [`prompt${kind}Status`]: "status" } }}
+          columns={withStudioColumnHelp(evalColumns, "evals")}
+          tableId={`prompt-${kind}`}
+          search={{
+            label: `Search prompt ${kind}`,
+            placeholder: "Search evaluation runs…",
+          }}
+          className="rounded-none border-0 shadow-none"
+          data={rows.evaluations}
+          getRowKey={(run) => run.id}
+          header={header}
+          emptyState={empty}
+          emptyStateClassName="h-full"
+          onRowClick={(run, event) =>
+            navigate(
+              run.legacy
+                ? `/evals/runs/${run.id}`
+                : `/evals/evaluations/${run.id}`,
+              event,
+            )
+          }
+        />
       )}
     </div>
   );

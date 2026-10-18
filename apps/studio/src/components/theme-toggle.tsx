@@ -185,6 +185,7 @@ export function ThemePreferenceControl() {
             key={option.value}
             type="button"
             aria-pressed={selected}
+            data-guide-focus={selected ? "appearance-option" : undefined}
             onClick={() => setTheme(option.value)}
             className={cn(
               "min-w-0 overflow-hidden rounded-xl border text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",

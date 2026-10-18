@@ -1,4 +1,5 @@
 import {
+  LEGACY_TABLE_FILTERS,
   resolveStudioInterruptStatus,
   resolveStudioTimeRange,
   type StudioInterrupt,
@@ -26,13 +27,9 @@ import {
 } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { TelemetryDb } from "../client";
-import {
-  studioInterrupts,
-  studioRuns,
-  studioSessions,
-  telemetryEvents,
-} from "../schema";
+import { studioInterrupts, studioRuns, studioSessions } from "../schema";
 import { withRunFeedback } from "./scores";
+import { parseStudioFilters, studioFiltersCondition } from "./table-filters";
 
 export type StudioListQuery = Record<string, string | undefined>;
 
@@ -41,7 +38,7 @@ export type StudioListPage<T> = {
   totalCount: number;
 };
 
-const queryValues = (value: string | undefined): string[] =>
+const _queryValues = (value: string | undefined): string[] =>
   value
     ?.split(",")
     .map((item) => item.trim())
@@ -72,7 +69,7 @@ const pageOptions = (query: StudioListQuery) => {
   };
 };
 
-const containsJsonValue = (
+const _containsJsonValue = (
   column: AnyPgColumn,
   value: string | undefined,
 ): SQL | undefined =>
@@ -189,7 +186,7 @@ const directedOrder = (
   value: SQL | Parameters<typeof asc>[0],
 ) => (direction === "asc" ? asc(value) : desc(value));
 
-const effectiveInterruptStatusCondition = (
+const _effectiveInterruptStatusCondition = (
   statuses: string[],
 ): SQL | undefined => {
   if (statuses.length === 0) return undefined;
@@ -223,7 +220,7 @@ const effectiveInterruptStatusCondition = (
   return conditions.length === 1 ? conditions[0] : or(...conditions);
 };
 
-const effectiveResumeOutcomeCondition = (
+const _effectiveResumeOutcomeCondition = (
   outcomes: string[],
 ): SQL | undefined => {
   if (outcomes.length === 0) return undefined;
@@ -372,87 +369,28 @@ export const listStudioRuns = async (
     runIds?: readonly string[];
   },
 ): Promise<StudioListPage<StudioRun>> => {
-  const { query } = input;
+  const filters = parseStudioFilters(input.query, "runs");
+  const query = { ...input.query };
+  for (const alias of Object.keys(LEGACY_TABLE_FILTERS)) delete query[alias];
   if (input.runIds?.length === 0) return { items: [], totalCount: 0 };
-  const statuses = queryValues(query.status);
-  const providers = queryValues(query.provider);
-  const minimumCost = queryNumber(query.minCost);
-  const minimumDurationMs = queryNumber(query.minDuration) * 1_000;
-  const minimumTokens = queryNumber(query.minTokens);
   const timeRange = resolveListTimeRange(query);
-  const feedbackExists = sql`exists (
-    select 1 from telemetry_scores as feedback
-    where feedback.organization_id = ${studioRuns.organizationId}
-      and feedback.project_id = ${studioRuns.projectId}
-      and feedback.run_id = ${studioRuns.runId}
-      and feedback.source = 'end-user'
-      and feedback.name = 'user-feedback'
-      and feedback.data_type = 'BOOLEAN'
-      ${query.feedback === "positive" ? sql`and feedback.value = '1'::jsonb` : query.feedback === "negative" ? sql`and feedback.value = '0'::jsonb` : sql``}
-  )`;
   const conditions = [
-    input.runIds ? inArray(studioRuns.runId, [...input.runIds]) : undefined,
-    query.feedback === "unrated"
-      ? sql`not ${feedbackExists}`
-      : query.feedback
-        ? feedbackExists
-        : undefined,
-    queryBoolean(query.includeChildren)
-      ? undefined
-      : sql`${studioRuns.data} ->> 'parentRunId' is null`,
     eq(studioRuns.organizationId, input.organizationId),
     eq(studioRuns.projectId, input.projectId),
     query.env && query.env !== "All environments"
       ? eq(studioRuns.environment, query.env)
       : undefined,
-    statuses.length > 0 ? inArray(studioRuns.status, statuses) : undefined,
-    providers.length > 0 ? inArray(studioRuns.provider, providers) : undefined,
-    queryBoolean(query.tool) ? eq(studioRuns.hasTool, true) : undefined,
-    query.toolName || query.toolOutcome || query.toolMode
-      ? sql`exists (
-      select 1 from ${telemetryEvents} where ${telemetryEvents.organizationId} = ${studioRuns.organizationId}
-      and ${telemetryEvents.projectId} = ${studioRuns.projectId}
-      and ${telemetryEvents.runId} = coalesce(${studioRuns.data} ->> 'parentRunId', ${studioRuns.runId})
-      and (${studioRuns.data} ->> 'parentRunId' is null or ${telemetryEvents.payload} ->> 'invocationId' = ${studioRuns.data} ->> 'invocationId')
-      and ${telemetryEvents.type} like 'tool.%'
-      and (${studioRuns.data} ->> 'parentRunId' is null or ${telemetryEvents.payload} ->> 'branchId' = ${studioRuns.data} ->> 'branchId')
-      ${query.path ? sql`and ${telemetryEvents.nodeId} = ${query.path}` : sql``}
-      ${query.version ? sql`and exists (select 1 from workflow_revisions revision where revision.id = ${telemetryEvents.workflowRevisionId} and revision.organization_id = ${studioRuns.organizationId} and revision.project_id = ${studioRuns.projectId} and revision.declared_version = ${query.version})` : sql``}
-      ${query.toolName ? sql`and coalesce(${telemetryEvents.payload} ->> 'name', ${telemetryEvents.payload} ->> 'tool') = ${query.toolName}` : sql``}
-      ${query.toolOutcome === "reused" ? sql`and ${telemetryEvents.type} = 'tool.reused'` : query.toolOutcome ? sql`and ${telemetryEvents.payload} ->> 'outcome' = ${query.toolOutcome} and ${telemetryEvents.type} not in ('tool.started', 'tool.reused', 'tool.waiting')` : sql``}
-      ${query.toolMode ? sql`and ${telemetryEvents.payload} ->> 'callingMode' = ${query.toolMode}` : sql``}
-      ${query.workflow ? sql`and ${telemetryEvents.workflowId} = ${query.workflow}` : sql``}
-    )`
-      : undefined,
-    containsJsonValue(studioRuns.workflowIds, query.workflow),
-    query.workflow && query.version
-      ? sql`${studioRuns.data} -> 'workflowRefs' @> ${JSON.stringify([
-          {
-            workflowId: query.workflow.trim(),
-            declaredVersion: query.version.trim(),
-          },
-        ])}::jsonb`
-      : containsJsonValue(studioRuns.workflowVersions, query.version),
-    containsJsonValue(studioRuns.transitionIds, query.transition),
-    containsJsonValue(studioRuns.path, query.path),
-    query.session
-      ? ilike(studioRuns.sessionId, `%${query.session.trim()}%`)
-      : undefined,
-    query.model
-      ? ilike(studioRuns.model, `%${query.model.trim()}%`)
-      : undefined,
-    query.result
-      ? sql`${studioRuns.data} ->> 'result' ilike ${`%${query.result.trim()}%`}`
-      : undefined,
-    minimumCost > 0 ? gte(studioRuns.cost, minimumCost) : undefined,
-    minimumDurationMs > 0
-      ? gte(studioRuns.durationMs, minimumDurationMs)
-      : undefined,
-    minimumTokens > 0 ? gte(studioRuns.tokens, minimumTokens) : undefined,
     query.q ? ilike(studioRuns.searchText, `%${query.q.trim()}%`) : undefined,
     ...timeRangeConditions(studioRuns.startedAt, timeRange),
+    input.runIds ? inArray(studioRuns.runId, [...input.runIds]) : undefined,
+    queryBoolean(query.includeChildren) ||
+    filters.rules.some((rule) =>
+      ["execution", "parentRunId", "callId"].includes(rule.field),
+    )
+      ? undefined
+      : sql`${studioRuns.data} ->> 'parentRunId' is null`,
   ];
-  const where = and(...conditions);
+  const where = and(...conditions, studioFiltersCondition("runs", filters));
   const direction = query.dir === "asc" ? "asc" : "desc";
   const sortExpression =
     query.sort === "duration"
@@ -510,14 +448,9 @@ export const listStudioSessions = async (
     query: StudioListQuery;
   },
 ): Promise<StudioListPage<StudioSession>> => {
-  const { query } = input;
-  const statuses = queryValues(query.status);
-  const minimumCost = queryNumber(query.minCost);
-  const maximumCost = queryNumber(query.maxCost);
-  const minimumTokens = queryNumber(query.minTokens);
-  const maximumTokens = queryNumber(query.maxTokens);
-  const minimumDurationMs = queryNumber(query.minDuration) * 1_000;
-  const maximumDurationMs = queryNumber(query.maxDuration) * 1_000;
+  const filters = parseStudioFilters(input.query, "sessions");
+  const query = { ...input.query };
+  for (const alias of Object.keys(LEGACY_TABLE_FILTERS)) delete query[alias];
   const timeRange = resolveListTimeRange(query);
   const conditions = [
     eq(studioSessions.organizationId, input.organizationId),
@@ -525,41 +458,12 @@ export const listStudioSessions = async (
     query.env && query.env !== "All environments"
       ? eq(studioSessions.environment, query.env)
       : undefined,
-    statuses.length > 0 ? inArray(studioSessions.status, statuses) : undefined,
-    queryBoolean(query.error) ? eq(studioSessions.hasError, true) : undefined,
-    queryBoolean(query.interrupt)
-      ? eq(studioSessions.hasInterrupt, true)
-      : undefined,
-    queryBoolean(query.checkpoint)
-      ? eq(studioSessions.hasCheckpoint, true)
-      : undefined,
-    queryBoolean(query.fork) ? eq(studioSessions.hasFork, true) : undefined,
-    containsJsonValue(studioSessions.workflowIds, query.workflow),
-    query.user
-      ? ilike(studioSessions.userId, `%${query.user.trim()}%`)
-      : undefined,
-    query.tenant
-      ? ilike(studioSessions.tenantId, `%${query.tenant.trim()}%`)
-      : undefined,
-    containsJsonValue(studioSessions.providers, query.provider),
-    containsJsonValue(studioSessions.models, query.model),
-    containsJsonValue(studioSessions.tags, query.tags),
-    minimumCost > 0 ? gte(studioSessions.cost, minimumCost) : undefined,
-    maximumCost > 0 ? lte(studioSessions.cost, maximumCost) : undefined,
-    minimumTokens > 0 ? gte(studioSessions.tokens, minimumTokens) : undefined,
-    maximumTokens > 0 ? lte(studioSessions.tokens, maximumTokens) : undefined,
-    minimumDurationMs > 0
-      ? gte(studioSessions.durationMs, minimumDurationMs)
-      : undefined,
-    maximumDurationMs > 0
-      ? lte(studioSessions.durationMs, maximumDurationMs)
-      : undefined,
     query.q
       ? ilike(studioSessions.searchText, `%${query.q.trim()}%`)
       : undefined,
     ...timeRangeConditions(studioSessions.lastActivityAt, timeRange),
   ];
-  const where = and(...conditions);
+  const where = and(...conditions, studioFiltersCondition("sessions", filters));
   const direction = query.dir === "asc" ? "asc" : "desc";
   const sortExpression =
     query.sort === "duration"
@@ -613,13 +517,9 @@ export const listStudioInterrupts = async (
     query: StudioListQuery;
   },
 ): Promise<StudioListPage<StudioInterrupt>> => {
-  const { query } = input;
-  const statuses = queryValues(query.status);
-  const types = queryValues(query.type);
-  const outcomes = queryValues(query.outcome);
-  const minimumAgeMs = queryNumber(query.minAge) * 60_000;
-  const maximumAgeMs = queryNumber(query.maxAge) * 60_000;
-  const now = Date.now();
+  const filters = parseStudioFilters(input.query, "interrupts");
+  const query = { ...input.query };
+  for (const alias of Object.keys(LEGACY_TABLE_FILTERS)) delete query[alias];
   const timeRange = resolveListTimeRange(query);
   const conditions = [
     eq(studioInterrupts.organizationId, input.organizationId),
@@ -627,40 +527,15 @@ export const listStudioInterrupts = async (
     query.env && query.env !== "All environments"
       ? eq(studioInterrupts.environment, query.env)
       : undefined,
-    effectiveInterruptStatusCondition(statuses),
-    types.length > 0 ? inArray(studioInterrupts.type, types) : undefined,
-    effectiveResumeOutcomeCondition(outcomes),
-    queryBoolean(query.error) ? eq(studioInterrupts.hasError, true) : undefined,
-    query.workflow
-      ? ilike(studioInterrupts.workflowId, `%${query.workflow.trim()}%`)
-      : undefined,
-    query.node
-      ? ilike(studioInterrupts.nodeId, `%${query.node.trim()}%`)
-      : undefined,
-    query.session
-      ? ilike(studioInterrupts.sessionId, `%${query.session.trim()}%`)
-      : undefined,
-    query.user
-      ? ilike(studioInterrupts.userId, `%${query.user.trim()}%`)
-      : undefined,
-    query.tenant
-      ? ilike(studioInterrupts.tenantId, `%${query.tenant.trim()}%`)
-      : undefined,
-    query.resolver
-      ? ilike(studioInterrupts.resolvedBy, `%${query.resolver.trim()}%`)
-      : undefined,
-    minimumAgeMs > 0
-      ? lte(studioInterrupts.createdAt, new Date(now - minimumAgeMs))
-      : undefined,
-    maximumAgeMs > 0
-      ? gte(studioInterrupts.createdAt, new Date(now - maximumAgeMs))
-      : undefined,
     query.q
       ? ilike(studioInterrupts.searchText, `%${query.q.trim()}%`)
       : undefined,
     ...timeRangeConditions(studioInterrupts.createdAt, timeRange),
   ];
-  const where = and(...conditions);
+  const where = and(
+    ...conditions,
+    studioFiltersCondition("interrupts", filters),
+  );
   const direction = query.dir === "desc" ? "desc" : "asc";
   const regularSort =
     query.sort === "status"
@@ -703,7 +578,7 @@ export const listStudioInterrupts = async (
     items: rows.map((row) =>
       normalizeStudioInterruptProjection(
         { ...row.data, status: row.effectiveStatus },
-        now,
+        Date.now(),
       ),
     ),
     totalCount: totalRows[0]?.value ?? 0,

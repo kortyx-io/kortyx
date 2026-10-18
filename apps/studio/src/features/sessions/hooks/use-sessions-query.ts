@@ -103,12 +103,13 @@ export function useSessionsQuery(
       maxDuration: parseAsFloat.withDefault(0),
       cursor: parseAsInteger.withDefault(0),
       pageSize: parseAsInteger.withDefault(defaults?.pageSize ?? PAGE_SIZE),
-      sort: parseAsStringLiteral(sortKeys).withDefault(
-        defaults?.sort ?? "activity",
-      ),
-      dir: parseAsStringLiteral(["asc", "desc"] as const).withDefault(
-        defaults?.dir ?? "desc",
-      ),
+      // Keep explicit sorting stable while browser preferences become new defaults.
+      sort: parseAsStringLiteral(sortKeys)
+        .withDefault(defaults?.sort ?? "activity")
+        .withOptions({ clearOnDefault: false }),
+      dir: parseAsStringLiteral(["asc", "desc"] as const)
+        .withDefault(defaults?.dir ?? "desc")
+        .withOptions({ clearOnDefault: false }),
       live: parseAsBoolean.withDefault(false),
       filterPanel: filterPanelParser,
     }),

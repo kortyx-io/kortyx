@@ -44,6 +44,42 @@ afterAll(async () => {
   await sql.end();
 });
 describe("durable evaluation execution admission", () => {
+  it("shares a queue snapshot across replicas without claiming later or foreign work", async () => {
+    const namespace = randomUUID();
+    const a = make(namespace),
+      b = make(namespace);
+    const capacity = {
+      ...limits,
+      maxActiveAttempts: 1,
+      maxQueuedExecutions: 10,
+    };
+    await a.submit(job("old"), capacity);
+    await b.submit(job("foreign", { scope: "other" }), capacity);
+    const selected = await a.queued!("scope");
+    expect(selected).toEqual(["old"]);
+    await b.submit(job("new"), capacity);
+    expect(
+      await a.claimQueued!("owner", "scope", capacity, []),
+    ).toBeUndefined();
+    expect(
+      await a.claimQueued!("owner", "other", capacity, selected),
+    ).toBeUndefined();
+    const claimed = await Promise.all([
+      a.claimQueued!("one", "scope", capacity, selected),
+      b.claimQueued!("two", "scope", capacity, selected),
+    ]);
+    expect(claimed.filter(Boolean)).toHaveLength(1);
+    const owner = claimed[0] ? "one" : "two";
+    expect(
+      await b.claimQueued!("new", "scope", capacity, ["new"]),
+    ).toBeUndefined();
+    await a.finish("old", owner, "completed");
+    expect(
+      await b.claimQueued!("new", "scope", capacity, selected),
+    ).toBeUndefined();
+    expect((await b.claim("new", "scope", capacity))?.id).toBe("new");
+    expect((await a.status("foreign"))?.state).toBe("queued");
+  });
   it("shares stable generation, idempotent admission, ordered cursors and capacity across replicas", async () => {
     const namespace = randomUUID();
     const a = make(namespace),

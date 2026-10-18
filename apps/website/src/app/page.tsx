@@ -33,7 +33,7 @@ const pageDescription =
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Kortyx | Write the agent logic. The runtime is already built.",
+    absolute: "Kortyx — TypeScript Framework for AI Agents",
   },
   description: pageDescription,
   keywords: [
@@ -242,16 +242,23 @@ function ProductJsonLd() {
         inLanguage: "en",
       },
       {
+        "@type": "SoftwareSourceCode",
+        "@id": `${siteConfig.repositoryUrl}#source-code`,
+        name: `${siteConfig.name} source code`,
+        codeRepository: siteConfig.repositoryUrl,
+        programmingLanguage: "TypeScript",
+        publisher: { "@id": `${siteConfig.url}/#organization` },
+      },
+      {
         "@type": "SoftwareApplication",
         "@id": `${siteConfig.url}/#software`,
         name: siteConfig.name,
         applicationCategory: "DeveloperApplication",
         operatingSystem: "Cross-platform",
-        programmingLanguage: "TypeScript",
         description: pageDescription,
         url: siteConfig.url,
         downloadUrl: "https://www.npmjs.com/package/kortyx",
-        codeRepository: siteConfig.repositoryUrl,
+        subjectOf: { "@id": `${siteConfig.repositoryUrl}#source-code` },
         license: "https://www.apache.org/licenses/LICENSE-2.0",
         isAccessibleForFree: true,
         publisher: { "@id": `${siteConfig.url}/#organization` },

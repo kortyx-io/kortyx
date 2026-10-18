@@ -29,7 +29,7 @@ export function StudioRouteError({
         </p>
         <Button
           className="mt-4"
-          variant="outline"
+          variant="secondary"
           onClick={() => {
             studioFeature("studio.render", {
               resource: usageSurface(pathname),

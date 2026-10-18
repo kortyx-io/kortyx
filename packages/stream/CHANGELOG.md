@@ -1,5 +1,28 @@
 # @chatbot-core/types
 
+## [0.15.6](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.5...stream-v0.15.6) (2026-10-16)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.15.0
+
+## [0.15.5](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.4...stream-v0.15.5) (2026-10-13)
+
+
+### Bug Fixes
+
+* **evals:** preserve diagnostics and separate postcondition failures ([#337](https://github.com/kortyx-io/kortyx/issues/337)) ([d4fce4e](https://github.com/kortyx-io/kortyx/commit/d4fce4e670971d3b755835fc681c8125f67a9c70))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/core bumped to 0.14.0
+
 ## [0.15.4](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.3...stream-v0.15.4) (2026-10-11)
 
 

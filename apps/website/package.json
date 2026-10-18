@@ -1,6 +1,6 @@
 {
   "name": "kortyx-website",
-  "version": "0.50.1",
+  "version": "0.52.0",
   "private": true,
   "description": "Documentation and product website for Kortyx.",
   "keywords": [
@@ -35,6 +35,7 @@
     "lucide-react": "catalog:",
     "minisearch": "^7.2.0",
     "next": "catalog:",
+    "posthog-js": "^1.438.12",
     "radix-ui": "^1.4.3",
     "react": "catalog:",
     "react-dom": "catalog:",

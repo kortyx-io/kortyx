@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/telemetry-contracts",
-  "version": "0.17.1",
+  "version": "0.18.0",
   "private": false,
   "description": "Shared wire contracts for Kortyx telemetry ingestion and Studio reads.",
   "license": "Apache-2.0",
@@ -26,7 +26,8 @@
   },
   "dependencies": {
     "zod": "catalog:",
-    "@kortyx/prompts": "workspace:*"
+    "@kortyx/prompts": "workspace:*",
+    "@kortyx/core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "catalog:",

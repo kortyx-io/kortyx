@@ -35,6 +35,8 @@ tool loop, so tools can run before and after a pause. Use `mode: "optional"`
 when the model may finish without asking, and `maxRequests` to bound sequential
 human turns.
 
+Malformed model-authored requests return an `isError` tool result so the model can correct its arguments. They consume the existing model/loop allowance, but do not issue a human request or consume `maxRequests`. Required mode still requires a valid request. Human response validation and approval denial remain strict.
+
 The singular `useReason({ interrupt })` option and `result.interruptResponse`
 are deprecated and will be removed in the next major release. Migrate to
 `interrupts.contracts` and `result.interruptHistory`.

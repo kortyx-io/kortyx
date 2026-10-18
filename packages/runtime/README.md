@@ -126,3 +126,23 @@ observation and explicit cancellation. Use `createPostgresEvalExecutionStore` fr
 The default memory store only survives within its process. See
 [execution resilience](../../docs/evals/execution-resilience.md) for configuration,
 retention, legacy compatibility and upgrade order.
+
+For planned retirement, `await handleEvals.drain()` stops new admissions and
+finishes accepted local/queued executions without aborting them. Keep HTTP and
+the store open for observation/cancellation; `close()` remains explicit abort.
+With one consumer, drain Studio workers first while the consumer still accepts
+later cases, then drain the consumer after Studio persists results. Overlapping
+consumers require a compatible replacement and shared durable execution storage.
+The built-in stores support this; custom `EvalExecutionStore` implementations need
+`queued` and `claimQueued` for drain. Upgrade agent and runtime together. See the
+linked guide for ordering, failure handling and resource lifetime.
+
+## Runtime checkpoint integrity
+
+Runtime-owned hook records, child snapshots, and parallel journals are complete replacements. Application node `data` retains its default deep merge and opt-in reducers. Readers accept legacy object snapshots/journals and the single-element array encoding used by older consumer patches. Unsupported or ambiguous legacy budget state fails safely instead of reusing an approval. Upgrade execution workers together before writing new suspension envelopes.
+
+Redis journals use an isolated `MULTI`/`EXEC` transaction for conditional hash writes and expiry. Lua `EVAL` permissions are not required. Grant the runtime user the hash, expiry, transaction, and existing read/write commands. Redis Cluster routing is not supported by the built-in client. Custom stores may opt into the internal atomic `writeHash` capability; their legacy write methods retain their own durability responsibilities.
+
+Redis list/prune reads and projects one record at a time. PostgreSQL projects execution payload fields in SQL using an exhaustive field registry, retaining existing summary metadata. Listing still uses memory proportional to summaries and, for Redis, the largest record; it is not a global constant-memory guarantee. Full-record get/head/fork/rollback paths remain available.
+
+The write fix does not retroactively expire untouched old Redis journal hashes. During upgrade, audit only your runtime namespace for journal keys with `PTTL = -1`: derive a live journal's remaining lifetime from its matching checkpoint, and remove only proven expired/orphaned journals. Do not delete resumable approvals indiscriminately.

@@ -395,27 +395,23 @@ teardown for application postconditions. Return
 behavior (Failed); throw for infrastructure faults (Error). Keep reset in teardown;
 its errors remain Error. Verification does not overwrite earlier failed steps.
 
-Declared-safe failures retain `failure` (including domainCode) on eval issues;
-unknown error details stay private. With native telemetry configured on the agent
-and `diagnostics: { enabled: true }`, original hook exceptions are captured by
-`agent.reportError`. Issues and native error observations retain `diagnosticId`.
-Custom agents can implement that synchronous reporter or pass `reportError` to
-`createEvals`; return a native diagnostic UUID or undefined. Reporter failure must
-not affect the eval outcome. Use the same telemetry project/environment as Studio.
-Studio error cards offer View diagnostic; old results cannot recover lost content.
-Raw provider bodies and credentials do not belong in safe failure details.
+Eval issues preserve the original message, exception type, stack, causes and
+provider/HTTP response properties in `errors[].exception` by default. Known
+credential fields, authorization headers and credential patterns are redacted;
+ordinary error content is retained. Capture size/depth limits are explicit in
+`exception.capture`. No diagnostic flag or custom reporter is required for this
+evidence. `errors[].failure` remains the separate public failure descriptor.
 
-`caseTimeoutMs` defaults to 60,000 and starts after setup. Independent
-`setupTimeoutMs` and `verificationTimeoutMs` default to the configured case budget;
-`cleanupTimeoutMs` defaults to 10,000. Honor all signals: deadlines are cooperative,
-with cleanup after callbacks settle. Case `durationMs` includes all phases;
-`phaseDurationsMs` separates measured phase time without inventing missing timing.
+An existing native diagnostic reference is loaded automatically by Studio under
+its project permissions. Optional `agent.reportError` or `createEvals({ reportError })`
+can also archive evidence; exporter failure never changes the eval outcome.
+Previously discarded content cannot be reconstructed. Progress listener failures
+remain reporting errors and do not skip cleanup.
 
-Upgrade API/Studio before SDK/CLI: old strict validators may reject new fields.
-Existing stored JSON needs no SQL migration. Native capture limits, credential
-redaction, incomplete delivery and retention remain in force. OTel alone does not
-supply the native archive. These references support a future Errors list; issue
-management is not part of this feature.
+Setup and verification default to the configured case budget; cleanup defaults to
+10 seconds. Verification and teardown remain separate. Upgrade API/Studio before
+SDK/CLI for additive error fields; apply migration `0013_eval_settings` for
+project defaults and structured termination. Old discarded content is unavailable.
 
 ## Concurrent execution recovery
 
@@ -430,9 +426,59 @@ The default `createInMemoryEvalExecutionStore()` handles one process. For replic
 pass `createPostgresEvalExecutionStore({connectionString,namespace})` as
 `executionStore`, with identical service keys, suite definitions and capacity
 settings. Configure `maxActiveRuns` (1), `maxActiveAttempts` (20) and
-`maxQueuedExecutions` (1000). Call store.setup() before traffic and handler.close()
-before store.close() on shutdown. Queued jobs recover across restart; a lost running
+`maxQueuedExecutions` (1000). Call store.setup() before traffic. For planned
+retirement call handler.drain(), keep HTTP/store available for authenticated
+observation and cancellation, then close HTTP, handler and store after observers
+finish. handler.close() remains explicit abort. Drain rejects ambiguous admission,
+claim or terminal persistence; do not treat that as successful retirement.
+Matching jobs-v1 POST retries for known IDs reattach evidence during drain;
+changed content returns 409. New IDs are refused without admission or replay.
+With a single consumer, drain Studio workers first while the consumer still
+accepts their later cases, wait for durable Studio outcomes, then drain the
+consumer. With replicas, make a compatible replacement reachable first with the
+same durable store/namespace, service key, suite revisions and capacity settings.
+Consumer drain finishes its own active jobs and a bounded queued snapshot, not
+future Studio cases or another owner's live jobs. The built-in memory/PostgreSQL
+stores implement optional queued/claimQueued capabilities; old custom stores work
+normally but drain fails until these atomic scoped capabilities are implemented.
+Upgrade agent/runtime together; jobs-v1 and legacy wire formats are unchanged.
+Queued jobs recover across restart; a lost running
 lease becomes Unknown and is never automatically replayed. Inspect side effects
 before explicit cancellation or a new run. Application nodes own external
 idempotency; no data reducers or node/workflow shape changes are required.
 Upgrade consumers before API/Studio; legacy consumers keep request-owned streams.
+Verify hook availability in the installed build: published kortyx 0.32.0 / agent
+0.39.0 / runtime 0.25.0 lack consumer drain. Use a later coordinated release that
+includes it; never silently substitute aborting close when graceful drain is absent.
+
+## Execution defaults and application limits
+
+```ts
+const evals = createEvals({
+  agent,
+  suites: [suite],
+  defaults: { repetitions: 2, concurrency: 2, caseTimeoutMs: 120_000 },
+  limits: { concurrency: 4, caseTimeoutMs: 300_000 },
+});
+// Direct SDK execution uses explicit run values, then configured SDK defaults.
+await evals.run({ suiteId: suite.id, caseTimeoutMs: 180_000 });
+```
+
+Studio resolves each field as: per-run override → Studio project default →
+explicit SDK default → SDK built-in default. Omitted values remain omitted until
+resolution. The manifest's `execution` advertises declared defaults, limits and
+supported overrides. Application limits are ceilings, independent of precedence;
+an excessive value is rejected before setup, never silently clamped.
+
+SDK built-ins are one repetition, concurrency one and a 60-second case timeout.
+Repetitions and concurrency support 1–20; millisecond deadlines support positive
+integers up to 2,147,483,647. Setup, verification and cleanup budgets remain
+application-owned (`defaults.setupTimeoutMs`, `verificationTimeoutMs`,
+`cleanupTimeoutMs`). Changing the per-run case deadline does not change these
+independently resolved lifecycle budgets.
+
+The whole-evaluation deadline belongs to Studio scheduling, independently of the
+SDK case budget. Studio defaults to 30 minutes across all selected suites,
+including execution and Studio grading, starting when execution begins. Queue
+waiting is excluded. Direct `evals.run` has no Studio scheduler deadline; callers
+can pass `signal`. Aborts remain cooperative and cannot forcibly terminate work.

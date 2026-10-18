@@ -37,7 +37,11 @@ export function PromptDiff({
   onClose,
   onAccept,
   selectors,
+  modal = true,
+  comparisonId,
 }: {
+  modal?: boolean;
+  comparisonId?: string;
   before: PromptContent;
   after: PromptContent;
   beforeLabel: string;
@@ -91,12 +95,29 @@ export function PromptDiff({
   const unchanged = canonicalPromptJson(before) === canonicalPromptJson(after);
   return (
     <Dialog
+      modal={modal}
       open
       onOpenChange={(open) => {
         if (!open && !working) onClose();
       }}
     >
-      <DialogContent className="flex max-h-[90dvh] max-w-6xl flex-col gap-0 overflow-hidden p-0">
+      <DialogContent
+        data-prompt-comparison={comparisonId}
+        className="flex max-h-[90dvh] max-w-6xl flex-col gap-0 overflow-hidden p-0"
+        onOpenAutoFocus={(event) => {
+          if (document.querySelector('[data-studio-tour="true"]'))
+            event.preventDefault();
+        }}
+        onInteractOutside={(event) => {
+          // The guided tour is portalled above this comparison. Its controls
+          // own focus and pointer events without dismissing the inspected diff.
+          if (
+            event.target instanceof Element &&
+            event.target.closest('[data-studio-tour="true"]')
+          )
+            event.preventDefault();
+        }}
+      >
         <header className="shrink-0 space-y-1 border-b p-5 pr-12">
           <DialogTitle className="text-sm font-semibold">
             {saving ? "Review & save version" : "Compare versions"}
@@ -126,7 +147,11 @@ export function PromptDiff({
                   ? diffWordsWithSpace(row.left, row.right, { timeout: 100 })
                   : undefined;
               return (
-                <div key={index} className="grid grid-cols-1 sm:grid-cols-2">
+                <div
+                  key={index}
+                  data-guide-focus={row.changed ? "prompt-diff" : undefined}
+                  className="grid grid-cols-1 sm:grid-cols-2"
+                >
                   <div
                     data-diff-change={row.changed ? "removed" : "unchanged"}
                     className={`min-w-0 whitespace-pre-wrap break-words border-r px-4 py-1 ${row.changed && row.left !== null ? "bg-red-500/10 text-red-800 dark:text-red-300" : row.changed ? "hidden bg-muted/30 sm:block" : "text-muted-foreground"}`}
@@ -202,7 +227,7 @@ export function PromptDiff({
           <div className="ml-auto flex gap-2">
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={working}
               onClick={onClose}
             >

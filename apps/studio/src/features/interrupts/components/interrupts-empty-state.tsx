@@ -20,7 +20,12 @@ export function InterruptsEmptyState({
           : "Interrupt requests will appear here when a workflow needs human input."}
       </p>
       {hasFilters && (
-        <Button variant="outline" size="sm" className="mt-4" onClick={onClear}>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-4"
+          onClick={onClear}
+        >
           Clear filters
         </Button>
       )}

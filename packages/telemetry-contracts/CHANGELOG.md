@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.18.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.17.2...telemetry-contracts-v0.18.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+* **studio:** standardize tables, filters and column behavior ([#353](https://github.com/kortyx-io/kortyx/issues/353)) ([c662e59](https://github.com/kortyx-io/kortyx/commit/c662e59d814a6a9f12c709595968ee7b1ece3191))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.2
+    * @kortyx/core bumped to 0.15.0
+
+## [0.17.2](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.17.1...telemetry-contracts-v0.17.2) (2026-10-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.1
+
 ## [0.17.1](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.17.0...telemetry-contracts-v0.17.1) (2026-10-13)
 
 

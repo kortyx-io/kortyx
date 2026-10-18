@@ -263,7 +263,10 @@ test.describe("Prompt detail drawers", () => {
     try {
       await page.goto("/prompts");
       await page.getByRole("link", { name: "Root", exact: true }).click();
-      await expect(page).toHaveURL(/\/prompts\/categories\/root$/);
+      // Allow the first Next dev route compilation on the CI runner.
+      await expect(page).toHaveURL(/\/prompts\/categories\/root$/, {
+        timeout: 15_000,
+      });
       await page
         .getByRole("button", { name: "New prompt", exact: true })
         .click();
@@ -293,7 +296,7 @@ test.describe("Prompt detail drawers", () => {
         .getByRole("button", { name: "Accept & save version", exact: true })
         .click();
       const detail = page.getByRole("dialog", { name, exact: true });
-      await expect(detail).toBeVisible();
+      await expect(detail).toBeVisible({ timeout: 15_000 });
       await expect(
         detail.getByLabel("System Message", { exact: true }),
       ).toContainText("Synthetic navigation regression.");
@@ -559,10 +562,24 @@ test.describe("Prompt detail drawers", () => {
     await row.hover();
     const cells = row.getByRole("cell");
     await expect(cells.last()).not.toHaveCSS("position", "sticky");
-    await expect(cells.last()).toHaveCSS(
-      "background-color",
-      await cells.nth(1).evaluate((el) => getComputedStyle(el).backgroundColor),
-    );
+    // Compare settled colors together: sampling one cell during the hover
+    // transition creates a stale intermediate expected color in production.
+    await expect
+      .poll(() =>
+        row.evaluate((el) => {
+          const cells = el.querySelectorAll("td");
+          const sameColor =
+            getComputedStyle(cells[1]!).backgroundColor ===
+            getComputedStyle(cells[cells.length - 1]!).backgroundColor;
+          return {
+            sameColor,
+            animating: el
+              .getAnimations({ subtree: true })
+              .some((animation) => animation.playState === "running"),
+          };
+        }),
+      )
+      .toEqual({ sameColor: true, animating: false });
     await menu("Rename prompt");
     let dialog = page.getByRole("dialog", {
       name: "Rename prompt",
@@ -1103,6 +1120,122 @@ test.describe("Prompt detail drawers", () => {
     ).toHaveCount(0);
   });
 
+  test("uses shared action button styles for prompt header links and actions", async ({
+    page,
+  }) => {
+    await page.goto("/prompts");
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+    const header = page.locator("header").filter({
+      has: page.getByRole("heading", { name: "Prompts", exact: true }),
+    });
+    const importAction = header.getByRole("button", {
+      name: "Import",
+      exact: true,
+    });
+    const groupsAction = header.getByRole("link", { name: /^Test groups/ });
+    const createAction = header.getByRole("button", {
+      name: "New prompt",
+      exact: true,
+    });
+    await expect(importAction).toHaveAttribute("data-variant", "secondary");
+    await expect(groupsAction).toHaveAttribute("data-variant", "secondary");
+    await expect(createAction).toHaveAttribute("data-variant", "primary");
+    const appearance = (element: Element) => {
+      const style = getComputedStyle(element);
+      return [
+        style.height,
+        style.borderRadius,
+        style.fontSize,
+        style.fontWeight,
+        style.backgroundColor,
+        style.borderColor,
+      ];
+    };
+    // Loading enables the actions independently; compare after their color
+    // transitions have settled rather than sampling two different frames.
+    await expect
+      .poll(async () => {
+        const [importStyle, groupsStyle] = await Promise.all([
+          importAction.evaluate(appearance),
+          groupsAction.evaluate(appearance),
+        ]);
+        return JSON.stringify(importStyle) === JSON.stringify(groupsStyle);
+      })
+      .toBe(true);
+    for (const action of [importAction, groupsAction, createAction]) {
+      await expect(action).toHaveAttribute("data-size", "sm");
+      await expect(action).toHaveCSS("height", "32px");
+    }
+    await importAction.click();
+    const importDrawer = page.getByRole("dialog", {
+      name: "Import prompts",
+      exact: true,
+    });
+    await expect(importDrawer).toBeVisible();
+    await importDrawer
+      .getByRole("button", { name: "Close prompt import", exact: true })
+      .click();
+    await expect(importDrawer).toHaveCount(0);
+    await groupsAction.press("Enter");
+    await expect(
+      page.locator('[data-detail-drawer="/prompts/groups"]'),
+    ).toHaveAttribute("data-state", "open");
+  });
+
+  test("uses a flat test group list in drawers, expanded views and direct routes", async ({
+    page,
+  }) => {
+    await page.goto("/prompts");
+    await page.getByRole("link", { name: /^Test groups/ }).click();
+    const groups = page.locator('[data-detail-drawer="/prompts/groups"]');
+    await expect(groups).toHaveAttribute("data-state", "open");
+    const assertFlat = async (surface: Locator) => {
+      await expect(
+        surface.getByRole("heading", { name: "Test groups", exact: true }),
+      ).toHaveCount(1);
+      await expect(
+        surface.getByRole("searchbox", { name: "Search test groups" }),
+      ).toBeVisible();
+      const list = surface.locator("[data-table-ready]");
+      const inset = await surface.evaluate((element) => {
+        const frame = element
+          .querySelector("[data-table-ready]")!
+          .getBoundingClientRect();
+        const bounds = element.getBoundingClientRect();
+        return {
+          left: Math.abs(frame.x - bounds.x),
+          width: Math.abs(frame.width - bounds.width),
+        };
+      });
+      expect(inset.left).toBeLessThanOrEqual(1);
+      expect(inset.width).toBeLessThanOrEqual(2);
+      await expect(list).toHaveCSS("border-top-width", "0px");
+      await expect(list).toHaveCSS("border-radius", "0px");
+      await expect(
+        surface.getByRole("button", { name: "Next page", exact: true }),
+      ).toBeVisible();
+    };
+    await assertFlat(groups);
+    const compactTitleSize = await groups
+      .getByRole("heading", { name: "Test groups", exact: true })
+      .evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize),
+      );
+    await groups
+      .getByRole("button", { name: "Expand detail", exact: true })
+      .click();
+    await expect(groups).toHaveAttribute("data-detail-expanded", "true");
+    const expandedTitleSize = await groups
+      .getByRole("heading", { name: "Test groups", exact: true })
+      .evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).fontSize),
+      );
+    expect(expandedTitleSize).toBeGreaterThan(compactTitleSize);
+    await assertFlat(groups);
+    await page.goto("/prompts/groups");
+    await assertFlat(page.locator("main").last().locator(":scope > div"));
+  });
+
   test("saves groups without refreshing their drawer or the parent library", async ({
     page,
   }) => {
@@ -1236,13 +1369,21 @@ test.describe("Prompt detail drawers", () => {
       name: "Promotion settings",
       exact: true,
     });
-    const help = promotion.getByLabel("About promotion readiness", {
+    const help = promotion.getByRole("button", {
+      name: "About Promotion readiness",
       exact: true,
     });
     await help.hover();
-    await expect(page.getByRole("tooltip")).toContainText(
-      "These requirements come from this prompt’s promotion settings.",
+    const explanation = page.getByRole("dialog", {
+      name: "About Promotion readiness",
+      exact: true,
+    });
+    await expect(explanation).toContainText(
+      "The checks a prompt version must pass before it can go live.",
     );
+    await expect(
+      explanation.getByRole("link", { name: "Read documentation" }),
+    ).toHaveAttribute("href", /prompts#promotion-policies$/);
     await help.click();
     await expect(promotion).toBeVisible();
     await expect(policyModal(page)).toHaveCount(0);
@@ -1424,6 +1565,22 @@ test.describe("Prompt detail drawers", () => {
         name: "Open categories",
         exact: true,
       });
+      const bodyBefore = await page
+        .locator("[data-prompt-library-body]")
+        .boundingBox();
+      const headerBefore = await page
+        .getByRole("columnheader")
+        .first()
+        .boundingBox();
+      expect(headerBefore!.x - bodyBefore!.x).toBe(44);
+      const toolbar = page.locator('[data-table-controls="prompts"]');
+      await expect(
+        toolbar.getByRole("button", { name: "Open categories", exact: true }),
+      ).toHaveCount(0);
+      const triggerBounds = await trigger.boundingBox();
+      expect(triggerBounds!.x + triggerBounds!.width / 2 - bodyBefore!.x).toBe(
+        21.5,
+      );
       await trigger.click();
       const categories = page.getByRole("navigation", {
         name: "Prompt categories",
@@ -1953,6 +2110,8 @@ test.describe("Prompt detail drawers", () => {
     page,
     request,
   }) => {
+    // Multiple first-use Next dev routes compile during this nested journey.
+    test.setTimeout(60_000);
     const sql = postgres(
       process.env.DATABASE_URL ??
         "postgres://kortyx:kortyx@127.0.0.1:6543/kortyx",
@@ -2003,7 +2162,9 @@ test.describe("Prompt detail drawers", () => {
       const runDrawer = page.locator(
         `[data-detail-drawer="/runs/${DRAWER_FIXTURE.runId}"]`,
       );
-      await expect(runDrawer).toHaveAttribute("data-state", "open");
+      await expect(runDrawer).toHaveAttribute("data-state", "open", {
+        timeout: 15_000,
+      });
       await expect(
         runDrawer.getByRole("button", { name: "Overview", exact: true }),
       ).toBeVisible();
@@ -2031,6 +2192,7 @@ test.describe("Prompt detail drawers", () => {
         .click();
       await expect(page).toHaveURL(
         new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),
+        { timeout: 15_000 },
       );
     } finally {
       await sql`delete from telemetry_events where id=${duplicateId}`;

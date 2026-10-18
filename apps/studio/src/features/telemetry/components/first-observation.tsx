@@ -4,6 +4,8 @@ import { Check, Copy, RadioTower } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
+import { DocumentationLink } from "@/components/ui/documentation-link";
+import { studioHelp } from "@/lib/studio-help";
 import { studioFeature } from "@/usage/client";
 
 export type ObservationResource =
@@ -45,7 +47,9 @@ const guidance: Record<
 
 export function FirstObservation({
   resource,
+  documentationUrl = studioHelp.connect.documentationUrl,
 }: {
+  documentationUrl?: string;
   resource: ObservationResource;
 }) {
   const observed = useRef(false);
@@ -57,9 +61,12 @@ export function FirstObservation({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const item = guidance[resource];
-  const prompt = `Add Kortyx ${resource === "evals" ? "conversation evaluations" : "observability"} to this application using the existing Kortyx SDK and the current official documentation at https://kortyx.io/docs. ${item.instruction} Read API credentials from the server environment; never embed secrets in browser code or prompts. Preserve default payload privacy. Verify the integration by running a minimal example and checking ${resource} in Studio.`;
+  const prompt = `Add Kortyx ${resource === "evals" ? "conversation evaluations" : "observability"} to this application using the existing Kortyx SDK and the current official documentation at ${documentationUrl}. ${item.instruction} Read API credentials from the server environment; never embed secrets in browser code or prompts. Preserve default payload privacy. Verify the integration by running a minimal example and checking ${resource} in Studio.`;
   return (
-    <div className="h-full overflow-y-auto rounded-xl border bg-background p-6 sm:p-10">
+    <div
+      data-page-help-state="empty"
+      className="h-full overflow-y-auto rounded-xl border bg-background p-6 sm:p-10"
+    >
       <div className="max-w-3xl space-y-8">
         <header className="space-y-3">
           <p className="inline-flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-1 text-xs text-amber-700 dark:text-amber-400">
@@ -79,7 +86,7 @@ export function FirstObservation({
               Use Settings for connection details and credentials. Keep your SDK
               key in your application’s server-only environment.
             </p>
-            <Button asChild variant="outline">
+            <Button asChild variant="secondary">
               <Link
                 href={`/settings/${resource === "evals" ? "evaluations" : "connection"}`}
               >
@@ -103,7 +110,7 @@ export function FirstObservation({
               </p>
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(prompt);
@@ -128,14 +135,13 @@ export function FirstObservation({
                 </p>
               )}
             </div>
-            <a
-              href="https://kortyx.io/docs"
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm underline underline-offset-4"
-            >
-              Or follow the documentation manually
-            </a>
+            <DocumentationLink
+              href={
+                resource === "evals"
+                  ? studioHelp.evals.documentationUrl
+                  : documentationUrl
+              }
+            />
           </li>
           <li className="space-y-3">
             <h2 className="font-medium">3. Run your application</h2>

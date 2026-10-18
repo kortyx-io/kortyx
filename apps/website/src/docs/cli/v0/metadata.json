@@ -1,0 +1,40 @@
+{
+  "label": "v0",
+  "sections": [
+    {
+      "slug": "get-started",
+      "label": "Get started",
+      "position": 1,
+      "description": "Install the CLI and configure a supported connection.",
+      "pages": ["", "installation", "connections"]
+    },
+    {
+      "slug": "application-commands",
+      "label": "Application commands",
+      "position": 2,
+      "description": "Publish maps and run application evaluations locally.",
+      "pages": ["topology", "local-evaluations"]
+    },
+    {
+      "slug": "studio-commands",
+      "label": "Studio commands",
+      "position": 3,
+      "description": "Inspect data, manage prompts, and control connected evaluations.",
+      "pages": ["inspect", "prompts", "evaluations", "evaluation-automation"]
+    },
+    {
+      "slug": "local-installation",
+      "label": "Local installation",
+      "position": 4,
+      "description": "Operate the Docker stack on your machine.",
+      "pages": ["local-studio"]
+    },
+    {
+      "slug": "reference",
+      "label": "Command reference",
+      "position": 5,
+      "description": "Look up commands, credential purposes, and current hosting support.",
+      "pages": ["reference"]
+    }
+  ]
+}

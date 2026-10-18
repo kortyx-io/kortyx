@@ -21,12 +21,10 @@ export function PromptBulkActions({
   selected,
   library,
   onDone,
-  onClear,
 }: {
   selected: Asset[];
   library: PromptLibrary;
   onDone: () => Promise<void>;
-  onClear: () => void;
 }) {
   const [query, setQuery] = useStudioQueryStates(
     {
@@ -114,7 +112,7 @@ export function PromptBulkActions({
     <>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="secondary">
             {selected.length} selected · Actions
           </Button>
         </DropdownMenuTrigger>
@@ -182,9 +180,6 @@ export function PromptBulkActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Button size="sm" variant="ghost" disabled={working} onClick={onClear}>
-        Clear selection
-      </Button>
       {error && !action && (
         <p role="alert" className="text-xs text-destructive">
           {error}
@@ -211,7 +206,7 @@ export function PromptBulkActions({
         actions={
           <Button
             size="sm"
-            variant={action === "archive" ? "destructive" : "default"}
+            variant={action === "archive" ? "destructive" : "primary"}
             disabled={
               working ||
               (action === "group" &&

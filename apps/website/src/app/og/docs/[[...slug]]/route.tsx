@@ -73,7 +73,10 @@ export async function GET(
       <KortyxOgCard
         eyebrow={`${resolved.product.label} Docs`}
         title={sectionTitle}
-        description={getSectionDescription(sectionTitle, sectionDocs)}
+        description={
+          section?.description ??
+          getSectionDescription(sectionTitle, sectionDocs)
+        }
         logoSrc={logoSrc}
       />,
       openGraphImageSize,

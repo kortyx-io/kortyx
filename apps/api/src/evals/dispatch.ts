@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import type { EvalIssue, EvalWireEvent } from "@kortyx/agent/evals";
+import type { UsageTelemetry } from "@kortyx/usage-telemetry";
 import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
+import packageJson from "../../package.json";
+import { readEvalErrorResponse } from "./error-response";
 import { type EvalTarget, readEvalWire } from "./targets";
 
 export class EvalDispatchError extends Error {
@@ -8,9 +11,13 @@ export class EvalDispatchError extends Error {
     public readonly code: string,
     message: string,
     public readonly status?: number,
-    public readonly issue?: Pick<EvalIssue, "failure" | "diagnosticId">,
+    public readonly issue?: Pick<
+      EvalIssue,
+      "failure" | "diagnosticId" | "exception"
+    >,
+    cause?: unknown,
   ) {
-    super(message);
+    super(message, { cause });
     this.name = "EvalDispatchError";
   }
 }
@@ -75,7 +82,6 @@ type Admission = {
   cancelled: () => boolean;
   signal: AbortSignal;
 };
-const usage = getUsageTelemetry("eval-dispatch", "0.1.0", "oss_studio");
 
 /** Retries admission with one identity, then reattaches by cursor. Never replay a legacy stream. */
 export function createEvalDispatcher(
@@ -83,7 +89,12 @@ export function createEvalDispatcher(
   {
     maxRetries = 3,
     maxRetryWaitMs = 60_000,
-  }: { maxRetries?: number; maxRetryWaitMs?: number } = {},
+    usage,
+  }: {
+    maxRetries?: number;
+    maxRetryWaitMs?: number;
+    usage?: UsageTelemetry | false;
+  } = {},
 ) {
   if (
     !Number.isSafeInteger(maxRetries) ||
@@ -114,11 +125,14 @@ export function createEvalDispatcher(
               signal: discoverySignal,
               redirect: "error",
             });
-          } catch {
+          } catch (error) {
             if (attempt >= maxRetries)
               throw new EvalDispatchError(
                 "EVAL_DISCOVERY_REJECTED",
                 "Consumer discovery could not connect.",
+                undefined,
+                undefined,
+                error,
               );
             await delay(
               attempt,
@@ -144,13 +158,15 @@ export function createEvalDispatcher(
             response.headers.get("x-kortyx-eval-protocol") === "jobs-v1"
               ? (response.headers.get("x-kortyx-eval-generation") ?? undefined)
               : undefined;
-          await response.body?.cancel().catch(() => {});
-          if (!response.ok)
+          if (!response.ok) {
+            const body = await readEvalErrorResponse(response);
             throw new EvalDispatchError(
               "EVAL_DISCOVERY_REJECTED",
-              `Consumer discovery returned HTTP ${response.status}.`,
+              `Consumer discovery returned HTTP ${response.status}${body ? `: ${body}` : "."}`,
               response.status,
             );
+          }
+          await response.body?.cancel().catch(() => {});
           if (
             (response.headers.get("x-kortyx-eval-protocol") === "jobs-v1" &&
               !generation) ||
@@ -219,10 +235,19 @@ export function createEvalDispatcher(
       retryAt: new Date(Date.now() + ms).toISOString(),
       ...(response ? { httpStatus: response.status } : {}),
     });
-    usage.feature("studio.eval", {
-      action: "retry",
-      phase: status === "reconnecting" ? "network" : "admission",
-    });
+    try {
+      if (usage !== false)
+        (
+          usage ??
+          getUsageTelemetry("eval_dispatch", packageJson.version, "oss_studio")
+        ).feature("studio.eval", {
+          origin: "server",
+          action: "retry",
+          phase: status === "reconnecting" ? "network" : "admission",
+        });
+    } catch {
+      /* Optional usage collection must not stop dispatch recovery. */
+    }
     await waitForDispatch(ms, signal);
   };
   const busy = async (response: Response) => {
@@ -288,11 +313,14 @@ export function createEvalDispatcher(
             signal,
             redirect: "error",
           });
-        } catch {
+        } catch (error) {
           signal.throwIfAborted();
           throw new EvalDispatchError(
             "EVAL_EXECUTION_UNKNOWN",
             "Previously admitted execution could not be observed. Inspect before running again.",
+            undefined,
+            undefined,
+            error,
           );
         }
         if (recovered.ok)
@@ -339,7 +367,7 @@ export function createEvalDispatcher(
             signal,
             redirect: "error",
           });
-        } catch {
+        } catch (error) {
           if (signal.aborted && generation && cancelled())
             await cancel({ target, executionId, headers });
           signal.throwIfAborted();
@@ -347,6 +375,9 @@ export function createEvalDispatcher(
             throw new EvalDispatchError(
               "EVAL_EXECUTION_UNKNOWN",
               "Consumer connection was lost; execution status is unknown. Inspect before running again.",
+              undefined,
+              undefined,
+              error,
             );
           await delay(attempt, undefined, signal, state, "retrying");
           continue;
@@ -367,9 +398,9 @@ export function createEvalDispatcher(
         if (status === 409) capabilities.delete(capabilityKey(target));
         const retryable =
           [429, 503].includes(status) &&
-          (Boolean(generation) || (await busy(response)));
+          (Boolean(generation) || (await busy(response.clone())));
         if (!retryable || attempt >= maxRetries) {
-          await response.body?.cancel().catch(() => {});
+          const responseText = await readEvalErrorResponse(response);
           throw new EvalDispatchError(
             retryable
               ? "EVAL_EXECUTOR_BUSY"
@@ -380,7 +411,7 @@ export function createEvalDispatcher(
                   : "EVAL_EXECUTOR_REJECTED",
             retryable
               ? `Consumer remained busy after ${attempt + 1} dispatch attempts.`
-              : `Consumer rejected evaluation execution with HTTP ${status}.`,
+              : `Consumer rejected evaluation execution with HTTP ${status}.${responseText ? ` ${responseText}` : ""}`,
             status,
           );
         }
@@ -513,6 +544,9 @@ export function createEvalDispatcher(
               throw new EvalDispatchError(
                 "EVAL_EXECUTION_UNKNOWN",
                 "Consumer observation was lost; execution status is unknown. Captured evidence was retained.",
+                undefined,
+                undefined,
+                error,
               );
             await delay(
               retry,

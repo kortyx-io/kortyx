@@ -5,10 +5,8 @@ import {
   type StudioTimeRange,
 } from "@kortyx/telemetry-contracts";
 import { type Options, parseAsString, parseAsStringLiteral } from "nuqs";
-import { useEffect, useRef } from "react";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import {
-  DEFAULT_WORKFLOW_ID,
   type WorkflowSelection,
   workflowHealthFilters,
   workflowMetrics,
@@ -25,36 +23,18 @@ const parsers = {
   startedAfter: parseAsString.withDefault(""),
   startedBefore: parseAsString.withDefault(""),
   version: parseAsString.withDefault(""),
-  workflow: parseAsString
-    .withDefault(DEFAULT_WORKFLOW_ID)
-    .withOptions({ clearOnDefault: false }),
+  workflow: parseAsString.withDefault(""),
   node: parseAsString.withDefault(""),
   transition: parseAsString.withDefault(""),
 };
 
 export function useWorkflowQuery(transitions: WorkflowSystem["transitions"]) {
   const [params, setQueryStates] = useStudioQueryStates(parsers);
-  const didCanonicalizeWorkflow = useRef(false);
   const selection: WorkflowSelection = params.transition
     ? { type: "transition", id: params.transition }
     : params.node
       ? { type: "node", workflowId: params.workflow, id: params.node }
       : { type: "workflow", id: params.workflow };
-
-  useEffect(() => {
-    if (didCanonicalizeWorkflow.current) return;
-    didCanonicalizeWorkflow.current = true;
-    if (typeof window === "undefined") return;
-    const hasWorkflow = new URLSearchParams(window.location.search).has(
-      "workflow",
-    );
-    if (!hasWorkflow) {
-      void setQueryStates(
-        { workflow: params.workflow },
-        { history: "replace", shallow: true },
-      );
-    }
-  }, [params.workflow, setQueryStates]);
 
   function setParams(
     changes: Parameters<typeof setQueryStates>[0],

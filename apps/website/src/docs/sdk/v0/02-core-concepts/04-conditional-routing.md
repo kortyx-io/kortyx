@@ -1,7 +1,7 @@
 ---
 id: v0-conditional-routing
 title: "Conditional Routing"
-description: "Route between workflow nodes with condition tokens, edge matching, loops, and transitions."
+description: "Route Kortyx workflows with condition tokens, matching edges, loops, and workflow transitions, then inspect the resulting topology in Studio."
 keywords: [kortyx, conditional-routing, edges, condition, transition]
 sidebar_label: "Conditional Routing"
 ---

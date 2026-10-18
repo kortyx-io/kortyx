@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Replace complete runtime-owned hook records and parallel journals without changing application data deep merge or reducers.
+- Seal budget suspension state with explicit response delivery; retain unconsumed answers and prevent old commands overwriting progress on Continue. Read compatible legacy snapshots and reject ambiguous old budget commands.
+- Write Redis journals and expiry atomically without requiring Lua; project Redis and PostgreSQL history before retaining execution payloads.
+
 - Add bounded, idempotent queued eval execution with shared consumer capacity,
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
@@ -9,6 +13,65 @@
   deep merge; support replacement, accumulation and deletion across nodes, chat,
   child outputs, deterministic parallel joins and checkpoint resume. Surface
   callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
+
+## [0.25.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.24.1...runtime-v0.25.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.6
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/hooks bumped to 0.35.0
+    * @kortyx/providers bumped to 0.9.4
+    * @kortyx/utils bumped to 0.3.9
+    * @kortyx/prompts bumped to 0.2.2
+
+## [0.24.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.24.0...runtime-v0.24.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **runtime:** preserve interrupt state across pauses and resume ([#348](https://github.com/kortyx-io/kortyx/issues/348)) ([03b49f2](https://github.com/kortyx-io/kortyx/commit/03b49f2b8b6b44a2852d16fd4fe1b3e199316072))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.34.3
+    * @kortyx/utils bumped to 0.3.8
+
+## [0.24.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.2...runtime-v0.24.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+* **agent:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+
+### Features
+
+* **agent:** make concurrent eval execution resilient ([#339](https://github.com/kortyx-io/kortyx/issues/339)) ([84d0e4f](https://github.com/kortyx-io/kortyx/commit/84d0e4fe3d35e5cf80713f7550ef2b1d83e5a2ec))
+* **runtime:** add opt-in workflow data reducers ([#340](https://github.com/kortyx-io/kortyx/issues/340)) ([8be2c81](https://github.com/kortyx-io/kortyx/commit/8be2c81f74c5c51ab98443144f3491d4e8d54a88))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.5
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/hooks bumped to 0.34.2
+    * @kortyx/providers bumped to 0.9.3
+    * @kortyx/utils bumped to 0.3.7
+    * @kortyx/prompts bumped to 0.2.1
 
 ## [0.23.2](https://github.com/kortyx-io/kortyx/compare/runtime-v0.23.1...runtime-v0.23.2) (2026-10-13)
 

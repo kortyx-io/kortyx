@@ -20,6 +20,9 @@ import type {
 export type EvalRunner = {
   describe: () => {
     schemaVersion: 1;
+    execution?: import("zod").infer<
+      typeof import("./settings").EvalExecutionSettingsSchema
+    >;
     suites: readonly EvalSuite[];
     studioJudging?: true;
     promptContracts?: {
@@ -191,9 +194,23 @@ export function createEvalRouteHandler({
         { error: "Unsupported or invalid scheduled attempt." },
         { status: 409 },
       );
+    for (const key of ["concurrency", "caseTimeoutMs"] as const) {
+      const maximum = manifest.execution?.limits[key];
+      const value = body[key] ?? manifest.execution?.defaults[key];
+      if (maximum !== undefined && value !== undefined && value > maximum)
+        return Response.json(
+          { error: `${key} exceeds the application maximum of ${maximum}.` },
+          { status: 400 },
+        );
+    }
     if (request.signal.aborted)
       return Response.json({ error: "Request cancelled." }, { status: 409 });
     return execution.submit(request, body);
   };
-  return Object.assign(handler, { close: execution.close });
+  return Object.assign(handler, {
+    /** Stop admissions and finish accepted jobs; keep HTTP/store alive for observers. */
+    drain: execution.drain,
+    /** Explicitly abort local execution, then wait for cleanup. */
+    close: execution.close,
+  });
 }

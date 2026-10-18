@@ -322,8 +322,13 @@ async function runWorkflowCall(
     while (record.status !== "completed") {
       let outcome: WorkflowCallOutcome;
       try {
+        if (Array.isArray(record.snapshot) && record.snapshot.length !== 1)
+          throw new WorkflowContractError("Invalid child workflow snapshot.");
+        const snapshot = Array.isArray(record.snapshot)
+          ? record.snapshot[0]
+          : record.snapshot;
         report(
-          record.snapshot ? "resumed" : "started",
+          snapshot ? "resumed" : "started",
           workflowCallContent(telemetry, "input", input),
         );
         outcome = await service({
@@ -333,7 +338,7 @@ async function runWorkflowCall(
           input,
           definition,
           invocationId: record.invocationId,
-          ...(record.snapshot ? { snapshot: record.snapshot } : {}),
+          ...(snapshot ? { snapshot } : {}),
           ...(record.interrupts.length
             ? { response: record.interrupts.at(-1)?.response }
             : {}),

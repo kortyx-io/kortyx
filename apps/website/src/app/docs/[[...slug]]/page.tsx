@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
+import { DocsAnchorRedirects } from "@/components/docs/docs-anchor-redirects";
 import { DocsArticleNavigation } from "@/components/docs/docs-article-navigation";
 import { DocsBreadcrumbs } from "@/components/docs/docs-breadcrumbs";
 import { DocsMarkdownContent } from "@/components/docs/docs-markdown-content";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/docs";
 import { docsConfig, getLatestDocsVersionDisplay } from "@/lib/docs/config";
 import { getDocLastUpdatedMeta } from "@/lib/docs/last-updated";
+import { docsAnchorMoves } from "@/lib/docs/migrations";
 import { siteConfig } from "@/lib/site";
 import { extractToc } from "@/lib/utils/extract-toc";
 
@@ -90,6 +92,11 @@ function getSectionDescription(
     return `Browse Kortyx documentation for ${sectionTitle}.`;
   }
 
+  while (docTitles.length > 1) {
+    const description = `Learn ${sectionTitle} in Kortyx, including ${docTitles.join(", ")}.`;
+    if (description.length <= 160) return description;
+    docTitles.pop();
+  }
   return `Learn ${sectionTitle} in Kortyx, including ${docTitles.join(", ")}.`;
 }
 
@@ -186,7 +193,7 @@ function buildDocsJsonLd(args: {
           url,
           name: args.title,
           description: args.description,
-          primaryImageOfPage: imageUrl,
+          primaryImageOfPage: { "@type": "ImageObject", url: imageUrl },
           isPartOf: { "@id": websiteId },
           about: { "@id": softwareId },
           breadcrumb: { "@id": breadcrumbId },
@@ -254,11 +261,29 @@ export async function generateMetadata({
   if (slug.length === 0) {
     return {
       title: { absolute: "Documentation | Kortyx" },
-      description: "Choose Kortyx SDK or Studio documentation.",
+      description:
+        "Build agents with the SDK, inspect runs in Studio, manage Cloud, host your own installation, and work from the terminal with the Kortyx CLI.",
       alternates: { canonical: "/docs" },
+      keywords: [
+        ...docsMetadataKeywords,
+        "Kortyx Cloud",
+        "self-hosting",
+        "Kortyx CLI",
+      ],
+      twitter: {
+        card: "summary_large_image",
+        title: "Kortyx Documentation",
+        description:
+          "Build agents with the SDK, inspect runs in Studio, manage Cloud, host your own installation, and work from the terminal with the Kortyx CLI.",
+        images: [getSocialImage("/docs").url],
+      },
       openGraph: {
         title: "Kortyx Documentation",
-        description: "Build with the SDK. Observe and evaluate with Studio.",
+        type: "website",
+        siteName: siteConfig.name,
+        locale: siteConfig.locale,
+        description:
+          "Build agents with the SDK, inspect runs in Studio, manage Cloud, host your own installation, and work from the terminal with the Kortyx CLI.",
         url: absoluteUrl("/docs"),
         images: [getSocialImage("/docs")],
       },
@@ -282,7 +307,8 @@ export async function generateMetadata({
       resolved.versionDocs.docs,
       resolved.sectionSlug,
     );
-    const sectionDescription = getSectionDescription(sectionTitle, sectionDocs);
+    const sectionDescription =
+      section?.description ?? getSectionDescription(sectionTitle, sectionDocs);
     const title = `${sectionTitle} | ${resolved.product.label} Docs`;
     const url = absoluteUrl(resolved.canonicalPath);
     const socialImage = getSocialImage(resolved.canonicalPath);
@@ -411,14 +437,43 @@ export default async function DocsPage({
 }) {
   const routeParams = await params;
   const slug = routeParams.slug ?? [];
-  if (slug.length === 0) return <DocsProductIndex />;
+  if (slug.length === 0) {
+    const indexSchema = buildDocsJsonLd({
+      breadcrumbs: [{ label: "Docs", href: "/docs" }],
+      canonicalPath: "/docs",
+      title: "Kortyx documentation",
+      description:
+        "Build agents, inspect runs, manage Cloud, host Studio, and use the CLI.",
+      sectionTitle: null,
+      keywords: docsMetadataKeywords,
+      doc: null,
+      sectionItems: docsConfig.products.map((area) => ({
+        href: buildDocHref(area.id, area.latestVersion, [area.overview]),
+        title: area.label,
+        description: area.description,
+      })),
+      modifiedTime: undefined,
+      editOnGithubHref: null,
+      imagePath: "/opengraph-image",
+    });
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Static JSON-LD escapes HTML delimiters.
+          dangerouslySetInnerHTML={{ __html: stringifyJsonLd(indexSchema) }}
+        />
+        <DocsProductIndex />
+      </>
+    );
+  }
   const resolved = await resolveDocsRoute(slug);
 
   if (!resolved) notFound();
   if (resolved.redirectTo) permanentRedirect(resolved.redirectTo);
 
   const { product } = resolved;
-  const versions = product.versions;
+  const versions = product.versioning === "service" ? [] : product.versions;
   const latestVersion = product.latestVersion;
   const latestVersionDisplay = await getLatestDocsVersionDisplay(product.id);
   const productTargets = docsConfig.products.map((entry) => ({
@@ -463,7 +518,9 @@ export default async function DocsPage({
         )
       : null;
   const markdownHref = isDocRoute ? `${resolved.canonicalPath}.md` : null;
+  const isAreaOverview = currentDoc?.slug === product.overview;
   const hasDistinctDocBreadcrumb =
+    !isAreaOverview &&
     Boolean(isDocRoute && currentDoc && currentDocHref) &&
     currentDocHref !== currentSection?.href;
 
@@ -471,9 +528,11 @@ export default async function DocsPage({
     { label: "Docs", href: "/docs" },
     {
       label: product.label,
-      href: buildDocHref(product.id, resolved.requestedVersion, []),
+      href: buildDocHref(product.id, resolved.requestedVersion, [
+        product.overview,
+      ]),
     },
-    ...(currentSection
+    ...(currentSection && !isAreaOverview
       ? [
           {
             label: currentSection.label,
@@ -564,7 +623,8 @@ export default async function DocsPage({
   const pageDescription =
     isDocRoute && currentDoc
       ? currentDoc.frontmatter.description
-      : getSectionDescription(currentSection?.label ?? "Section", sectionDocs);
+      : (currentSection?.description ??
+        getSectionDescription(currentSection?.label ?? "Section", sectionDocs));
   const sectionTitle = currentSection?.label ?? null;
   const pageKeywords = uniqueStrings([
     ...docsMetadataKeywords,
@@ -638,6 +698,11 @@ export default async function DocsPage({
           {isDocRoute && currentDoc ? (
             <>
               <article className="max-w-3xl space-y-5 pb-20">
+                {docsAnchorMoves[resolved.canonicalPath] ? (
+                  <DocsAnchorRedirects
+                    redirects={docsAnchorMoves[resolved.canonicalPath] ?? {}}
+                  />
+                ) : null}
                 <DocsMarkdownContent
                   content={currentDoc.content}
                   version={resolved.requestedVersion}
@@ -656,6 +721,7 @@ export default async function DocsPage({
           ) : (
             <DocsSectionGrid
               title={currentSection?.label ?? "Section"}
+              description={currentSection?.description}
               items={sectionItems}
             />
           )}

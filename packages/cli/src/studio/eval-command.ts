@@ -26,8 +26,10 @@ type EvalOptions = ConnectionOptions & {
   judge?: "studio" | "app";
   environment?: string;
   case?: string[];
-  repetitions: number;
-  concurrency: number;
+  repetitions?: number;
+  concurrency?: number;
+  caseTimeoutMs?: number;
+  runTimeoutMs?: number;
   all?: boolean;
   suite?: string[];
   wait?: boolean;
@@ -43,21 +45,23 @@ const integer = (max: number) => (value: string) => {
     throw new InvalidArgumentError(`Expected an integer between 1 and ${max}.`);
   return Number(value);
 };
-const summary = ({ error: _error, ...run }: StudioEvalRunSummary) => run;
+const summary = (run: StudioEvalRunSummary) => run;
 const compactDetail = (run: StudioEvalDetail) => ({
   ...summary(run),
   suite: undefined,
   events: undefined,
   result: undefined,
   caseResults: run.result?.cases.map(
-    ({ caseId, repetition, status, durationMs, steps }) => ({
+    ({ caseId, repetition, status, durationMs, steps, errors }) => ({
       caseId,
       repetition,
       status,
       durationMs,
-      steps: steps.map(({ index, status, criteria }) => ({
+      errors,
+      steps: steps.map(({ index, status, criteria, reason }) => ({
         index,
         status,
+        reason,
         criteria: criteria.map(({ id, passed }) => ({ id, passed })),
       })),
     }),
@@ -357,23 +361,30 @@ export function registerStudioEvalCommands(
       "--repetitions <count>",
       "Attempts per selected case (1–20).",
       integer(20),
-      1,
     )
     .option(
       "--concurrency <count>",
       "Parallel attempts across the evaluation (1–20).",
       integer(20),
-      1,
+    )
+    .option(
+      "--case-timeout-ms <milliseconds>",
+      "Override the case execution timeout.",
+      integer(2_147_483_647),
+    )
+    .option(
+      "--run-timeout-ms <milliseconds>",
+      "Override the overall evaluation deadline, including grading.",
+      integer(2_147_483_647),
     )
     .option(
       "--judge <location>",
-      "Judge selection: studio (default) or app.",
+      "Judge selection: studio or app; defaults to the project setting.",
       (value: string) => {
         if (value !== "studio" && value !== "app")
           throw new InvalidArgumentError("Expected studio or app.");
         return value;
       },
-      "studio",
     )
     .action(async (suiteId: string | undefined, options: EvalOptions) => {
       const ids = [...(suiteId ? [suiteId] : []), ...(options.suite ?? [])];
@@ -424,7 +435,9 @@ export function registerStudioEvalCommands(
         ) ||
         suites.some(
           (suite) =>
-            (caseIds.length || suite.cases.length) * options.repetitions > 100,
+            (caseIds.length || suite.cases.length) *
+              (options.repetitions ?? 1) >
+            100,
         )
       )
         throw new StudioReadError(
@@ -439,9 +452,19 @@ export function registerStudioEvalCommands(
           suiteRevision: target.revisions[suite.id] ?? "",
           ...(caseIds.length ? { caseIds } : {}),
         })),
-        judge: options.judge ?? "studio",
-        repetitions: options.repetitions,
-        concurrency: options.concurrency,
+        ...(options.judge !== undefined ? { judge: options.judge } : {}),
+        ...(options.repetitions !== undefined
+          ? { repetitions: options.repetitions }
+          : {}),
+        ...(options.concurrency !== undefined
+          ? { concurrency: options.concurrency }
+          : {}),
+        ...(options.caseTimeoutMs !== undefined
+          ? { caseTimeoutMs: options.caseTimeoutMs }
+          : {}),
+        ...(options.runTimeoutMs !== undefined
+          ? { runTimeoutMs: options.runTimeoutMs }
+          : {}),
         name: options.name,
         metadata: {
           source: options.source ?? "manual",

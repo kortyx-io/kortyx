@@ -66,6 +66,7 @@ export function SettingsNavigation({ children }: { children: ReactNode }) {
     privacy: ShieldCheck,
     appearance: Palette,
     about: Info,
+    "sample-project": FlaskConical,
     access: ShieldCheck,
   };
   return (
@@ -126,6 +127,7 @@ export function SettingsNavigation({ children }: { children: ReactNode }) {
         })}
       </nav>
       <section
+        data-settings-section={active?.props.id}
         aria-label={active?.props.label}
         className="min-w-0 space-y-8 overflow-y-auto p-5 md:p-8"
       >

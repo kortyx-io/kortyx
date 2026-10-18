@@ -57,6 +57,9 @@ product README on the repository homepage.
   checks, and wait for required CI on the final PR head before merge. For
   documentation-only changes, check content and links rather than adding runtime
   tests.
+- Assess and complete affected Studio page help and guided tours, including new
+  surfaces introduced by a rebase; record the coverage and visual verification in
+  the PR checklist. Follow the Definition of Done for applicability and evidence.
 - Reconcile the assessment with the final diff before requesting review. Explain
   incomplete work and partial feature boundaries instead of marking them done.
 

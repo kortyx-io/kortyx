@@ -39,6 +39,7 @@ function reader(execute = false, environment?: string) {
 }
 describe("grouped evaluation authorization", () => {
   it.each([
+    "settings",
     "evaluations",
     "evaluations/11111111-1111-4111-8111-111111111111/cancel",
   ])("requires execution permission before %s touches the database", async (path) => {

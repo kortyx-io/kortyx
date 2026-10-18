@@ -36,29 +36,10 @@ import {
   type DataTableColumn,
   type DataTableLayout,
 } from "@/components/data-table/types";
+import { studioFeature } from "@/usage/client";
+import { columnLayout, columnWidths } from "./column-layout";
 
 type LayoutSnapshot = Partial<DataTableLayout>;
-
-function validateOrder(
-  order: string[] | undefined,
-  defaultOrder: string[],
-): string[] | undefined {
-  if (
-    order?.length === defaultOrder.length &&
-    order.every((column) => defaultOrder.includes(column))
-  ) {
-    return order;
-  }
-  return undefined;
-}
-
-function validateHidden(
-  hidden: string[] | undefined,
-  defaultOrder: string[],
-): string[] | undefined {
-  if (hidden?.every((column) => defaultOrder.includes(column))) return hidden;
-  return undefined;
-}
 
 function validatePinned(
   pinned: Partial<Record<string, ColumnPin>> | undefined,
@@ -78,6 +59,9 @@ export type DataTableContextValue<T = unknown, S extends string = string> = {
   columnsByKey: Record<string, DataTableColumn<T, S>>;
   defaultOrder: string[];
   widths: Record<string, number>;
+  storedWidths: Record<string, number>;
+  orderedColumnKeys: string[];
+  moveColumn: (active: string, over: string) => void;
   order: string[];
   hidden: string[];
   pinned: Partial<Record<string, ColumnPin>>;
@@ -130,8 +114,8 @@ type DataTableProviderProps<T, S extends string> = {
   columns: DataTableColumn<T, S>[];
   /**
    * Initial layout to hydrate from (e.g. loaded from a user-profile DB row).
-   * Read once on mount; invalid/unknown columns are ignored. Takes precedence
-   * over `persistKey`.
+   * Read once on mount; invalid/unknown columns are ignored. Used
+   * as a legacy seed when no newer browser layout exists.
    */
   initialLayout?: Partial<DataTableLayout>;
   /**
@@ -142,6 +126,7 @@ type DataTableProviderProps<T, S extends string> = {
   onLayoutChange?: (layout: DataTableLayout) => void;
   /** localStorage key for persisting layout. Convenience for client-only apps. */
   persistKey?: string;
+  preferenceLayout?: DataTableLayout;
   children: ReactNode;
 };
 
@@ -157,6 +142,7 @@ export function DataTableProvider<T, S extends string>({
   initialLayout,
   onLayoutChange,
   persistKey,
+  preferenceLayout,
   children,
 }: DataTableProviderProps<T, S>) {
   const defaultOrder = useMemo(
@@ -178,15 +164,14 @@ export function DataTableProvider<T, S extends string>({
     [columns],
   );
 
-  const [widths, setWidths] = useState<Record<string, number>>(() => ({
-    ...defaultWidths,
-    ...initialLayout?.widths,
-  }));
+  const [widths, setWidths] = useState<Record<string, number>>(() =>
+    columnWidths(columns, initialLayout?.widths),
+  );
   const [order, setOrder] = useState<string[]>(
-    () => validateOrder(initialLayout?.order, defaultOrder) ?? defaultOrder,
+    () => columnLayout(columns, initialLayout).order,
   );
   const [hidden, setHidden] = useState<string[]>(
-    () => validateHidden(initialLayout?.hidden, defaultOrder) ?? [],
+    () => columnLayout(columns, initialLayout).hidden,
   );
   const [pinned, setPinned] = useState<Partial<Record<string, ColumnPin>>>(
     () => validatePinned(initialLayout?.pinned, defaultOrder) ?? {},
@@ -194,9 +179,12 @@ export function DataTableProvider<T, S extends string>({
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
+  const dragStartScrollLeft = useRef(0);
+  const pointerDragCleanup = useRef<(() => void) | null>(null);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const headerScrollerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => () => pointerDragCleanup.current?.(), []);
   const [viewportWidth, setViewportWidth] = useState(0);
   useLayoutEffect(() => {
     const viewport = scrollerRef.current;
@@ -210,7 +198,36 @@ export function DataTableProvider<T, S extends string>({
   const onLayoutChangeRef = useRef(onLayoutChange);
   onLayoutChangeRef.current = onLayoutChange;
   const hasSettledRef = useRef(false);
-  const hasInitialLayout = Boolean(initialLayout);
+  const restoringLayout = useRef<string | null>(null);
+  const preferenceLayoutKey = JSON.stringify(preferenceLayout);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: apply external preferences only when their values change.
+  useEffect(() => {
+    if (!preferenceLayout) return;
+    const restoredWidths = columnWidths(columns, preferenceLayout.widths);
+    const restored = columnLayout(columns, preferenceLayout);
+    const restoredPinned =
+      validatePinned(preferenceLayout.pinned, defaultOrder) ?? {};
+    if (
+      JSON.stringify({ widths, order, hidden, pinned }) ===
+      JSON.stringify({
+        widths: restoredWidths,
+        order: restored.order,
+        hidden: restored.hidden,
+        pinned: restoredPinned,
+      })
+    )
+      return;
+    restoringLayout.current = JSON.stringify({
+      widths: restoredWidths,
+      order: restored.order,
+      hidden: restored.hidden,
+      pinned: restoredPinned,
+    });
+    setWidths(restoredWidths);
+    setOrder(restored.order);
+    setHidden(restored.hidden);
+    setPinned(restoredPinned);
+  }, [preferenceLayoutKey]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -221,21 +238,20 @@ export function DataTableProvider<T, S extends string>({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: hydrate once on mount, not on column changes.
   useEffect(() => {
-    // initialLayout (e.g. DB) wins and is applied via lazy state init above.
-    if (hasInitialLayout || !persistKey) {
+    // A legacy seed paints on the server; newer browser preferences hydrate here.
+    if (!persistKey) {
       setPreferencesLoaded(true);
       return;
     }
     try {
-      const saved = JSON.parse(
-        localStorage.getItem(persistKey) ?? "{}",
-      ) as LayoutSnapshot & Record<string, number>;
+      const raw = localStorage.getItem(persistKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as LayoutSnapshot & Record<string, number>;
       const savedWidths = saved.widths ?? saved;
-      setWidths((current) => ({ ...current, ...savedWidths }));
-      const order = validateOrder(saved.order, defaultOrder);
-      if (order) setOrder(order);
-      const hidden = validateHidden(saved.hidden, defaultOrder);
-      if (hidden) setHidden(hidden);
+      setWidths(columnWidths(columns, savedWidths));
+      const migrated = columnLayout(columns, saved);
+      setOrder(migrated.order);
+      setHidden(migrated.hidden);
       const pinned = validatePinned(saved.pinned, defaultOrder);
       if (pinned) setPinned(pinned);
     } catch {
@@ -243,12 +259,26 @@ export function DataTableProvider<T, S extends string>({
     } finally {
       setPreferencesLoaded(true);
     }
-  }, [persistKey, hasInitialLayout]);
+  }, [persistKey]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
     const layout: DataTableLayout = { widths, order, hidden, pinned };
-    if (persistKey) localStorage.setItem(persistKey, JSON.stringify(layout));
+    if (persistKey) {
+      try {
+        localStorage.setItem(persistKey, JSON.stringify(layout));
+      } catch {
+        /* Storage can be unavailable; the table remains usable. */
+      }
+    }
+    // An external restore can schedule state after this render's effects. Keep
+    // suppressing writes until the restored layout itself has settled.
+    if (restoringLayout.current) {
+      if (JSON.stringify(layout) === restoringLayout.current)
+        restoringLayout.current = null;
+      hasSettledRef.current = true;
+      return;
+    }
     // Skip the initial settle so we only notify on real user changes.
     if (!hasSettledRef.current) {
       hasSettledRef.current = true;
@@ -257,17 +287,17 @@ export function DataTableProvider<T, S extends string>({
     onLayoutChangeRef.current?.(layout);
   }, [persistKey, preferencesLoaded, widths, order, hidden, pinned]);
 
-  const visibleColumns = useMemo(
-    () => order.filter((column) => !hidden.includes(column)),
-    [order, hidden],
+  const orderedColumnKeys = useMemo(
+    () => [
+      ...order.filter((key) => pinned[key] === "left"),
+      ...order.filter((key) => !pinned[key]),
+      ...order.filter((key) => pinned[key] === "right"),
+    ],
+    [order, pinned],
   );
   const visibleColumnOrder = useMemo(
-    () => [
-      ...visibleColumns.filter((column) => pinned[column] === "left"),
-      ...visibleColumns.filter((column) => !pinned[column]),
-      ...visibleColumns.filter((column) => pinned[column] === "right"),
-    ],
-    [visibleColumns, pinned],
+    () => orderedColumnKeys.filter((key) => !hidden.includes(key)),
+    [orderedColumnKeys, hidden],
   );
   // Fill wide viewports without writing responsive sizes into saved preferences.
   // The same widths drive cells, sticky offsets, dragging, and resize handles.
@@ -293,6 +323,7 @@ export function DataTableProvider<T, S extends string>({
     draggedColumn !== null && Boolean(pinned[draggedColumn]);
 
   function toggleColumnVisibility(key: string) {
+    studioFeature("studio.table.layout", { layout_action: "visibility" });
     setHidden((current) => {
       if (current.includes(key)) {
         return current.filter((item) => item !== key);
@@ -303,10 +334,12 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function showAllColumns() {
+    studioFeature("studio.table.layout", { layout_action: "show_all" });
     setHidden([]);
   }
 
   function resetLayout() {
+    studioFeature("studio.table.layout", { layout_action: "reset" });
     setOrder(defaultOrder);
     setWidths(defaultWidths);
     setHidden([]);
@@ -314,21 +347,25 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function applyLayout(layout: Partial<DataTableLayout>) {
-    setWidths({ ...defaultWidths, ...layout.widths });
-    setOrder(validateOrder(layout.order, defaultOrder) ?? defaultOrder);
-    setHidden(validateHidden(layout.hidden, defaultOrder) ?? []);
+    studioFeature("studio.table.layout", { layout_action: "apply" });
+    setWidths(columnWidths(columns, layout.widths));
+    setOrder(columnLayout(columns, layout).order);
+    setHidden(columnLayout(columns, layout).hidden);
     setPinned(validatePinned(layout.pinned, defaultOrder) ?? {});
   }
 
   function resetColumnWidth(key: string) {
+    studioFeature("studio.table.layout", { layout_action: "reset_width" });
     setWidths((current) => ({ ...current, [key]: defaultWidths[key] }));
   }
 
   function pinColumn(key: string, side: ColumnPin) {
+    studioFeature("studio.table.layout", { layout_action: "pin" });
     setPinned((current) => ({ ...current, [key]: side }));
   }
 
   function unpinColumn(key: string) {
+    studioFeature("studio.table.layout", { layout_action: "unpin" });
     setPinned((current) => {
       const { [key]: _pin, ...remaining } = current;
       return remaining;
@@ -339,6 +376,7 @@ export function DataTableProvider<T, S extends string>({
     key: string,
     event: ReactPointerEvent<HTMLButtonElement>,
   ) {
+    studioFeature("studio.table.layout", { layout_action: "resize" });
     event.preventDefault();
     const startX = event.clientX;
     const startWidth = renderedWidths[key];
@@ -415,10 +453,25 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function isColumnDraggable(key: string) {
-    const pin = pinned[key];
-    return (
-      !pin ||
-      visibleColumnOrder.filter((item) => pinned[item] === pin).length > 1
+    return Boolean(columnsByKey[key]) && order.length > 1;
+  }
+
+  function moveColumn(active: string, over: string) {
+    if (active === over || !columnsByKey[active] || !columnsByKey[over]) return;
+    studioFeature("studio.table.layout", { layout_action: "reorder" });
+    // Dropping into another pin group adopts that group, so even a sole pin can move.
+    setPinned((current) => {
+      const next = { ...current };
+      if (current[over]) next[active] = current[over];
+      else delete next[active];
+      return next;
+    });
+    setOrder(
+      arrayMove(
+        orderedColumnKeys,
+        orderedColumnKeys.indexOf(active),
+        orderedColumnKeys.indexOf(over),
+      ),
     );
   }
 
@@ -441,15 +494,16 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function getColumnCellMotion(key: string): ColumnMotion | undefined {
-    if (!draggedColumn || !dragOverColumn) return undefined;
+    if (!draggedColumn) return undefined;
+    if (key === draggedColumn) {
+      return { style: { transform: `translate3d(${dragOffset}px, 0, 0)` } };
+    }
+    if (!dragOverColumn) return undefined;
     const activeIndex = visibleColumnOrder.indexOf(draggedColumn);
     const overIndex = visibleColumnOrder.indexOf(dragOverColumn);
     const columnIndex = visibleColumnOrder.indexOf(key);
     if (activeIndex === -1 || overIndex === -1 || columnIndex === -1) {
       return undefined;
-    }
-    if (key === draggedColumn) {
-      return { style: { transform: `translate3d(${dragOffset}px, 0, 0)` } };
     }
     const shiftsLeft =
       activeIndex < overIndex &&
@@ -469,56 +523,82 @@ export function DataTableProvider<T, S extends string>({
     };
   }
 
-  const collisionDetection = (args: Parameters<typeof closestCenter>[0]) => {
-    const activePin = pinned[args.active.id as string];
-    return closestCenter(args).filter(
-      (collision) => pinned[collision.id as string] === activePin,
-    );
-  };
+  const collisionDetection = closestCenter;
 
   function onDragStart(event: DragStartEvent) {
     const column = event.active.id as string;
+    pointerDragCleanup.current?.();
+    pointerDragCleanup.current = null;
+    dragStartScrollLeft.current = headerScrollerRef.current?.scrollLeft ?? 0;
+    setDragOffset(0);
     setDraggedColumn(column);
     setDragOverColumn(column);
+    if (
+      "clientX" in event.activatorEvent &&
+      typeof event.activatorEvent.clientX === "number"
+    ) {
+      const startX = event.activatorEvent.clientX;
+      let pointerX = startX;
+      const startScrollLeft = dragStartScrollLeft.current;
+      const header = headerScrollerRef.current;
+      const body = scrollerRef.current;
+      const sticky = Boolean(pinned[column]);
+      // Use pointer coordinates and our own viewport once. Dnd-kit event deltas
+      // also include changing node/ancestor scroll offsets, which can compensate
+      // twice or reset when the collision target changes during a held scroll.
+      const update = () =>
+        setDragOffset(
+          pointerX -
+            startX +
+            (sticky ? 0 : (header?.scrollLeft ?? 0) - startScrollLeft),
+        );
+      const move = (moveEvent: PointerEvent) => {
+        pointerX = moveEvent.clientX;
+        update();
+      };
+      window.addEventListener("pointermove", move);
+      header?.addEventListener("scroll", update);
+      body?.addEventListener("scroll", update);
+      pointerDragCleanup.current = () => {
+        window.removeEventListener("pointermove", move);
+        header?.removeEventListener("scroll", update);
+        body?.removeEventListener("scroll", update);
+      };
+    }
   }
 
   function onDragOver(event: DragOverEvent) {
     const overColumn = event.over?.id as string | undefined;
-    if (
-      overColumn &&
-      draggedColumn &&
-      pinned[draggedColumn] !== pinned[overColumn]
-    ) {
-      return;
-    }
     setDragOverColumn(overColumn ?? null);
   }
 
   function onDragMove(event: DragMoveEvent) {
-    setDragOffset(event.delta.x);
+    if (pointerDragCleanup.current) return;
+    // Keyboard sensor fallback; pointer drags use the shared viewport above.
+    const scrollDelta =
+      (headerScrollerRef.current?.scrollLeft ?? 0) -
+      dragStartScrollLeft.current;
+    setDragOffset(event.delta.x - scrollDelta);
   }
 
   function onDragCancel() {
+    pointerDragCleanup.current?.();
+    pointerDragCleanup.current = null;
     setDraggedColumn(null);
     setDragOverColumn(null);
     setDragOffset(0);
   }
 
   function onDragEnd(event: DragEndEvent) {
+    pointerDragCleanup.current?.();
+    pointerDragCleanup.current = null;
     setDraggedColumn(null);
     setDragOverColumn(null);
     setDragOffset(0);
     if (!event.over || event.active.id === event.over.id) return;
     const activeColumn = event.active.id as string;
     const overColumn = event.over.id as string;
-    if (pinned[activeColumn] !== pinned[overColumn]) return;
-    setOrder((current) =>
-      arrayMove(
-        current,
-        current.indexOf(activeColumn),
-        current.indexOf(overColumn),
-      ),
-    );
+    moveColumn(activeColumn, overColumn);
   }
 
   const value: DataTableContextValue<T, S> = {
@@ -526,6 +606,9 @@ export function DataTableProvider<T, S extends string>({
     columnsByKey,
     defaultOrder,
     widths: renderedWidths,
+    storedWidths: widths,
+    orderedColumnKeys,
+    moveColumn,
     order,
     hidden,
     pinned,

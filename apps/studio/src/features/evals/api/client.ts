@@ -1,20 +1,54 @@
 import { studioFetch } from "@/lib/studio-fetch";
 import { studioFeature, studioOperation } from "@/usage/client";
+
+function overrideFacts(body: unknown) {
+  if (!body || typeof body !== "object") return {};
+  const has = (key: string) => {
+    try {
+      const field = Object.getOwnPropertyDescriptor(body, key);
+      return !!field && "value" in field && field.value !== undefined;
+    } catch {
+      return false;
+    }
+  };
+  return {
+    settings_override: [
+      "caseTimeoutMs",
+      "runTimeoutMs",
+      "concurrency",
+      "repetitions",
+      "judge",
+    ].some(has),
+    case_timeout_override: has("caseTimeoutMs"),
+    run_timeout_override: has("runTimeoutMs"),
+  };
+}
 export async function evalRequest(
   path: string,
   body?: unknown,
   signal?: AbortSignal,
 ) {
-  const action = path.endsWith("/cancel")
-    ? "cancel"
-    : body === undefined
-      ? "view"
-      : "launch";
-  const scope = studioOperation("studio.eval", {
-    action,
-    origin: body === undefined ? "background" : "foreground",
-  });
-  if (body !== undefined) studioFeature("studio.eval", { action });
+  const action =
+    path === "settings" && body !== undefined
+      ? "save"
+      : path.endsWith("/cancel")
+        ? "cancel"
+        : body === undefined
+          ? "view"
+          : "launch";
+  const scope = studioOperation(
+    path === "settings" ? "studio.settings" : "studio.eval",
+    {
+      action,
+      resource: "evals",
+      ...overrideFacts(body),
+      origin: body === undefined ? "background" : "foreground",
+    },
+  );
+  if (body !== undefined)
+    studioFeature(path === "settings" ? "studio.settings" : "studio.eval", {
+      action,
+    });
   try {
     const response = await studioFetch(`/api/studio/evals/${path}`, {
       ...(body === undefined

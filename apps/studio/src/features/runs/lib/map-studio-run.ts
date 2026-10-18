@@ -10,6 +10,16 @@ const displayVersion = (value: string | null) => value ?? "unversioned";
 const displayText = (value: string | null, fallback = "—") => value ?? fallback;
 export const mapStudioRun = (run: StudioRun): Run =>
   RunSchema.parse({
+    filterValues: {
+      durationMs: run.durationMs,
+      userId: run.userId,
+      tenantId: run.tenantId,
+      endedAt: run.endedAt,
+      sessionId: run.sessionId,
+      provider: run.provider,
+      result: run.result,
+      path: run.path,
+    },
     id: run.id,
     feedback: run.feedback,
     parentRunId: run.parentRunId,
@@ -20,6 +30,7 @@ export const mapStudioRun = (run: StudioRun): Run =>
     status: run.status,
     started: formatRelativeTime(run.startedAt),
     startedAt: run.startedAt,
+    endedAt: run.endedAt,
     workflow: run.workflowId,
     workflowIds: run.workflowIds,
     workflowRefs: run.workflowRefs.map((ref) => ({
@@ -32,6 +43,7 @@ export const mapStudioRun = (run: StudioRun): Run =>
     path: run.path.length ? run.path : [run.workflowId],
     session: displayText(run.sessionId),
     model: displayText(run.model, "unknown"),
+    modelNames: run.models,
     ...(run.models.length > 1 ? { models: run.models.length - 1 } : {}),
     duration: durationSeconds(run.durationMs) ?? 0,
     ...(run.tokens !== null ? { tokens: run.tokens } : {}),

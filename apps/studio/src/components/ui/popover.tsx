@@ -15,6 +15,12 @@ function PopoverTrigger(
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 }
 
+function PopoverArrow(
+  props: React.ComponentProps<typeof PopoverPrimitive.Arrow>,
+) {
+  return <PopoverPrimitive.Arrow data-slot="popover-arrow" {...props} />;
+}
+
 function PopoverContent({
   className,
   align = "center",
@@ -39,4 +45,4 @@ function PopoverContent({
   );
 }
 
-export { Popover, PopoverContent, PopoverTrigger };
+export { Popover, PopoverArrow, PopoverContent, PopoverTrigger };

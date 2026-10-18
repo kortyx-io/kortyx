@@ -7,6 +7,7 @@ export default defineKortyxVitestConfig({
       include: [
         "src/studio/**/*.ts",
         "src/connections*.ts",
+        "src/command-usage.ts",
         "src/evals/**/*.ts",
       ],
       thresholds: {

@@ -2,8 +2,10 @@ import { expect, it, vi } from "vitest";
 import {
   configureUsageTelemetry,
   createNodeUsageTelemetry,
+  flushUsageTelemetry,
   getUsageTelemetry,
   publicUsageConfiguration,
+  runtimeUsageContext,
   usageDisabled,
 } from "../src/browser-node";
 import { createUsageTelemetry } from "../src/client";
@@ -33,7 +35,11 @@ it("keeps portable library exports inert until an embedding integration explicit
   configureUsageTelemetry("browser_fixture", configured);
   configureUsageTelemetry("browser_fixture", configured);
   getUsageTelemetry("browser_fixture").start("sdk.prompt.resolve").end();
-  await configured.flush();
+  await flushUsageTelemetry();
+  expect(runtimeUsageContext()).toEqual({
+    runtimeMode: "unknown",
+    trafficSource: "unknown",
+  });
   expect(transport).toHaveBeenCalledOnce();
   configured.dispose();
 });

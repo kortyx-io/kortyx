@@ -113,7 +113,7 @@ deployment adapters. A registered target and configured judge are still required
 
 ## Select and configure judging
 
-Studio-triggered runs default to **Studio judge**. A consumer `createEvalJudge`
+Studio-triggered runs use the project judge default, or **Studio judge** when unset. A consumer `createEvalJudge`
 makes **App judge** available as an explicit alternative. Configure the selected
 location; missing configuration does not fall back silently. The API pins judge
 ID/version/location and rejects stale selections. See the consumer reference
@@ -433,7 +433,7 @@ The **Run evaluations** drawer offers All suites or Selected suites. Launching
 from a suite page preselects and expands that suite. Expand any selected suite to
 choose its conversations independently. Suite checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
-expanded suites survive reloads and browser history. The default judge is Studio
+expanded suites survive reloads and browser history. Without a project judge default, the drawer selects Studio
 when available, otherwise App; unavailable judges remain disabled with a reason.
 Repetitions (1–20) and concurrent attempts across the evaluation (1–20) apply to the selection.
 Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
@@ -553,9 +553,157 @@ The default `createInMemoryEvalExecutionStore()` handles one process. For replic
 pass `createPostgresEvalExecutionStore({connectionString,namespace})` as
 `executionStore`, with identical service keys, suite definitions and capacity
 settings. Configure `maxActiveRuns` (1), `maxActiveAttempts` (20) and
-`maxQueuedExecutions` (1000). Call store.setup() before traffic and handler.close()
-before store.close() on shutdown. Queued jobs recover across restart; a lost running
+`maxQueuedExecutions` (1000). Call store.setup() before traffic. For planned
+retirement call handler.drain(), keep HTTP/store available for authenticated
+observation and cancellation, then close HTTP, handler and store after observers
+finish. handler.close() remains explicit abort. Drain rejects ambiguous admission,
+claim or terminal persistence; do not treat that as successful retirement.
+Matching jobs-v1 POST retries for known IDs reattach evidence during drain;
+changed content returns 409. New IDs are refused without admission or replay.
+With a single consumer, drain Studio workers first while the consumer still
+accepts their later cases, wait for durable Studio outcomes, then drain the
+consumer. With replicas, make a compatible replacement reachable first with the
+same durable store/namespace, service key, suite revisions and capacity settings.
+Consumer drain finishes its own active jobs and a bounded queued snapshot, not
+future Studio cases or another owner's live jobs. The built-in memory/PostgreSQL
+stores implement optional queued/claimQueued capabilities; old custom stores work
+normally but drain fails until these atomic scoped capabilities are implemented.
+Upgrade agent/runtime together; jobs-v1 and legacy wire formats are unchanged.
+Queued jobs recover across restart; a lost running
 lease becomes Unknown and is never automatically replayed. Inspect side effects
 before explicit cancellation or a new run. Application nodes own external
 idempotency; no data reducers or node/workflow shape changes are required.
 Upgrade consumers before API/Studio; legacy consumers keep request-owned streams.
+Verify hook availability in the installed build: published kortyx 0.32.0 / agent
+0.39.0 / runtime 0.25.0 lack consumer drain. Use a later coordinated release that
+includes it; never silently substitute aborting close when graceful drain is absent.
+
+## Evaluation settings and timeout reporting
+
+**Settings → Evaluations** stores sparse project defaults in
+`projects.eval_defaults`. Reading uses the existing project Studio permission;
+saving requires `studio:write` through the installation's authorization adapter.
+The run drawer shows effective repetitions, concurrency, case timeout, overall
+evaluation timeout and judge, along with their source. Enter a value to override
+it for that run; Reset to default removes that override. There is no separate
+inherit mode. Project defaults apply to the whole project across targets and
+environments; application-specific defaults stay in the SDK.
+
+Per-field precedence is run override → Studio project default → SDK declared
+default → built-in. Installation timeout defaults sit below project defaults.
+The enqueue operation validates application ceilings and freezes effective values
+and sources on the evaluation and suite records, so edits do not change queued
+or historical runs. Idempotent retries retain the original frozen settings.
+
+The overall deadline defaults to **30 minutes**, independently of individual
+case timeouts, and is shared by every suite in an evaluation, including Studio
+grading. It starts at execution, excluding queue wait. Configure the Studio API:
+
+```dotenv
+KORTYX_EVAL_RUN_TIMEOUT_MS=1800000
+KORTYX_EVAL_MAX_RUN_TIMEOUT_MS=7200000
+```
+
+The first variable sets the installation default. The second is an optional
+administrator ceiling, independent of run/project precedence. Without it the
+supported timer ceiling is 2,147,483,647 ms. The installation default must fit
+under the ceiling. Docker Compose and CLI-managed installations forward both
+variables; restart the API after changing them.
+
+Timeouts show **Timed out** in evaluation history, evaluation detail and suite
+detail, with the configured limit, completed/remaining attempt counts and known
+pending phases. Completed grades and observations remain available; unstarted
+attempts are distinct from interrupted work and work awaiting grading. Active
+consumer cancellation/cleanup is signalled, with no claim that external side
+effects have rolled back or cleanup has finished. Errors are not behavioral fails.
+
+The evaluation header shows compact notices with the actual timeout or error
+reason, leaving the results table visible. Clicking a notice opens the shared
+error dialog with occurrence navigation, affected execution links, original
+messages, stacks, causes and provider response details. Run metadata and frozen
+execution settings are available under **Run details**. Selected errors (`?error=`)
+and Run details (`?runDetails=true`) use URL state, including reload and browser
+Back/Forward. Error navigation keeps the dialog size stable and reuses previously
+loaded evidence within the current workspace. Case cards also show the original
+exception automatically.
+
+SDK and Studio execution, grading, cleanup and reporting errors use the same
+project-scoped diagnostic occurrence store, retention, permissions and detail
+viewer as workflow run errors. Evaluation, suite, case, attempt and phase context
+are recorded when available. Existing SDK diagnostic references are reused;
+progress and final results share a reference rather than creating a second
+occurrence. One overall timeout creates one occurrence referenced by interrupted
+suites; unstarted attempts do not create fabricated errors. Cancellation remains
+a distinct control outcome. This provides shared records for a future Errors
+section; that inbox is not introduced here.
+
+Only credential fields/patterns are redacted. Capture omissions or unavailable
+older evidence are identified explicitly. No capture flag or custom reporter is
+required. These are customer execution diagnostics, excluded from maintainer
+usage telemetry.
+
+Apply migration **0013_eval_settings** before starting the new API. Deploy the
+matching API and Studio before upgrading SDK/CLI emitters: old strict validators
+may reject additive fields. Old consumers remain usable with repetitions and
+concurrency; case-timeout overrides are disabled/rejected until their SDK
+advertises support. Older stored runs load without invented settings or timeout
+reasons. Roll back emitters first if reverting API/Studio; the added nullable
+columns and project defaults can remain. Browser case authoring is future work;
+the serializable settings contract also supports future Studio-authored suites.
+
+## Optional launch overrides
+
+For planned worker replacement, keep the owning worker alive to finish active
+suites, renew leases, report progress and persist results while a replacement
+accepts new jobs. Worker admission drain and HTTP connection drain are separate.
+User cancellation and the run's configured deadline still apply. The Studio API
+worker host hook distinguishes `drain()` from the existing aborting `stop()`.
+Verify deployed binary capabilities first: published Studio/API 0.22.0 has neither
+SIGUSR2 preparation nor the standalone worker command. Its unhandled SIGUSR2 is
+not a claim fence (Linux PID 1 can ignore it). First upgrade needs an external
+submission fence, settled queued work and completed active evaluations before
+old processes retire. Saved Compose files do not gain grace settings from an image
+update. A fixed grace extension alone does not protect arbitrary run deadlines.
+The bundled OSS API implementation uses drain on SIGTERM; SIGINT explicitly aborts.
+Explicit stop during a pending worker drain rejects that drain. A lost claim
+acknowledgement remains a retirement failure even if later polling recovers. SIGUSR2
+prepares evaluation draining while HTTP remains available for submissions,
+progress and cancellation. Wait for the verified owner's drained confirmation
+before terminating a singleton combined API/worker. Platform force-kill deadlines
+still apply; the 25-second HTTP drain is not an evaluation timeout.
+
+For independent worker retirement, set `KORTYX_API_EVAL_WORKER_ENABLED=false`
+on web-only APIs and run `node apps/api/dist/eval-worker.js` from the API image
+with the same targets and applicable judge settings. Its private health listener
+serves `/live`, `/health` and `/ready` only; draining is alive but unready for
+new claims. Use liveness, not admission readiness, for restart decisions.
+Strict singleton replacement queues new work until the new owner starts.
+Temporary overlap requires measured capacity and compatible versions. Set
+`KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS` identically on all OSS workers (default
+four evaluation groups across the database, including draining owners). Custom
+stores must enforce their own shared cap; legacy workers and direct claim callers
+without that cap do not provide this guarantee. Consumer endpoint and provider
+limits remain independent.
+
+Queue waiting does not consume the execution deadline; a CLI wait timeout does
+not cancel or justify resubmitting a run. Cancel queued work through the API.
+The consumer's own host must remain available. Its route handler `drain()`
+finishes already accepted jobs without abort; `close()` explicitly aborts. A
+singleton consumer must remain admitting until Studio workers finish all their
+claimed suites. Drain that consumer afterwards; see the endpoint contract above.
+Replicas alone do not transfer an in-flight evaluation, and a lost executor must
+follow the consumer/store recovery contract rather than blindly repeating tools.
+
+`kortyx studio evals runs start` accepts `--case-timeout-ms` and
+`--run-timeout-ms`, independently of `--timeout` (the CLI wait budget).
+Omitted repetitions, concurrency, judge and deadline flags resolve on the server
+using project/SDK defaults. For example:
+
+```sh
+kortyx studio evals runs start --all --connection staging --target catalog \
+  --run-timeout-ms 5400000 --case-timeout-ms 180000 --wait --timeout 5500 --json
+```
+
+A wait timeout does not cancel the server evaluation. `runs get --json` includes
+structured termination, frozen effective settings and original error issues by
+default; `--include-content` additionally includes full conversations/events.

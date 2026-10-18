@@ -53,6 +53,7 @@ function StepEvaluation({
       {step.criteria.map((criterion, index) => (
         <div
           key={criterion.id}
+          data-guide-focus="eval-criterion"
           className="min-w-0 space-y-3 border-t border-foreground/10 pt-3"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -90,7 +91,7 @@ function StepEvaluation({
         </div>
       ))}
       {step.observation.runId ? (
-        <Button variant="outline" size="xs" asChild>
+        <Button variant="secondary" size="xs" asChild>
           <DetailLink
             href={`/runs/${encodeURIComponent(step.observation.runId)}`}
           >
@@ -113,7 +114,10 @@ function StepDebug({
 }) {
   const interrupt = step.observation.interrupt;
   return (
-    <section className="min-w-0 space-y-4 border-t border-foreground/15 pt-5 first:border-t-0 first:pt-0">
+    <section
+      data-guide-focus="eval-conversation"
+      className="min-w-0 space-y-4 border-t border-foreground/15 pt-5 first:border-t-0 first:pt-0"
+    >
       <p className="text-xs font-medium text-muted-foreground">
         Step {step.index + 1} conversation
       </p>

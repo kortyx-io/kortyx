@@ -39,6 +39,7 @@ const env = {
   KORTYX_STUDIO_AUTH_MODE: "cloud",
   KORTYX_STUDIO_TSCONFIG: profileName,
   KORTYX_STUDIO_API_KEY: "auth-test-must-not-use-this-key",
+  KORTYX_STUDIO_PROJECT_KEYS: "[]",
 };
 const exited = (child) =>
   new Promise((resolve, reject) => {
@@ -130,6 +131,7 @@ async function smoke(mode) {
     assert.deepEqual(await login.json(), { adapter: "compiled-auth-fixture" });
     for (const [path, method] of [
       ["/", "GET"],
+      ["/sample/runs", "GET"],
       ["/api/studio/changes", "GET"],
       ["/api/studio/runs/test.json/review", "DELETE"],
     ]) {
@@ -145,6 +147,35 @@ async function smoke(mode) {
       );
       assert.equal(await response.text(), "Fixture denies application access");
     }
+    const beforeSample = received.length;
+    const sampleHeaders = {
+      "x-studio-auth-fixture": "alice",
+      "x-kortyx-studio-request-path": "/sample/runs",
+    };
+    const samplePage = await fetch(`${url}/sample/runs`, {
+      headers: sampleHeaders,
+      signal: AbortSignal.timeout(20_000),
+    });
+    assert.equal(samplePage.status, 200);
+    assert.match(
+      await samplePage.text(),
+      /data-tour-id="sample-project-selector"/,
+    );
+    const sampleRead = await fetch(`${url}/api/studio/prompts/library`, {
+      headers: sampleHeaders,
+    });
+    assert.equal(sampleRead.status, 200);
+    assert.equal((await sampleRead.json()).permissions.edit, false);
+    const sampleWrite = await fetch(`${url}/api/studio/evals/runs`, {
+      method: "POST",
+      headers: sampleHeaders,
+    });
+    assert.equal(sampleWrite.status, 403);
+    assert.equal(
+      received.length,
+      beforeSample,
+      "Sample reads and denied writes must not contact the upstream API",
+    );
     await Promise.all(
       ["alice", "bob"].map(async (actor) => {
         const response = await fetch(`${url}/api/studio/changes`, {

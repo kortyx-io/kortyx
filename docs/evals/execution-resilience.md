@@ -26,9 +26,10 @@ Accepted jobs live independently of HTTP connections. Studio reconnects with
 `GET ?executionId=<uuid>&after=<sequence>`, using the same generation and service
 key. Events have contiguous cursors; duplicates are skipped and missing events
 fail observation. Explicit user cancellation uses authenticated DELETE with the
-same execution ID. Graceful worker shutdown leaves the Studio run recoverable by a new worker.
-Disconnect and worker shutdown detach the observer; they do
-not request cancellation. Cancellation remains cooperative, and capacity stays
+same execution ID. A planned Studio worker drain finishes the claimed evaluation,
+including its later cases and durable Studio result, before retirement. Detaching
+a negotiated observer does not request cancellation; a killed worker still needs
+its documented lease/recovery handling. Cancellation remains cooperative, and capacity stays
 reserved through teardown. Each execution has a 30-minute cooperative deadline.
 
 Studio displays Queued, Retrying, Reconnecting and Status unknown. Unknown means
@@ -57,8 +58,11 @@ const handleEvals = createEvalRouteHandler({
   maxQueuedExecutions: 1000,
 });
 // Forward GET, POST and DELETE to handleEvals without stripping headers/query.
-// During shutdown: stop incoming traffic, await handleEvals.close(), then
-// await executionStore.close(). Long-running hosts must keep execution alive.
+// Planned retirement, after Studio has finished its claimed evaluations:
+await handleEvals.drain(); // Keep HTTP, cancellation and the store alive.
+// Wait for observers/Studio to persist results, then retire HTTP connections.
+await handleEvals.close();
+await executionStore.close();
 ```
 
 The default memory store works within one process; share a single instance between
@@ -93,6 +97,60 @@ return a safe storage-limit error. Payloads can contain prompts and application 
 use a dedicated restricted database role, appropriate encryption/backups and a
 namespace per application/environment. These are customer execution records, not
 maintainer analytics.
+
+## Graceful consumer retirement
+
+These hooks require a build that includes consumer retirement. The published
+`kortyx@0.32.0`, `@kortyx/agent@0.39.0` and `@kortyx/runtime@0.25.0` baseline does
+not expose this hook; install a coordinated release explicitly containing it.
+A build from source can have unpublished changes despite matching version strings.
+Do not silently substitute aborting `close()` when graceful drain is unavailable.
+
+`handleEvals.drain()` immediately refuses new execution identities, finishes its own
+active executions and a scoped snapshot of accepted queued jobs, and waits for
+cleanup, terminal store writes and outstanding heartbeats. It is idempotent and
+irreversible. Existing authenticated discovery, result observation and DELETE
+cancellation remain available. Negotiated callers receive `503`, `accepted: false`
+and `Retry-After: 2`; legacy callers receive `429` with the same non-acceptance
+signal. A matching jobs-v1 POST retry for an already accepted identity reattaches
+its existing result stream, including during drain; changed content returns 409.
+It neither admits new work nor replays tools. Retries are bounded, so keep admission
+available somewhere when Studio still needs to submit cases. `close()` retains its explicit abort behavior and
+can escalate a pending drain; an aborted drain does not acknowledge success.
+
+A consumer execution is not a whole Studio evaluation. Studio submits later
+cases separately. For a single consumer, first drain Studio workers **while the
+consumer is still accepting work**, wait for their claimed evaluations and durable
+results, then drain the consumer. Keep the consumer's HTTP listener and store open
+until result observers finish; `drain()` does not wait for every HTTP reader or
+close those resources. The host owns signal handling and this orchestration.
+Queued Studio evaluations wait until an eligible replacement worker starts.
+
+For overlapping consumers, first make a compatible replacement reachable using
+the same durable execution namespace, service key, suite revisions and capacity
+settings. Route new admissions to it, drain the old handler, and preserve result
+observation until Studio persists the outcome. The old handler only claims its
+queue snapshot; submissions arriving on the replacement after that snapshot do
+not extend its drain. Work already claimed by another owner remains that owner's
+responsibility. A shared store preserves queued jobs and results, not live code or
+running-job transfer. Separate memory stores do not provide this protocol across
+replicas. Do not rotate service keys or change suite definitions mid-evaluation.
+
+The built-in memory and PostgreSQL execution stores implement `queued(scope)` and
+`claimQueued(owner, scope, limits, ids)`. Custom stores can keep ordinary execution
+without them, but graceful drain refuses to succeed until both are implemented.
+The snapshot must be scoped and bounded by the configured queue limit; selected
+claims must preserve the same atomic lease and shared capacity rules as `claim`,
+and never claim an ID outside the supplied snapshot. Upgrade `@kortyx/agent` and
+`@kortyx/runtime` together before using this hook. No wire or database schema
+change is required; older consumers do not gain the hook automatically.
+
+There is no deployment drain timeout. Cancellation and existing execution budgets
+still apply. An ambiguous admission/claim, missing queue evidence or unconfirmed
+terminal write rejects drain with a bounded, content-free error. Keep resources
+available and investigate instead of treating rejection or an operator timeout as
+successful retirement. Explicit abort and forced host termination cannot guarantee
+completion or exactly-once tool effects.
 
 ## Deployment and recovery
 

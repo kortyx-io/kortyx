@@ -81,9 +81,7 @@ describe("eval safe failures and private diagnostics", () => {
         attemptId: result.cases[0]?.attemptId,
       },
     });
-    expect(JSON.stringify(result)).not.toMatch(
-      /PRIVATE_CREDENTIAL|PRIVATE_BODY|stack/,
-    );
+    expect(JSON.stringify(result)).not.toMatch(/PRIVATE_CREDENTIAL/);
     expect(EvalRunResultSchema.parse(result)).toEqual(result);
     expect(
       Object.getPrototypeOf(
@@ -158,7 +156,10 @@ describe("eval safe failures and private diagnostics", () => {
       },
     }).run({ suiteId: "repro" });
     expect(result.cases[0]?.errors[0]?.diagnosticId).toBe(diagnosticId);
-    expect(JSON.stringify(result)).not.toContain("PRIVATE_EXCEPTION");
+    expect(result.cases[0]?.errors[0]?.message).toBe("PRIVATE_EXCEPTION");
+    expect(result.cases[0]?.errors[0]?.exception?.data.stack).toContain(
+      "PRIVATE_EXCEPTION",
+    );
     expect(native).toHaveBeenCalledTimes(1);
     const broken = createAgent({
       workflows: [],

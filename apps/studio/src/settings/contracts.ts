@@ -34,6 +34,11 @@ export interface StudioSettingsContribution {
 }
 
 export interface StudioSettingsAdapter {
+  /** Optional account-backed preference. The shared default is a browser cookie. */
+  sampleProjectVisibility?: {
+    get(): Promise<boolean>;
+    set(visible: boolean): Promise<void>;
+  };
   /** Resolve request-local UI. Credentials must never become component props. */
   resolve(context: StudioShellContext): Promise<StudioSettingsContribution>;
 }

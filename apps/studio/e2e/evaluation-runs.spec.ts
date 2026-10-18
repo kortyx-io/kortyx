@@ -58,6 +58,18 @@ for (const scope of ["all", "selected"] as const) {
           exact: true,
         }),
       ).toBeVisible();
+      // Nuqs updates controls before its throttled URL write. Reload only
+      // after both selections are persisted, then verify their restoration.
+      await expect(page).toHaveURL((url) => {
+        const selected = JSON.parse(
+          url.searchParams.get("launchSuites") ?? "[]",
+        );
+        return (
+          selected.length === 2 &&
+          selected.includes(EVAL_SUITE.id) &&
+          selected.includes(EVAL_OPAQUE_SUITE.id)
+        );
+      });
       await page.reload();
       await expect(
         drawer.getByRole("checkbox", { name: /Opaque suite identifiers/ }),
@@ -84,6 +96,12 @@ for (const scope of ["all", "selected"] as const) {
       .click();
     await expect(page).toHaveURL(/\/evals\/evaluations\/[0-9a-f-]+$/);
     const parentPath = new URL(page.url()).pathname;
+    const tableControls = page.locator(
+      '[data-table-controls="evaluation-suites"]',
+    );
+    await expect(tableControls.getByRole("button")).toHaveCount(3);
+    await expect(tableControls.getByRole("searchbox")).toHaveCount(1);
+    await expect(page.locator("[data-table-footer]")).toHaveCount(1);
     const suiteCount = scope === "all" ? 3 : 2;
     await expect(page.locator("[data-row-key]")).toHaveCount(suiteCount);
     await expect(

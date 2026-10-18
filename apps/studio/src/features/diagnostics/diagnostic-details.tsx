@@ -11,11 +11,19 @@ import {
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import Link from "@/components/scoped-link";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
+import { studioHref } from "@/lib/studio-routing";
+import { ErrorDetails } from "./error-details";
 
 const correlationLabels: Record<string, string> = {
   runId: "Run",
+  evaluationId: "Evaluation",
+  suiteRunId: "Suite run",
+  caseId: "Case",
+  repetition: "Attempt",
+  phase: "Phase",
   workflowId: "Workflow",
   nodeId: "Node",
   sessionId: "Session",
@@ -36,6 +44,7 @@ export function DiagnosticDetails({
   diagnostic: DiagnosticResponse;
 }) {
   const { manifest, content, state } = diagnostic;
+  const scope = useStudioRouteScope();
   const downloadable = state === "available" && content !== null;
   const captureStatus = content?.capture.status ?? manifest.captureStatus;
   const redactions = content?.capture.redactions ?? [];
@@ -47,7 +56,11 @@ export function DiagnosticDetails({
     : null;
 
   return (
-    <div className="@container flex h-full min-h-0 min-w-0 flex-col">
+    <div
+      data-page-help="diagnostic"
+      data-diagnostic-id={manifest.diagnosticId}
+      className="@container flex h-full min-h-0 min-w-0 flex-col"
+    >
       <DetailHeader
         eyebrow="Error diagnostic"
         title={manifest.summary.type}
@@ -62,9 +75,16 @@ export function DiagnosticDetails({
               {state === "available" ? "Available" : state}
             </StatusPill>
             {downloadable && (
-              <Button variant="outline" size="xs" asChild>
+              <Button variant="secondary" size="xs" asChild>
                 <a
-                  href={`/api/studio/diagnostics/${manifest.diagnosticId}?${query}`}
+                  href={
+                    scope?.sampleProject
+                      ? studioHref(
+                          `/api/studio/diagnostics/${manifest.diagnosticId}?${query}`,
+                          scope,
+                        )
+                      : `/api/studio/diagnostics/${manifest.diagnosticId}?${query}`
+                  }
                   download
                 >
                   <Download />
@@ -92,12 +112,14 @@ export function DiagnosticDetails({
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-h-0 min-w-0">
           <DetailTabs
+            family="diagnostic"
             tabs={[
               {
                 id: "exception",
                 label: "Exception",
                 content: content ? (
                   <section
+                    data-page-help="diagnostic-content"
                     aria-label="Exception and provider details"
                     className="flex h-full min-h-0 min-w-0 flex-col gap-3 p-4 @lg:p-6"
                   >
@@ -111,12 +133,12 @@ export function DiagnosticDetails({
                         contain the full captured values.
                       </p>
                     </div>
-                    <PayloadViewer
-                      value={content.data}
-                      defaultClean={false}
-                      stringPreviewLength={240}
-                      className="flex min-h-0 flex-1 flex-col [&_[data-payload-content]]:min-h-0 [&_[data-payload-content]]:max-h-none [&_[data-payload-content]]:flex-1 [&_[data-responsive-surface]]:shrink-0"
-                    />
+                    <div className="min-h-0 flex-1 overflow-auto">
+                      <ErrorDetails
+                        message={manifest.summary.message}
+                        exception={content}
+                      />
+                    </div>
                   </section>
                 ) : (
                   <div className="flex h-full items-center justify-center p-6">
@@ -140,6 +162,7 @@ export function DiagnosticDetails({
                 content: (
                   <div className="space-y-5 p-4 @lg:p-6">
                     <section
+                      data-guide-focus="diagnostic-capture"
                       aria-live="polite"
                       className="rounded-lg border p-4"
                     >
@@ -239,9 +262,17 @@ function DiagnosticContext({
             <ContextField
               key={key}
               label={correlationLabels[key] ?? key}
+              guideFocus={key === "runId" ? "diagnostic-run" : undefined}
               value={
                 key === "runId" && runHref ? (
                   <Link className="hover:underline" href={runHref}>
+                    {value}
+                  </Link>
+                ) : ["evaluationId", "suiteRunId"].includes(key) ? (
+                  <Link
+                    className="hover:underline"
+                    href={`${key === "evaluationId" ? "/evals/evaluations" : "/evals/runs"}/${encodeURIComponent(value)}?env=${encodeURIComponent(manifest.environment)}`}
+                  >
                     {value}
                   </Link>
                 ) : (
@@ -297,16 +328,18 @@ function DiagnosticContext({
 }
 
 function ContextField({
+  guideFocus,
   label,
   value,
   mono = false,
 }: {
+  guideFocus?: string;
   label: string;
   value: ReactNode;
   mono?: boolean;
 }) {
   return (
-    <div className="min-w-0">
+    <div data-guide-focus={guideFocus} className="min-w-0">
       <dt className="text-[10px] text-muted-foreground">{label}</dt>
       <dd
         className={`mt-1 text-xs leading-4 [overflow-wrap:anywhere] ${mono ? "font-mono text-[11px]" : ""}`}

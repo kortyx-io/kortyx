@@ -1,7 +1,9 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
+import { studioHelp } from "@/lib/studio-help";
 
 /** Compact identity and actions shared by eval detail pages. */
 export function EvalDetailHeader({
@@ -20,7 +22,10 @@ export function EvalDetailHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="@container shrink-0 border-b px-4 py-3">
+    <header
+      data-tour-surface="eval-summary"
+      className="@container shrink-0 border-b px-4 py-3"
+    >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <Button
           variant="ghost"
@@ -42,7 +47,10 @@ export function EvalDetailHeader({
             {description}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <HelpCircle help={studioHelp.evals} />
+          {actions}
+        </div>
       </div>
       {children ? <div className="mt-2 min-w-0">{children}</div> : null}
     </header>
@@ -60,6 +68,15 @@ export function EvalSummaryMetric({
     <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap text-xs">
       <span className="font-mono font-medium">{value}</span>
       <span className="text-muted-foreground">{label}</span>
+      <HelpCircle
+        help={
+          /cost/i.test(label)
+            ? studioHelp.evalCost
+            : /time|duration|queue/i.test(label)
+              ? studioHelp.evalTiming
+              : studioHelp.evalResults
+        }
+      />
     </span>
   );
 }

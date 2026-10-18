@@ -176,6 +176,10 @@ export const organizationInvitations = pgTable(
 export const projects = pgTable(
   "projects",
   {
+    evalDefaults: jsonb("eval_defaults")
+      .$type<import("@kortyx/agent/evals").EvalSettings>()
+      .notNull()
+      .default({}),
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id").notNull(),
     name: text("name").notNull(),
@@ -830,7 +834,11 @@ export const evaluationRuns = pgTable(
     targetName: text("target_name").notNull(),
     name: text("name").notNull(),
     request: jsonb("request")
-      .$type<import("@kortyx/agent/evals").StudioEvaluationStartRequest>()
+      .$type<
+        import("@kortyx/agent/evals").StudioEvaluationStartRequest & {
+          resolvedSettings?: import("@kortyx/agent/evals").ResolvedEvalSettings;
+        }
+      >()
       .notNull(),
     requestHash: text("request_hash").notNull(),
     idempotencyKey: text("idempotency_key"),
@@ -865,6 +873,11 @@ export const evaluationRuns = pgTable(
 export const evalRuns = pgTable(
   "eval_runs",
   {
+    issue: jsonb("issue").$type<import("@kortyx/agent/evals").EvalIssue>(),
+    termination:
+      jsonb("termination").$type<
+        import("@kortyx/agent/evals").EvalTermination
+      >(),
     evaluationId: uuid("evaluation_id"),
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id").notNull(),
@@ -1375,6 +1388,63 @@ export const diagnosticAccess = pgTable(
       table.organizationId,
       table.projectId,
       table.occurredAt,
+    ),
+  ],
+);
+
+/** Personal Cloud settings or the shared self-hosted project profile. */
+export const studioTablePreferences = pgTable(
+  "studio_table_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    ownerKind: text("owner_kind").$type<"project" | "user">().notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    tableId: text("table_id").notNull(),
+    defaults: jsonb("defaults")
+      .$type<import("@kortyx/telemetry-contracts").StudioTableDefaults>()
+      .notNull()
+      .default({}),
+    revision: integer("revision").notNull().default(0),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "studio_table_preferences_project_tenant_fk",
+      columns: [t.organizationId, t.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+    }).onDelete("cascade"),
+    check(
+      "studio_table_preferences_owner_check",
+      sql`(${t.ownerKind} = 'project' AND ${t.userId} IS NULL) OR (${t.ownerKind} = 'user' AND ${t.userId} IS NOT NULL)`,
+    ),
+    uniqueIndex("studio_table_preferences_user_unique")
+      .on(t.organizationId, t.projectId, t.userId, t.tableId)
+      .where(sql`${t.ownerKind} = 'user'`),
+    uniqueIndex("studio_table_preferences_project_unique")
+      .on(t.organizationId, t.projectId, t.tableId)
+      .where(sql`${t.ownerKind} = 'project'`),
+  ],
+);
+export const studioTableViews = pgTable(
+  "studio_table_views",
+  {
+    preferenceId: uuid("preference_id")
+      .notNull()
+      .references(() => studioTablePreferences.id, { onDelete: "cascade" }),
+    id: uuid("id").notNull(),
+    definition: jsonb("definition")
+      .$type<import("@kortyx/telemetry-contracts").StudioTableView>()
+      .notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("studio_table_views_preference_id_unique").on(
+      t.preferenceId,
+      t.id,
     ),
   ],
 );

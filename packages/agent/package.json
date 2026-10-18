@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/agent",
-  "version": "0.37.1",
+  "version": "0.39.0",
   "private": false,
   "description": "Agent composition utilities for Kortyx.",
   "keywords": [
@@ -58,7 +58,8 @@
     "@langchain/langgraph": "catalog:",
     "zod": "catalog:",
     "@kortyx/prompts": "workspace:*",
-    "@kortyx/usage-telemetry": "workspace:*"
+    "@kortyx/usage-telemetry": "workspace:*",
+    "@kortyx/telemetry-contracts": "workspace:*"
   },
   "devDependencies": {
     "@kortyx/hooks": "workspace:*",

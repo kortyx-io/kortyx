@@ -1,11 +1,11 @@
+"use client";
 import type { EvalCostAmount, EvalCosts } from "@kortyx/agent/evals";
 import { CostValue } from "@/components/cost-value";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { costDisplay } from "@/lib/cost";
+import { studioHelp } from "@/lib/studio-help";
+
+export { evalFilterCost } from "../lib/cost";
 
 function evalCostValue(value?: EvalCostAmount) {
   return {
@@ -26,8 +26,10 @@ export function evalCostLabel(value?: EvalCostAmount) {
 }
 export function EvalCost({ costs }: { costs?: EvalCosts }) {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <InfoTooltip
+      label="Evaluation cost"
+      documentationUrl={studioHelp.evalCost.documentationUrl}
+      trigger={
         <button
           type="button"
           onClick={(event) => event.stopPropagation()}
@@ -36,25 +38,23 @@ export function EvalCost({ costs }: { costs?: EvalCosts }) {
         >
           {evalCostLabel(costs?.total)}
         </button>
-      </TooltipTrigger>
-      <TooltipContent>
-        <div className="space-y-1">
-          <p>Workflow: {evalCostLabel(costs?.workflow)}</p>
-          <p>Judge: {evalCostLabel(costs?.judge)}</p>
-          <p className="text-muted-foreground">
-            {costs?.total.status === "complete"
-              ? costs.total.estimated
-                ? "Estimated from recorded usage and model rates."
-                : "Provider-reported charges for recorded calls."
-              : costDisplay(evalCostValue(costs?.total)).note}
-          </p>
-          <p className="text-muted-foreground">
-            Includes model calls; excludes infrastructure and external tool
-            fees.
-          </p>
-        </div>
-      </TooltipContent>
-    </Tooltip>
+      }
+    >
+      <div className="space-y-1">
+        <p>Workflow: {evalCostLabel(costs?.workflow)}</p>
+        <p>Judge: {evalCostLabel(costs?.judge)}</p>
+        <p className="text-muted-foreground">
+          {costs?.total.status === "complete"
+            ? costs.total.estimated
+              ? "Estimated from recorded usage and model rates."
+              : "Provider-reported charges for recorded calls."
+            : costDisplay(evalCostValue(costs?.total)).note}
+        </p>
+        <p className="text-muted-foreground">
+          Includes model calls; excludes infrastructure and external tool fees.
+        </p>
+      </div>
+    </InfoTooltip>
   );
 }
 export function EvalCostBreakdown({ costs }: { costs?: EvalCosts }) {

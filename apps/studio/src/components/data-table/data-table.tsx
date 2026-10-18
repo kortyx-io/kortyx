@@ -6,16 +6,32 @@ import {
   horizontalListSortingStrategy,
   SortableContext,
 } from "@dnd-kit/sortable";
+import {
+  EMPTY_TABLE_FILTERS,
+  type StudioTableResource,
+} from "@kortyx/telemetry-contracts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { type ReactNode, useEffect, useLayoutEffect, useState } from "react";
+import { ScrollArea as ScrollAreaPrimitive } from "radix-ui";
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   clampScrollViewport,
   syncHorizontalScroll,
 } from "@/components/data-table/clamp-scroll-viewport";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { useDataTable } from "@/components/data-table/data-table-context";
+import {
+  DataTableProvider,
+  useDataTable,
+} from "@/components/data-table/data-table-context";
 import type { DataTablePagination } from "@/components/data-table/types";
 import { Button } from "@/components/ui/button";
+import type { HelpDefinition } from "@/components/ui/info-tooltip";
+import { ScrollBar } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -24,21 +40,58 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { columnLayout, columnWidths } from "./column-layout";
+import { DataTableFilterControls } from "./data-table-filters";
+import type { SavedTableView } from "./saved-table-views";
+import {
+  CurrentTablePreference,
+  useTablePreferenceEntry,
+  useTablePreferenceSnapshot,
+} from "./table-persistence";
+import { sortTableRows } from "./table-rows";
+import { matchesTableSearch } from "./table-search";
+import type {
+  DataTableColumn,
+  DataTableFilter,
+  DataTableLayout,
+  DataTableQueryConfig,
+  DataTableScopeFilter,
+  DataTableSearch,
+} from "./types";
+import type { TableFilterCompatibility } from "./use-table-filters";
+import { useTableFilters } from "./use-table-filters";
+import { useTableQuery } from "./use-table-query";
+import { useTableScope } from "./use-table-scope";
+import { useTableSearch } from "./use-table-search";
 
-type DataTableProps<T, S extends string> = {
+export type DataTableProps<T, S extends string = string> = {
+  tableId: string;
+  columns: DataTableColumn<T, S>[];
+  /** All tables persist layout automatically. Seeds can migrate older preferences. */
+  initialLayout?: Partial<DataTableLayout>;
+  query?: DataTableQueryConfig<S>;
+  totalCount?: number;
+  filters?: DataTableFilter<T>[];
+  scopeFilters?: readonly DataTableScopeFilter[];
+  help?: { filters: HelpDefinition; views: HelpDefinition };
+  compatibility?: TableFilterCompatibility;
+  legacyViews?: () => SavedTableView[];
+  search?: Pick<DataTableSearch, "label" | "placeholder">;
+  toolbarStart?: ReactNode;
+  filterResource?: StudioTableResource | "prompts" | "evaluations";
   data: T[];
   getRowKey: (item: T) => string;
   onRowClick?: (item: T, event: React.MouseEvent<HTMLTableRowElement>) => void;
   rowClassName?: (item: T) => string | undefined;
-  sort?: S;
-  direction?: "asc" | "desc";
-  onSort?: (key: S) => void;
-  onSetSortDirection?: (key: S, direction: "asc" | "desc") => void;
-  onClearSort?: () => void;
-  emptyState?: ReactNode;
+  rowTone?: (item: T) => "danger" | undefined;
+  emptyState?:
+    | ReactNode
+    | ((actions: {
+        clearFilters: () => void;
+        hasFilters: boolean;
+      }) => ReactNode);
   /** Optional layout for empty content inside the table's scrolling area. */
   emptyStateClassName?: string;
-  pagination?: DataTablePagination;
   /** Toolbar/header region rendered above the grid (filters, search, etc.). */
   header?: ReactNode;
   /** sessionStorage key for save/restore of scroll position across navigation. */
@@ -48,19 +101,61 @@ type DataTableProps<T, S extends string> = {
 
 const CELL_BASE = "max-w-0 overflow-hidden border-b px-3 py-3.5 align-middle";
 
-export function DataTable<T, S extends string>({
+export function DataTable<T, S extends string = string>(
+  props: DataTableProps<T, S>,
+) {
+  const entry = useTablePreferenceEntry(props.tableId);
+  const persistence = useTablePreferenceSnapshot(entry);
+  return (
+    <CurrentTablePreference.Provider value={entry}>
+      <DataTableProvider
+        key={props.tableId}
+        columns={props.columns}
+        initialLayout={props.initialLayout}
+        persistKey={
+          entry ? undefined : `kortyx.table.${props.tableId}.layout.v1`
+        }
+        preferenceLayout={
+          persistence?.hydrated
+            ? (persistence.preferences.defaults.layout ?? {
+                widths: columnWidths(props.columns),
+                ...columnLayout(props.columns),
+                pinned: {},
+              })
+            : undefined
+        }
+        onLayoutChange={
+          entry
+            ? (layout) => entry.mutate({ kind: "defaults", patch: { layout } })
+            : undefined
+        }
+      >
+        <DataTableContent {...props} />
+      </DataTableProvider>
+    </CurrentTablePreference.Provider>
+  );
+}
+
+function DataTableContent<T, S extends string>({
+  tableId,
+  search,
+  toolbarStart,
+  filterResource,
+  columns,
+  query: queryConfig,
+  totalCount = 0,
+  filters: extraFilters = [],
+  scopeFilters = [],
+  help,
+  compatibility,
+  legacyViews,
   data,
   getRowKey,
   onRowClick,
   rowClassName,
-  sort,
-  direction,
-  onSort,
-  onSetSortDirection,
-  onClearSort,
+  rowTone,
   emptyState,
   emptyStateClassName,
-  pagination,
   header,
   scrollRestoreKey,
   className,
@@ -80,13 +175,100 @@ export function DataTable<T, S extends string>({
     onDragEnd,
     getColumnCellMotion,
     getPinnedColumnStyle,
+    draggedColumn,
     scrollerRef,
     headerScrollerRef,
   } = useDataTable<T, S>();
 
+  const fields = [
+    ...extraFilters,
+    ...Object.values(columnsByKey).flatMap((column) =>
+      column.filter === false
+        ? []
+        : Array.isArray(column.filter)
+          ? column.filter
+          : [column.filter],
+    ),
+  ]
+    .filter(
+      (field, index, all): field is DataTableFilter<T> =>
+        Boolean(field) &&
+        all.findIndex((other) => other?.key === field?.key) === index,
+    )
+    .sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+  const query = useTableQuery(tableId, columns, queryConfig);
+  const remote = queryConfig?.mode === "remote";
+  const scope = useTableScope(scopeFilters, remote);
+  const filtering = useTableFilters({
+    fields,
+    keys: query.keys,
+    server: remote,
+    compatibility,
+  });
+  const searching = useTableSearch({
+    ...search,
+    value: query.q,
+    onChange: query.onSearch,
+  });
+  const pagination: DataTablePagination = {
+    cursor: query.cursor,
+    pageSize: query.pageSize,
+    pageSizes: query.pageSizes,
+    totalCount,
+    serverSide: remote,
+    onCursorChange: (cursor) => {
+      void query.change({ cursor });
+    },
+    onPageSizeChange: (pageSize) => {
+      void query.change({ pageSize });
+    },
+  };
+  const filteredData = sortTableRows(
+    data.filter(
+      (row) =>
+        (remote || filtering.matches(row)) &&
+        (remote || matchesTableSearch(row, fields, searching.value)),
+    ),
+    columns,
+    remote ? undefined : query.sort,
+    query.dir,
+  );
+  const sort = query.sort,
+    direction = query.dir;
+  const onSort = query.onSort,
+    onSetSortDirection = query.setSortDirection,
+    onClearSort = query.clearSort;
+  const [filterContainer, setFilterContainer] = useState<HTMLDivElement | null>(
+    null,
+  );
   const [openColumnMenu, setOpenColumnMenu] = useState<string | null>(null);
   const [interactive, setInteractive] = useState(false);
+  const synchronizedScrollLeft = useRef(0);
   useEffect(() => setInteractive(true), []);
+  useEffect(() => {
+    const header = headerScrollerRef.current;
+    const body = scrollerRef.current;
+    if (!header || !body) return;
+    // Keep one wheel-scroll owner during a held drag. Native header scrolling
+    // can race body scroll notifications and repeatedly pull the gesture back.
+    const scrollHeader = (event: WheelEvent) => {
+      if (event.ctrlKey) return;
+      const delta = event.deltaX || (event.shiftKey ? event.deltaY : 0);
+      if (!delta) return;
+      event.preventDefault();
+      const unit =
+        event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? body.clientWidth
+            : 1;
+      body.scrollLeft += delta * unit;
+      synchronizedScrollLeft.current = body.scrollLeft;
+      syncHorizontalScroll(body, header);
+    };
+    header.addEventListener("wheel", scrollHeader, { passive: false });
+    return () => header.removeEventListener("wheel", scrollHeader);
+  }, [headerScrollerRef, scrollerRef]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll once on mount.
   useEffect(() => {
     if (!scrollRestoreKey) return;
@@ -102,14 +284,31 @@ export function DataTable<T, S extends string>({
     clampScrollViewport(scrollerRef.current, headerScrollerRef.current);
   }, [tableWidth, scrollerRef, headerScrollerRef]);
 
-  function handleBodyScroll() {
-    syncHorizontalScroll(scrollerRef.current, headerScrollerRef.current);
+  function handleHorizontalScroll(
+    source: HTMLDivElement,
+    target: HTMLDivElement | null,
+  ) {
+    // Scroll events arrive asynchronously. Ignore the echoed event from our
+    // previous write instead of letting it undo a newer wheel/trackpad gesture.
+    if (source.scrollLeft === synchronizedScrollLeft.current) return;
+    synchronizedScrollLeft.current = source.scrollLeft;
+    syncHorizontalScroll(source, target);
   }
 
   function handleRowClick(
     item: T,
     event: React.MouseEvent<HTMLTableRowElement>,
   ) {
+    // Cell controls own their clicks. Bubbling into the row can navigate twice
+    // or leave the page when selecting, copying, or opening a link in a new tab.
+    if (
+      event.defaultPrevented ||
+      (event.target instanceof Element &&
+        event.target.closest(
+          'a, button, input, select, textarea, label, summary, [role="button"], [role="link"], [role="checkbox"]',
+        ))
+    )
+      return;
     if (scrollRestoreKey) {
       sessionStorage.setItem(
         scrollRestoreKey,
@@ -121,9 +320,24 @@ export function DataTable<T, S extends string>({
 
   const pageRows =
     pagination && !pagination.serverSide
-      ? data.slice(pagination.cursor, pagination.cursor + pagination.pageSize)
-      : data;
-  const isEmpty = data.length === 0;
+      ? filteredData.slice(
+          Math.min(
+            pagination.cursor,
+            Math.max(
+              0,
+              Math.ceil(filteredData.length / pagination.pageSize) - 1,
+            ) * pagination.pageSize,
+          ),
+          Math.min(
+            pagination.cursor,
+            Math.max(
+              0,
+              Math.ceil(filteredData.length / pagination.pageSize) - 1,
+            ) * pagination.pageSize,
+          ) + pagination.pageSize,
+        )
+      : filteredData;
+  const isEmpty = filteredData.length === 0;
 
   const colGroup = (
     <colgroup>
@@ -139,138 +353,238 @@ export function DataTable<T, S extends string>({
   const tableStyle = { width: tableWidth, minWidth: "100%" as const };
 
   return (
-    <div
-      data-table-ready={interactive}
-      className={cn(
-        "flex h-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
-        className,
-      )}
-    >
-      {header}
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div
-          ref={headerScrollerRef}
-          className="data-table-header-scroll shrink-0 overflow-x-auto overflow-y-hidden"
-        >
-          <div style={tableStyle}>
-            <DndContext
-              id="data-table-columns"
-              sensors={sensors}
-              modifiers={[restrictToHorizontalAxis]}
-              collisionDetection={collisionDetection}
-              autoScroll={false}
-              onDragStart={onDragStart}
-              onDragOver={onDragOver}
-              onDragMove={onDragMove}
-              onDragCancel={onDragCancel}
-              onDragEnd={onDragEnd}
-            >
-              <SortableContext
-                items={visibleColumnOrder}
-                strategy={horizontalListSortingStrategy}
+    <div className={cn("relative flex h-full min-h-0 min-w-0", className)}>
+      <div
+        data-table-ready={interactive}
+        data-page-help-records={data.length}
+        className={cn(
+          "flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
+          className,
+        )}
+      >
+        {header}
+        <DataTableFilterControls
+          help={help}
+          tableId={tableId}
+          searching={searching}
+          start={toolbarStart}
+          panelContainer={filterContainer}
+          fields={fields}
+          data={data}
+          resource={filterResource}
+          state={filtering}
+          scopeFields={scopeFilters}
+          scopeState={scope}
+          legacyViews={legacyViews}
+          clearQuery={() => {
+            void query.change({
+              sort: null,
+              dir: null,
+              pageSize: null,
+              cursor: null,
+            });
+          }}
+          pagination={pagination}
+          sort={sort}
+          direction={direction}
+          onSetSortDirection={
+            onSetSortDirection as
+              | ((key: string, direction: "asc" | "desc") => void)
+              | undefined
+          }
+        />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div
+            ref={headerScrollerRef}
+            onScroll={(event) =>
+              handleHorizontalScroll(event.currentTarget, scrollerRef.current)
+            }
+            className="data-table-header-scroll shrink-0 overflow-x-auto overflow-y-hidden"
+          >
+            <div className="overflow-clip" style={tableStyle}>
+              <DndContext
+                id={`data-table-columns-${tableId}`}
+                sensors={sensors}
+                modifiers={[restrictToHorizontalAxis]}
+                collisionDetection={collisionDetection}
+                autoScroll={false}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDragMove={onDragMove}
+                onDragCancel={onDragCancel}
+                onDragEnd={onDragEnd}
               >
+                <SortableContext
+                  items={visibleColumnOrder}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  <table
+                    className="table-fixed border-separate border-spacing-0 text-left text-sm"
+                    style={tableStyle}
+                  >
+                    {colGroup}
+                    <thead className="bg-muted text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
+                      <tr>
+                        {visibleColumnOrder.map((column, index) => (
+                          <DataTableColumnHeader
+                            key={column}
+                            column={columnsByKey[column]}
+                            isLast={index === visibleColumnOrder.length - 1}
+                            active={sort}
+                            direction={direction}
+                            onSort={onSort}
+                            onSetSortDirection={onSetSortDirection}
+                            onClearSort={onClearSort}
+                            menuOpen={openColumnMenu === column}
+                            onMenuOpenChange={(open) =>
+                              setOpenColumnMenu(open ? column : null)
+                            }
+                          />
+                        ))}
+                      </tr>
+                    </thead>
+                  </table>
+                </SortableContext>
+              </DndContext>
+            </div>
+          </div>
+          <ScrollAreaPrimitive.Root
+            type="auto"
+            className="relative min-h-0 flex-1 overflow-hidden"
+          >
+            <ScrollAreaPrimitive.Viewport
+              ref={scrollerRef}
+              onScroll={(event) =>
+                handleHorizontalScroll(
+                  event.currentTarget,
+                  headerScrollerRef.current,
+                )
+              }
+              className="data-table-body-scroll size-full [&>div]:!block"
+            >
+              <div className="overflow-clip" style={tableStyle}>
                 <table
                   className="table-fixed border-separate border-spacing-0 text-left text-sm"
                   style={tableStyle}
                 >
                   {colGroup}
-                  <thead className="bg-muted text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
-                    <tr>
-                      {visibleColumnOrder.map((column, index) => (
-                        <DataTableColumnHeader
-                          key={column}
-                          column={columnsByKey[column]}
-                          isLast={index === visibleColumnOrder.length - 1}
-                          active={sort}
-                          direction={direction}
-                          onSort={onSort}
-                          onSetSortDirection={onSetSortDirection}
-                          onClearSort={onClearSort}
-                          menuOpen={openColumnMenu === column}
-                          onMenuOpenChange={(open) =>
-                            setOpenColumnMenu(open ? column : null)
-                          }
-                        />
-                      ))}
-                    </tr>
-                  </thead>
+                  <tbody>
+                    {pageRows.map((item) => (
+                      <tr
+                        key={getRowKey(item)}
+                        data-row-key={getRowKey(item)}
+                        data-row-tone={rowTone?.(item)}
+                        style={
+                          {
+                            "--table-row-base":
+                              rowTone?.(item) === "danger"
+                                ? "color-mix(in oklab, var(--destructive) 2.5%, var(--background))"
+                                : "var(--background)",
+                          } as React.CSSProperties
+                        }
+                        onClick={
+                          onRowClick
+                            ? (event) => handleRowClick(item, event)
+                            : undefined
+                        }
+                        className={cn(
+                          "group border-b [--table-row-bg:var(--table-row-base)] hover:[--table-row-bg:color-mix(in_oklab,var(--muted)_55%,var(--table-row-base))]",
+                          onRowClick && "cursor-pointer",
+                          rowClassName?.(item),
+                        )}
+                      >
+                        {visibleColumnOrder.map((column) => {
+                          const definition = columnsByKey[column];
+                          const motion = getColumnCellMotion(column);
+                          const pin = pinned[column];
+                          return (
+                            <td
+                              key={column}
+                              data-column={column}
+                              data-column-dragging={
+                                draggedColumn === column || undefined
+                              }
+                              title={definition.cellTitle?.(item)}
+                              className={cn(
+                                CELL_BASE,
+                                definition.cellClassName,
+                                "transition-colors",
+                                pin && "sticky z-10",
+                                motion && !pin && "relative z-1",
+                                draggedColumn === column && "z-30 shadow-lg",
+                              )}
+                              style={{
+                                backgroundColor: "var(--table-row-bg)",
+                                ...motion?.style,
+                                ...getPinnedColumnStyle(column),
+                              }}
+                            >
+                              <div className="min-w-0 overflow-hidden">
+                                {definition.render(item)}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
-              </SortableContext>
-            </DndContext>
-          </div>
+              </div>
+              {isEmpty && (
+                <div
+                  className={cn("sticky left-0 w-full", emptyStateClassName)}
+                >
+                  {typeof emptyState === "function"
+                    ? emptyState({
+                        hasFilters: Boolean(
+                          query.q ||
+                            filtering.filters.rules.length ||
+                            scope.hasActiveFilters,
+                        ),
+                        clearFilters: () => {
+                          filtering.apply(EMPTY_TABLE_FILTERS);
+                          scope.clear();
+                          query.onSearch("");
+                        },
+                      })
+                    : emptyState}
+                </div>
+              )}
+            </ScrollAreaPrimitive.Viewport>
+            <ScrollBar className="z-40" />
+            <ScrollBar orientation="horizontal" className="z-40" />
+            <ScrollAreaPrimitive.Corner />
+          </ScrollAreaPrimitive.Root>
         </div>
-        <div
-          ref={scrollerRef}
-          onScroll={handleBodyScroll}
-          className="data-table-body-scroll min-h-0 flex-1 overflow-auto"
-        >
-          <div style={tableStyle}>
-            <table
-              className="table-fixed border-separate border-spacing-0 text-left text-sm"
-              style={tableStyle}
-            >
-              {colGroup}
-              <tbody>
-                {pageRows.map((item) => (
-                  <tr
-                    key={getRowKey(item)}
-                    data-row-key={getRowKey(item)}
-                    onClick={
-                      onRowClick
-                        ? (event) => handleRowClick(item, event)
-                        : undefined
-                    }
-                    className={cn(
-                      "group border-b transition-colors",
-                      onRowClick && "cursor-pointer hover:bg-muted/55",
-                      rowClassName?.(item),
-                    )}
-                  >
-                    {visibleColumnOrder.map((column) => {
-                      const definition = columnsByKey[column];
-                      const motion = getColumnCellMotion(column);
-                      const pin = pinned[column];
-                      return (
-                        <td
-                          key={column}
-                          data-column={column}
-                          title={definition.cellTitle?.(item)}
-                          className={cn(
-                            CELL_BASE,
-                            definition.cellClassName,
-                            pin &&
-                              "sticky z-10 bg-background group-hover:bg-accent",
-                            motion && !pin && "relative z-10",
-                          )}
-                          style={{
-                            ...motion?.style,
-                            ...getPinnedColumnStyle(column),
-                          }}
-                        >
-                          <div className="min-w-0 overflow-hidden">
-                            {definition.render(item)}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {isEmpty && (
-            <div className={cn("sticky left-0 w-full", emptyStateClassName)}>
-              {emptyState}
-            </div>
-          )}
-        </div>
+        {pagination && (
+          <DataTablePaginationFooter
+            pagination={
+              pagination.serverSide
+                ? pagination
+                : {
+                    ...pagination,
+                    totalCount: filteredData.length,
+                    cursor: Math.min(
+                      pagination.cursor,
+                      Math.max(
+                        0,
+                        Math.ceil(filteredData.length / pagination.pageSize) -
+                          1,
+                      ) * pagination.pageSize,
+                    ),
+                  }
+            }
+            onBeforeChange={() => scrollerRef.current?.scrollTo({ top: 0 })}
+          />
+        )}
       </div>
-      {pagination && (
-        <DataTablePaginationFooter
-          pagination={pagination}
-          onBeforeChange={() => scrollerRef.current?.scrollTo({ top: 0 })}
-        />
-      )}
+      <div
+        ref={setFilterContainer}
+        className={cn(
+          "h-full min-h-0 shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] max-sm:absolute max-sm:inset-y-0 max-sm:right-0 max-sm:z-30",
+          filtering.open ? "ml-2 w-72 max-w-full" : "ml-0 w-0",
+        )}
+      />
     </div>
   );
 }
@@ -298,7 +612,10 @@ function DataTablePaginationFooter({
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
-    <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t bg-background px-4 py-2 text-xs text-muted-foreground">
+    <div
+      data-table-footer
+      className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t bg-background px-4 py-2 text-xs text-muted-foreground"
+    >
       <span>
         {totalCount > 0
           ? `Showing ${firstVisible}–${lastVisible} of ${totalCount}`
@@ -331,7 +648,7 @@ function DataTablePaginationFooter({
           </Select>
         </div>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           aria-label="Previous page"
           disabled={!hasPrevious}
@@ -346,7 +663,7 @@ function DataTablePaginationFooter({
           {currentPage}/{totalPages}
         </span>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           aria-label="Next page"
           disabled={!hasNext}

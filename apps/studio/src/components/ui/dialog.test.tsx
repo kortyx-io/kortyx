@@ -9,6 +9,7 @@ it("keeps existing dialogs dismissible and their backdrop unchanged by default",
     ReactElement<Record<string, unknown>>,
   ];
   expect(overlay.props.className).toBe("fixed inset-0 bg-black/50");
+  expect(content.props["data-slot"]).toBe("dialog-content");
   const children = Children.toArray(content.props.children as ReactNode);
   expect((children[1] as ReactElement).props).toMatchObject({
     "aria-label": "Close dialog",

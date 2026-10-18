@@ -24,6 +24,7 @@ export type ApiKeyPrincipal = ApiProjectScope &
 export type ApiHumanPrincipal = ApiProjectScope &
   Readonly<{
     kind: "human";
+    /** Internal users.id, not an execution end-user ID or identity-provider subject. */
     userId: string;
     permissions: readonly string[];
   }>;

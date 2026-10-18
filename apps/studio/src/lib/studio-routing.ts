@@ -1,5 +1,7 @@
+import { isSamplePath, samplePath } from "@/features/sample-project/routing";
 /** Product context in URLs is a request, never an authorization grant. */
 export interface StudioRouteScope {
+  sampleProject?: boolean;
   projectPublicId?: string;
   organizationPublicId?: string;
 }
@@ -8,6 +10,8 @@ export const STUDIO_REQUEST_PATH = "x-kortyx-studio-request-path";
 
 export function studioHref(href: string, scope?: StudioRouteScope): string {
   if (!scope || !href.startsWith("/") || href.startsWith("//")) return href;
+  if (isSamplePath(href)) return href;
+  if (scope.sampleProject) return `/sample${href === "/" ? "/runs" : href}`;
   const split = href.search(/[?#]/);
   const path = split < 0 ? href : href.slice(0, split);
   const suffix = split < 0 ? "" : href.slice(split);
@@ -39,6 +43,7 @@ export function studioHref(href: string, scope?: StudioRouteScope): string {
 }
 
 export function studioPathname(pathname: string): string {
+  if (isSamplePath(pathname)) return samplePath(pathname);
   const project = pathname.match(/^\/projects\/prj_[0-9a-f]{24}(\/.*)$/);
   if (project)
     return project[1] === "/settings/general"

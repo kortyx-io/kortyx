@@ -98,7 +98,7 @@ test "$(compose exec -T updater docker compose --env-file "$studio_home/.env" \
   'require("/app/apps/studio/package.json").version')" = "$VERSION"
 snapshot > "$state_dir/after.json"
 node "$(dirname "$0")/verify-upgrade-snapshot.cjs" \
-  "$state_dir/before.json" "$state_dir/after.json" "$state_dir/before.env"
+  "$state_dir/before.json" "$state_dir/after.json" "$state_dir/before.env" "$VERSION"
 cmp "$state_dir/before-compose.yml" "$studio_home/compose.yml"
 test "$(sed '/^KORTYX_STUDIO_IMAGE_TAG=/d' "$state_dir/before.env" | sha256sum)" = \
   "$(sed '/^KORTYX_STUDIO_IMAGE_TAG=/d' "$studio_home/.env" | sha256sum)"

@@ -20,8 +20,11 @@ describe("detailNavigationHref", () => {
       tab: "trace",
       trace: "event-1",
       event: "event-2",
+      error: "old-error",
+      runDetails: "true",
       detailView: "expanded",
       v: "3",
+      compareWith: "1",
       edit: "true",
       promptAction: "rename",
       promptActionVersion: "2",
@@ -30,6 +33,9 @@ describe("detailNavigationHref", () => {
       bulkPromptAction: "archive",
       groupAction: "member",
       groupEditId: "group-1",
+      "tableSearch.eval-cases": "failed",
+      "tablePage.eval-cases": "20",
+      "tablePageSize.eval-cases": "10",
     });
 
     expect(detailNavigationHref("/runs/run-2", params)).toBe(

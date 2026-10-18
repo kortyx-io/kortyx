@@ -40,6 +40,13 @@ export function createPostHogTransport(options: {
         count: record.count,
         duration_total_ms: record.duration_total_ms,
         duration_buckets: record.duration_buckets,
+        ...(record.delivery_health
+          ? {
+              usage_dropped_observations:
+                record.delivery_health.dropped_observations,
+              usage_failed_batches: record.delivery_health.failed_batches,
+            }
+          : {}),
         $process_person_profile: false,
         $geoip_disable: true,
         $ip: null,

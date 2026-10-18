@@ -373,7 +373,9 @@ it("rejects invalid selectors at setup and reports predicate failures as grading
     evidenceFilters: {
       events: {
         broken: () => {
-          throw new Error("PRIVATE FAILURE");
+          throw new Error(
+            "Evidence predicate failed. Authorization: Bearer PRIVATE_FAILURE",
+          );
         },
       },
     },
@@ -384,7 +386,7 @@ it("rejects invalid selectors at setup and reports predicate failures as grading
   expect(run.cases[0]?.errors[0]?.phase).toBe("grading");
   expect(run.cases[0]?.steps[0]?.observation).toEqual(observation);
   expect(grade).not.toHaveBeenCalled();
-  expect(JSON.stringify(run)).not.toContain("PRIVATE FAILURE");
+  expect(JSON.stringify(run)).not.toContain("PRIVATE_FAILURE");
 });
 
 it("direct model judges compact both observations and explain field selection without assuming visibility", async () => {

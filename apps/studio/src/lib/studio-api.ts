@@ -1,4 +1,6 @@
 import { studioUsage } from "@studio/usage";
+import { sampleResponse } from "@/features/sample-project/http";
+import { isSampleProject } from "@/features/sample-project/server";
 import "server-only";
 
 import {
@@ -65,13 +67,35 @@ export const fetchJson = async <T>(
   path: string,
   parse: (value: unknown) => T,
 ): Promise<StudioRepoResult<T>> => {
+  if (await isSampleProject()) {
+    const response = sampleResponse(path);
+    if (!response.ok)
+      return {
+        data: null,
+        error: {
+          type: "http",
+          status: response.status,
+          message: "Sample record unavailable.",
+        },
+      };
+    try {
+      return { data: parse(await response.json()), error: null };
+    } catch (error) {
+      return { data: null, error: parseError(error) };
+    }
+  }
   const usageScope = studioUsage.server.start("studio.read", {
     resource: path.split("/")[3]?.split("?")[0],
     origin: "server",
   });
   const credential = await studioAuth.getApiCredential();
   if (!apiUrl || !credential) {
-    usageScope.end("failed", { phase: "configuration" });
+    usageScope.end("failed", {
+      phase: "configuration",
+      error_code: "STUDIO_NOT_CONFIGURED",
+      error_category: "configuration",
+      retryable: false,
+    });
     return {
       data: null,
       error: {
@@ -166,7 +190,12 @@ export const fetchJson = async <T>(
         });
       return { data, error: null };
     } catch (error) {
-      usageScope.end("failed", { phase: "parse" });
+      usageScope.end("failed", {
+        phase: "parse",
+        error_code: "STUDIO_RESPONSE_INVALID",
+        error_category: "validation",
+        retryable: false,
+      });
       return {
         data: null,
         error: {
@@ -179,7 +208,7 @@ export const fetchJson = async <T>(
       };
     }
   } catch (error) {
-    usageScope.end("failed", { phase: "network" });
+    usageScope.fail(error, { phase: "network" });
     return {
       data: null,
       error: {
@@ -278,6 +307,7 @@ export const getStudioSessions = async (
             workflowIds: session.workflowIds,
             workflowCount: session.workflowCount,
             version: displayVersion(session.activeVersion),
+            activeVersion: session.activeVersion,
             user: optional(session.userId),
             tenant: optional(session.tenantId),
             runs: session.runs,

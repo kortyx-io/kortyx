@@ -1,6 +1,7 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import type { EvalGradeInput, EvalJudge } from "@kortyx/agent";
 import {
+  createEvalIssue,
   EvalVerdictSchema,
   StudioEvalJudgeRequestSchema,
 } from "@kortyx/agent/evals";
@@ -91,12 +92,9 @@ export function registerEvalJudgeRoutes(
         verdict,
         ...(usage.length ? { usage } : {}),
       });
-    } catch {
-      // Provider errors can contain credentials and transport details.
-      return c.json(
-        { error: "Studio grading failed or returned an invalid verdict." },
-        502,
-      );
+    } catch (error) {
+      const issue = createEvalIssue("grading", error);
+      return c.json({ error: issue.message, issue }, 502);
     } finally {
       active--;
     }

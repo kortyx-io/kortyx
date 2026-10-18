@@ -10,8 +10,15 @@ import type {
   PendingRequestRecord,
   PendingRequestStore,
 } from "@kortyx/runtime";
-import { createExecutionGraph, restoreGraphSnapshot } from "@kortyx/runtime";
+import {
+  createExecutionGraph,
+  createResumeDelivery,
+  prepareSuspensionSnapshot,
+  restoreGraphSnapshot,
+  resumeDeliveryInput,
+} from "@kortyx/runtime";
 import type { StreamChunk } from "@kortyx/stream";
+import { mergeRuntimeState } from "@kortyx/utils";
 import { ExecutionRequestError } from "../execution/types";
 import type { SelectWorkflowFn } from "../orchestrator";
 import { type OrchestrateArgs, orchestrateGraphStream } from "../orchestrator";
@@ -292,15 +299,17 @@ export async function tryPrepareResumeStream({
         }
       : {};
     if (isLimitPause && pending.graphSnapshot) {
+      pending.graphSnapshot = prepareSuspensionSnapshot(pending.graphSnapshot);
       pending.graphSnapshot.checkpoint.channel_values.config = telemetryConfig;
       if (resumeStatePatch)
-        pending.graphSnapshot.checkpoint.channel_values.runtime = {
-          ...(pending.graphSnapshot.checkpoint.channel_values.runtime as Record<
-            string,
-            unknown
-          >),
-          ...resumeStatePatch,
-        };
+        pending.graphSnapshot.checkpoint.channel_values.runtime =
+          mergeRuntimeState(
+            pending.graphSnapshot.checkpoint.channel_values.runtime as Record<
+              string,
+              unknown
+            >,
+            resumeStatePatch,
+          );
     }
     leaseAbort.signal.throwIfAborted();
     if (pending.graphSnapshot && frameworkAdapter)
@@ -320,8 +329,11 @@ export async function tryPrepareResumeStream({
     }
     const hasResumeUpdate =
       !isLimitPause && Object.keys(resumeUpdate).length > 0;
-    const resumeValue = isLimitPause
-      ? undefined
+    const outstandingResponse = isLimitPause
+      ? pending.graphSnapshot?.suspension?.response
+      : undefined;
+    const humanValue = isLimitPause
+      ? outstandingResponse?.value
       : meta.hasValue && pending.schema.kind === "custom"
         ? meta.value
         : meta.selected?.length && pending.schema.kind === "multi-choice"
@@ -334,6 +346,20 @@ export async function tryPrepareResumeStream({
       pending.graphCheckpointId.length > 0
         ? pending.graphCheckpointId
         : undefined;
+    const resumeDelivery = isLimitPause
+      ? outstandingResponse
+      : humanValue !== undefined
+        ? createResumeDelivery(
+            pending.requestId,
+            pending.node,
+            pending.schema,
+            humanValue,
+            pending.graphSnapshot,
+          )
+        : undefined;
+    const resumeValue = resumeDelivery
+      ? resumeDeliveryInput(resumeDelivery)
+      : humanValue;
     const resumedGraph = await createExecutionGraph(wf, {
       ...telemetryConfig,
       resume: true,
@@ -341,6 +367,8 @@ export async function tryPrepareResumeStream({
       ...(resumeCheckpointId ? { resumeCheckpointId } : {}),
       ...(hasResumeUpdate ? { resumeUpdate } : {}),
     });
+    resumedGraph.execution ??= {};
+    resumedGraph.execution.resumeDelivery = resumeDelivery;
     await store.delete(pending.token);
     const response = meta.hasValue
       ? JSON.stringify(meta.value)

@@ -23,6 +23,7 @@ import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
 import { FeedbackBadge } from "@/features/feedback/components/feedback-badge";
 import { formatCount, formatDateTime, formatDurationMs } from "@/lib/format";
+import { studioHelp } from "@/lib/studio-help";
 import { studioDetailHref } from "@/lib/studio-routes";
 
 export function SessionDetail({
@@ -42,8 +43,12 @@ export function SessionDetail({
     (a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt),
   );
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      data-session-detail-id={session.id}
+      className="flex h-full min-h-0 flex-col"
+    >
       <DetailHeader
+        help={studioHelp.sessions}
         eyebrow="Session"
         title={session.id}
         status={
@@ -61,10 +66,12 @@ export function SessionDetail({
         metrics={
           <>
             <Metric
+              help={studioHelp.sessions}
               label="Runs"
               value={formatCount(session.runs, { compact: false })}
             />
             <Metric
+              help={studioHelp.metrics}
               label="Duration"
               value={formatDurationMs(session.durationMs, {
                 fallback: "Active",
@@ -75,6 +82,7 @@ export function SessionDetail({
               })}
             />
             <Metric
+              help={studioHelp.tokens}
               label="Tokens"
               value={formatCount(session.tokens, { fallback: "Not captured" })}
               title={formatCount(session.tokens, {
@@ -82,7 +90,11 @@ export function SessionDetail({
                 fallback: "Not captured",
               })}
             />
-            <Metric label="Cost" value={<CostValue value={session} />} />
+            <Metric
+              help={studioHelp.cost}
+              label="Cost"
+              value={<CostValue value={session} />}
+            />
           </>
         }
         alert={
@@ -106,6 +118,7 @@ export function SessionDetail({
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="session"
           queryKey="sessionTab"
           tabs={[
             {
@@ -304,8 +317,10 @@ function SessionMetadata({ detail }: { detail: StudioSessionDetailResponse }) {
         <section className="min-w-0">
           <h3 className="text-sm font-semibold">Identity</h3>
           <dl className="mt-3 divide-y">
-            <KeyValue label="User">{session.userId ?? "Not captured"}</KeyValue>
-            <KeyValue label="Tenant">
+            <KeyValue help={studioHelp.identity} label="User">
+              {session.userId ?? "Not captured"}
+            </KeyValue>
+            <KeyValue help={studioHelp.identity} label="Tenant">
               {session.tenantId ?? "Not captured"}
             </KeyValue>
             <KeyValue label="Environment">{session.environment}</KeyValue>

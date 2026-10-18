@@ -1,4 +1,5 @@
 "use client";
+
 import {
   createCollectorTransport,
   createPostHogTransport,
@@ -7,6 +8,7 @@ import {
   type UsageOperation,
   type UsageTelemetry,
 } from "@kortyx/usage-telemetry";
+import { isSamplePath } from "@/features/sample-project/routing";
 import { studioPathname } from "@/lib/studio-routing";
 import type { StudioUsageConfig } from "./contracts";
 
@@ -35,6 +37,12 @@ export function configureStudioUsage(
           version: config.version,
           environment: config.environment,
           identityScope: "browser",
+          ...(config.runtimeMode === undefined
+            ? {}
+            : { runtimeMode: config.runtimeMode }),
+          ...(config.trafficSource === undefined
+            ? {}
+            : { trafficSource: config.trafficSource }),
         },
         catalog: config.catalog ?? publicCatalog,
         debug: () => config.debug,
@@ -73,12 +81,26 @@ export function studioFeature(
   operation: string,
   properties: Record<string, unknown> = {},
 ) {
+  if (
+    operation !== "studio.sample" &&
+    operation !== "studio.help" &&
+    typeof window !== "undefined" &&
+    isSamplePath(window.location.pathname)
+  )
+    return;
   client?.feature(operation, properties);
 }
 export function studioOperation(
   operation: string,
   properties: Record<string, unknown> = {},
 ) {
+  if (
+    operation !== "studio.sample" &&
+    operation !== "studio.help" &&
+    typeof window !== "undefined" &&
+    isSamplePath(window.location.pathname)
+  )
+    return noop;
   return client?.start(operation, properties) ?? noop;
 }
 export function flushStudioUsage() {

@@ -124,6 +124,92 @@ export function summarizeEvaluation(
   costs: Map<string, { costs: EvalCosts }>,
 ): StudioEvaluationSummary {
   const counts = { passed: 0, failed: 0, error: 0, cancelled: 0 };
+  const failures = children.flatMap((child) => {
+    const results = child.result?.cases ?? [
+      ...new Map(
+        (events.get(child.id) ?? [])
+          .filter((event) => event.type === "case-completed")
+          .map((event) => [
+            `${event.result.caseId}:${event.result.repetition}`,
+            event.result,
+          ]),
+      ).values(),
+    ];
+    return [
+      ...(child.result?.errors ?? []).map((issue) => ({
+        suiteRunId: child.id,
+        phase: issue.phase,
+        code: issue.code,
+        message: issue.message,
+        ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
+      })),
+      ...(!child.issue && !child.termination && child.error
+        ? [
+            {
+              suiteRunId: child.id,
+              phase: "execute" as const,
+              code: "EVAL_EXECUTION_UNKNOWN",
+              message: child.error,
+            },
+          ]
+        : []),
+      ...(child.issue
+        ? [
+            {
+              suiteRunId: child.id,
+              phase: child.issue.phase,
+              code: child.issue.code,
+              message: child.issue.message,
+              ...(child.issue.diagnosticId
+                ? { diagnosticId: child.issue.diagnosticId }
+                : {}),
+            },
+          ]
+        : []),
+      ...results.flatMap((item) =>
+        item.errors.map((issue) => ({
+          suiteRunId: child.id,
+          caseId: item.caseId,
+          repetition: item.repetition,
+          phase: issue.phase,
+          code: issue.code,
+          message: issue.message,
+          ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
+        })),
+      ),
+    ];
+  });
+  const pendingAttempts = { notStarted: 0, executing: 0, awaitingGrading: 0 };
+  for (const child of children) {
+    const attemptStates = new Map<string, string>();
+    for (const event of events.get(child.id) ?? []) {
+      if (event.type === "case-started")
+        attemptStates.set(`${event.caseId}:${event.repetition}`, "executing");
+      if (event.type === "case-completed")
+        attemptStates.set(
+          `${event.result.caseId}:${event.result.repetition}`,
+          event.result.status === "ungraded" ? "awaitingGrading" : "completed",
+        );
+      if (event.type === "case-progress" && event.phase === "grading")
+        attemptStates.set(
+          `${event.caseId}:${event.repetition}`,
+          "awaitingGrading",
+        );
+    }
+    for (const item of child.result?.cases ?? [])
+      attemptStates.set(
+        `${item.caseId}:${item.repetition}`,
+        item.status === "ungraded" ? "awaitingGrading" : "completed",
+      );
+    for (const id of child.request.caseIds ??
+      child.suite.cases.map((item) => item.id))
+      for (let i = 1; i <= child.request.repetitions; i++) {
+        const state = attemptStates.get(`${id}:${i}`);
+        if (!state) pendingAttempts.notStarted++;
+        else if (state === "executing") pendingAttempts.executing++;
+        else if (state === "awaitingGrading") pendingAttempts.awaitingGrading++;
+      }
+  }
   let totalAttempts = 0;
   let completedAttempts = 0;
   for (const child of children) {
@@ -180,6 +266,17 @@ export function summarizeEvaluation(
     costs.get(child.id)?.costs ? [costs.get(child.id)!.costs] : [],
   );
   return {
+    termination:
+      children.find((child) => child.termination)?.termination ?? null,
+    resolvedSettings:
+      parent.request.resolvedSettings ?? children[0]?.request.resolvedSettings,
+    failures,
+    pendingAttempts,
+    interruptedSuites: children.filter(
+      (child) =>
+        child.termination ||
+        (!active(child.status) && !child.result && Boolean(child.error)),
+    ).length,
     id: parent.id,
     name: parent.name,
     targetId: parent.targetId,
@@ -263,7 +360,10 @@ async function loadChildren(db: TelemetryDb, scope: Scope, ids: string[]) {
 export async function listEvaluations(
   db: TelemetryDb,
   scope: Scope,
-  options: { suiteRunIds?: readonly string[] } = {},
+  options: {
+    suiteRunIds?: readonly string[];
+    scan?: { offset: number; limit: number };
+  } = {},
 ) {
   if (options.suiteRunIds?.length === 0) return [];
   const parents = await db
@@ -288,8 +388,9 @@ export async function listEvaluations(
           : undefined,
       ),
     )
-    .orderBy(desc(evaluationRuns.createdAt))
-    .limit(100);
+    .orderBy(desc(evaluationRuns.createdAt), desc(evaluationRuns.id))
+    .limit(options.scan?.limit ?? 100)
+    .offset(options.scan?.offset ?? 0);
   const data = await loadChildren(
     db,
     scope,
@@ -316,8 +417,9 @@ export async function listEvaluations(
           : undefined,
       ),
     )
-    .orderBy(desc(evalRuns.createdAt))
-    .limit(100);
+    .orderBy(desc(evalRuns.createdAt), desc(evalRuns.id))
+    .limit(options.scan?.limit ?? 100)
+    .offset(options.scan?.offset ?? 0);
   const legacyCosts = await loadEvalCosts(db, scope, legacy);
   const old = legacy.map((child) => ({
     ...summarizeEvaluation(
@@ -343,7 +445,7 @@ export async function listEvaluations(
   }));
   return [...grouped, ...old]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 100);
+    .slice(0, options.scan ? undefined : 100);
 }
 export async function getEvaluation(
   db: TelemetryDb,
@@ -383,6 +485,9 @@ export async function getEvaluation(
         endedAt: child.endedAt,
         cancelRequestedAt: child.cancelRequestedAt,
         error: child.error,
+        termination: child.termination,
+        issue: child.issue,
+        resolvedSettings: child.request.resolvedSettings,
         totalAttempts:
           (child.request.caseIds?.length ?? child.suite.cases.length) *
           child.request.repetitions,
@@ -402,7 +507,24 @@ export async function getEvaluation(
         phase: (data.events.get(child.id) ?? [])
           .filter((event) => event.type === "case-progress")
           .at(-1)?.phase,
-        counts: child.result?.counts ?? null,
+        counts:
+          child.result?.counts ??
+          [
+            ...new Map(
+              (data.events.get(child.id) ?? [])
+                .filter((event) => event.type === "case-completed")
+                .map((event) => [
+                  `${event.result.caseId}:${event.result.repetition}`,
+                  event.result,
+                ]),
+            ).values(),
+          ].reduce(
+            (counts, item) => {
+              if (item.status !== "ungraded") counts[item.status]++;
+              return counts;
+            },
+            { passed: 0, failed: 0, error: 0, cancelled: 0 },
+          ),
         costs: data.costs.get(child.id)?.costs,
       }));
   return { ...summary, suites };

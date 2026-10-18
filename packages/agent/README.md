@@ -111,3 +111,24 @@ observation and explicit cancellation. Use `createPostgresEvalExecutionStore` fr
 The default memory store only survives within its process. See
 [execution resilience](../../docs/evals/execution-resilience.md) for configuration,
 retention, legacy compatibility and upgrade order.
+
+For planned retirement, `await handleEvals.drain()` stops new admissions and
+finishes accepted local/queued executions without aborting them. Keep HTTP and
+the store open for observation/cancellation; `close()` remains explicit abort.
+With one consumer, drain Studio workers first while the consumer still accepts
+later cases, then drain the consumer after Studio persists results. Overlapping
+consumers require a compatible replacement and shared durable execution storage.
+The built-in stores support this; custom `EvalExecutionStore` implementations need
+`queued` and `claimQueued` for drain. Upgrade agent and runtime together. See the
+linked guide for ordering, failure handling and resource lifetime.
+
+### Evaluation settings and errors
+
+`createEvals` supports `defaults: { repetitions, concurrency, caseTimeoutMs }`,
+`limits: { concurrency, caseTimeoutMs }`, and per-run `caseTimeoutMs` overrides.
+Studio resolves run overrides above project defaults, SDK defaults and built-ins;
+its whole-evaluation timeout is independent of the case budget (30 minutes by
+default). Eval failures retain original messages, stacks, causes and response
+properties with credential redaction automatically. See the repository guides
+[SDK evals](../../docs/evals/sdk-runner.md) and
+[Studio settings and migration](../../docs/evals/studio-execution.md).

@@ -1,10 +1,12 @@
+import { sampleResponse } from "@/features/sample-project/http";
+import { isSampleProject } from "@/features/sample-project/server";
 import "server-only";
 import {
   StudioEvaluationDetailSchema,
   StudioEvaluationHistorySchema,
 } from "@kortyx/agent/evals";
 import { studioAuth } from "@studio/auth";
-import type { z } from "zod";
+import { z } from "zod";
 import {
   EvalDetailSchema,
   EvalHistorySchema,
@@ -12,6 +14,11 @@ import {
 } from "../schema";
 
 async function read<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+  if (await isSampleProject()) {
+    const response = sampleResponse(`/v1/studio/evals/${path}`);
+    if (!response.ok) throw new Error("Sample evaluation unavailable.");
+    return schema.parse(await response.json());
+  }
   const url = process.env.KORTYX_API_URL;
   const credential = await studioAuth.getApiCredential();
   if (!url || !credential) throw new Error("Studio API is not configured.");
@@ -41,7 +48,8 @@ async function read<T>(path: string, schema: z.ZodType<T>): Promise<T> {
   return schema.parse(await response.json());
 }
 export const readEvalTargets = () => read("targets", EvalTargetsResponseSchema);
-export const readEvalHistory = () => read("runs", EvalHistorySchema);
+export const readEvalHistory = (latestPerSuite = false) =>
+  read(latestPerSuite ? "runs?latestPerSuite=true" : "runs", EvalHistorySchema);
 export const readEvalDetail = (id: string) =>
   read(`runs/${encodeURIComponent(id)}`, EvalDetailSchema);
 
@@ -49,3 +57,13 @@ export const readEvaluationHistory = () =>
   read("evaluations", StudioEvaluationHistorySchema);
 export const readEvaluationDetail = (id: string) =>
   read(`evaluations/${encodeURIComponent(id)}`, StudioEvaluationDetailSchema);
+
+export const readEvaluationTable = (
+  query: Record<string, string | string[] | undefined> = {},
+) =>
+  read(
+    `evaluations/table?${new URLSearchParams(Object.entries(query).flatMap(([key, value]) => (value === undefined ? [] : [[key, Array.isArray(value) ? value.join(",") : value]])))}`,
+    StudioEvaluationHistorySchema.extend({
+      totalCount: z.number().int().nonnegative(),
+    }),
+  );

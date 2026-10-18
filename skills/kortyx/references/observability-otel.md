@@ -158,3 +158,19 @@ For typed failure propagation and safe recovery policy, see [Error handling](err
 With tracing configured, thrown workflow/model errors automatically export bounded type/message/stack/cause diagnostics without additional call-site wiring. Studio's failed model request inspector shows provider diagnostics; a separate **Model reasoning** row shows JSON/schema processing failures after an otherwise normally completed model response. Failed provider requests do not add a duplicate reasoning-failure row. Interrupts and cancellation retain their control-flow treatment.
 
 Use `reportError(error, {severity?, metadata?, tags?})` when a catch deliberately continues; OpenTelemetry records the exception plus a `kortyx.error.reported` event without setting the active span to error. Error diagnostics are exported verbatim (type up to 256 characters, message up to 8192 and stack up to 32768). Prompts, outputs and raw provider responses remain controlled by explicit content capture. Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning `{type, message, stack?, cause?}` or `null` to replace or suppress diagnostics before export; a throwing override suppresses them without changing execution. Tool diagnostics use the optional tool `telemetry.error` override. Client-facing `serializeFailure` and execution failure contracts remain unchanged; tracing diagnostics are for access-controlled Studio/internal logs.
+
+### Interpreting maintainer usage aggregates
+
+Use `sum(count)` within the same measurement version, operation, component and
+unit. Model/export attempts, structured deltas, API request acceptance, eval
+invocations and persisted worker outcomes have different denominators. HTTP and
+known error/cause codes are allowlisted; original diagnostic errors remain in
+customer observability. CLI invocations use the `cli` product. Explicit
+`KORTYX_USAGE_TELEMETRY_TRAFFIC_SOURCE` labels internal/synthetic/external traffic;
+`unknown` does not mean customer usage. Loss counters on later successful batches
+cannot account for crashes or a permanently offline tail.
+
+Embedders reuse the shared helper/catalog and component registry. A custom eval
+store retains usage ownership unless `EvalWorkerOptions.usage` is supplied;
+choose the wrapper or worker helper as the single emitter. Keep edition catalogs
+outside the public product contract and preserve the opt-out in replacements.

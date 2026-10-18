@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { DiagnosticResponseSchema } from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
+import { sampleRequestResponse } from "@/features/sample-project/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,6 +12,8 @@ export async function GET(
 ) {
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
+  const sample = await sampleRequestResponse(request);
+  if (sample) return sample;
   const credential = await studioAuth.getApiCredential(request);
   if (!process.env.KORTYX_API_URL || !credential)
     return Response.json({ error: "not_configured" }, { status: 503 });

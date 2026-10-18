@@ -1,7 +1,10 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { type EvalJudge, getEvalSuiteRevision } from "@kortyx/agent";
 import {
+  createEvalIssue,
+  EvalSettingsSchema,
   type EvalSuite,
+  resolveEvalSettings,
   StudioEvaluationStartRequestSchema,
 } from "@kortyx/agent/evals";
 import {
@@ -10,8 +13,10 @@ import {
   ensureProjectEnvironmentAllowed,
   evaluationRequestHash,
   findIdempotentEvaluation,
+  getEvalSettings,
   getEvaluation,
   listEvaluations,
+  listEvaluationTable,
   TelemetryNotFoundError,
   TelemetryValidationError,
 } from "@kortyx/telemetry-db";
@@ -19,6 +24,7 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
 import { freezeEvalPrompts } from "../evals/prompts";
+import { evalInstallationSettings } from "../evals/settings";
 import { type EvalTarget, fetchEvalManifest } from "../evals/targets";
 import {
   principalActorId,
@@ -43,6 +49,35 @@ export function registerEvaluationRoutes(
       ),
     }),
   );
+  app.get(`${path}/table`, async (c) => {
+    const parsed = z
+      .object({
+        tableFilters: z.string().max(32768).optional(),
+        q: z.string().max(512).optional(),
+        status: z.string().max(80).optional(),
+        application: z.string().max(200).optional(),
+        sort: z.enum(["name", "created", "status"]).optional(),
+        dir: z.enum(["asc", "desc"]).optional(),
+        cursor: z
+          .string()
+          .regex(/^\d{1,7}$/)
+          .optional(),
+        pageSize: z
+          .string()
+          .regex(/^\d{1,3}$/)
+          .optional(),
+        field: z.string().max(80).optional(),
+        search: z.string().max(512).optional(),
+      })
+      .safeParse(c.req.query());
+    if (!parsed.success)
+      return c.json({ error: "Invalid evaluation table query." }, 400);
+    return c.json(
+      await c.get("withTenantDatabase")((db) =>
+        listEvaluationTable(db, c.get("principal"), parsed.data),
+      ),
+    );
+  });
   app.get(`${path}/:id`, async (c) => {
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid evaluation ID." }, 400);
@@ -68,7 +103,10 @@ export function registerEvaluationRoutes(
     );
     if (!parsed.success)
       return c.json({ error: "Invalid evaluation request." }, 400);
-    const request = parsed.data;
+    let request = parsed.data as typeof parsed.data &
+      import("@kortyx/agent/evals").ResolvedEvalSettings["values"] & {
+        resolvedSettings?: import("@kortyx/agent/evals").ResolvedEvalSettings;
+      };
     const auth = c.get("principal");
     const target = (adapter ? await adapter.list(auth) : targets).find(
       (target) =>
@@ -99,8 +137,48 @@ export function registerEvaluationRoutes(
         manifest = await (adapter
           ? adapter.manifest(target)
           : fetchEvalManifest(target));
-      } catch {
-        return c.json({ error: "Consumer eval endpoint is unavailable." }, 503);
+      } catch (error) {
+        return c.json(
+          {
+            error: createEvalIssue("execute", error).message,
+          },
+          503,
+        );
+      }
+      let resolvedSettings: ReturnType<typeof resolveEvalSettings>;
+      try {
+        const config = evalInstallationSettings();
+        const overrides = EvalSettingsSchema.parse(
+          Object.fromEntries(
+            Object.entries(parsed.data).filter(([key]) =>
+              [
+                "judge",
+                "repetitions",
+                "concurrency",
+                "caseTimeoutMs",
+                "runTimeoutMs",
+              ].includes(key),
+            ),
+          ),
+        );
+        resolvedSettings = resolveEvalSettings(
+          overrides,
+          await c.get("withTenantDatabase")((db) => getEvalSettings(db, auth)),
+          manifest.execution,
+          config.installation,
+          config.maxRunTimeoutMs,
+        );
+        request = { ...request, ...resolvedSettings.values, resolvedSettings };
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : "Invalid evaluation settings.",
+          },
+          400,
+        );
       }
       if (request.suites.length > 1 && !manifest.attemptScheduling)
         return c.json(
@@ -127,7 +205,12 @@ export function registerEvaluationRoutes(
               selection.suiteRevision,
         )
       )
-        return c.json({ error: "Suite changed. Refresh before running." }, 409);
+        return c.json(
+          {
+            error: "Suite changed. Refresh before running.",
+          },
+          409,
+        );
       if (
         request.selection === "all" &&
         (request.suites.length !== manifest.suites.length ||
@@ -161,7 +244,9 @@ export function registerEvaluationRoutes(
       }
       if (attempts > 1000)
         return c.json(
-          { error: "An evaluation supports at most 1,000 total attempts." },
+          {
+            error: "An evaluation supports at most 1,000 total attempts.",
+          },
           400,
         );
       const judge =
@@ -174,7 +259,9 @@ export function registerEvaluationRoutes(
           : manifest.judge;
       if (request.judge === "studio" && !manifest.studioJudging)
         return c.json(
-          { error: "Update the consumer SDK to support Studio judging." },
+          {
+            error: "Update the consumer SDK to support Studio judging.",
+          },
           409,
         );
       if (!judge)
@@ -240,6 +327,11 @@ export function registerEvaluationRoutes(
               },
               repetitions: request.repetitions,
               concurrency: request.concurrency,
+              runTimeoutMs: request.runTimeoutMs,
+              resolvedSettings,
+              ...(manifest.execution?.overrides.includes("caseTimeoutMs")
+                ? { caseTimeoutMs: request.caseTimeoutMs }
+                : {}),
               ...(selection.caseIds ? { caseIds: selection.caseIds } : {}),
             },
           })),
@@ -271,7 +363,7 @@ export function registerEvaluationRoutes(
       await Promise.all(
         children
           .filter((run) => run.status === "queued" || run.status === "running")
-          .map((run) => adapter.cancel!(auth, run.id)),
+          .map((run) => adapter.cancel?.(auth, run.id)),
       );
     return c.json({ ok: true });
   });

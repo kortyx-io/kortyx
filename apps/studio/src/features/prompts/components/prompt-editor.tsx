@@ -500,9 +500,8 @@ export function PromptEditor({
           </span>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             variant="ghost"
-            className="h-6 text-[11px]"
             onClick={() => editor?.chain().focus().insertContent("#").run()}
           >
             Include prompt

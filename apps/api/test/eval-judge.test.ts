@@ -15,6 +15,7 @@ const auth = vi.hoisted(() => ({
 }));
 vi.mock("@kortyx/telemetry-db", async (original) => ({
   ...(await original<typeof import("@kortyx/telemetry-db")>()),
+  getEvalSettings: vi.fn(async () => ({})),
   authenticateTelemetryApiKey: auth.authenticate,
   ensureProjectEnvironmentAllowed: auth.environment,
   enqueueEvalRun: auth.enqueue,
@@ -156,10 +157,17 @@ it("reports disabled judging and provider failures without exposing secrets", as
     apiKeyPepper: "test",
   });
   expect((await request(disabled)).status).toBe(503);
-  grade.mockRejectedValueOnce(new Error("PRIVATE_PROVIDER_KEY"));
+  grade.mockRejectedValueOnce(
+    new Error(
+      "Provider rate limit exceeded. Authorization: Bearer PRIVATE_PROVIDER_KEY",
+    ),
+  );
   const response = await request();
   expect(response.status).toBe(502);
-  expect(await response.text()).not.toContain("PRIVATE_PROVIDER_KEY");
+  const text = await response.text();
+  expect(text).toContain("Provider rate limit exceeded.");
+  expect(text).toContain("stack");
+  expect(text).not.toContain("PRIVATE_PROVIDER_KEY");
   grade.mockResolvedValueOnce({ ...verdict, passed: "invalid" } as never);
   expect((await request()).status).toBe(502);
 });

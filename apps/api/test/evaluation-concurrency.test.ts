@@ -36,6 +36,7 @@ function fixture(
     repetitions?: number;
     native?: boolean;
     intercept?: (body: Record<string, unknown>) => Response | undefined;
+    reportError?: EvalWorkerOptions["reportError"];
   } = {},
 ) {
   const suites: EvalSuite[] = counts.map((count, index) => ({
@@ -121,6 +122,7 @@ function fixture(
   };
   const workerOptions: EvalWorkerOptions = {
     store,
+    ...(options.reportError ? { reportError: options.reportError } : {}),
     resolveTarget: async () => ({
       id: "app",
       name: "App",
@@ -476,5 +478,87 @@ it("reattaches accepted jobs after graceful worker shutdown without rerunning th
     gate.resolve();
     await f.worker.stop();
     await next?.stop();
+  }
+});
+
+it("records one shared timeout occurrence and preserves completed evidence", async () => {
+  const diagnosticId = randomUUID();
+  const reportError = vi.fn(async () => diagnosticId);
+  const f = fixture([2, 1], 1, {
+    reportError,
+    execute: async (context) => {
+      if (context.suiteId !== "suite-0" || context.case.id !== "case-0")
+        await new Promise<void>((resolve) =>
+          context.signal.addEventListener("abort", () => resolve(), {
+            once: true,
+          }),
+        );
+    },
+  });
+  for (const run of f.runs) run.request.runTimeoutMs = 1500;
+  f.worker.start();
+  try {
+    await f.done;
+    const outcomes = [...f.finished.values()];
+    expect(
+      outcomes.some(
+        (outcome) => outcome.termination?.code === "EVAL_RUN_TIMEOUT",
+      ),
+    ).toBe(true);
+    expect(
+      outcomes
+        .filter((outcome) => outcome.termination)
+        .every((outcome) => outcome.termination?.timeoutMs === 1500),
+    ).toBe(true);
+    const completed = [...f.progress.values()]
+      .flat()
+      .filter((event) => event.type === "case-completed");
+    expect(completed.some((event) => event.result.status === "passed")).toBe(
+      true,
+    );
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(
+      outcomes
+        .filter((outcome) => outcome.termination)
+        .every((outcome) => outcome.termination?.diagnosticId === diagnosticId),
+    ).toBe(true);
+    expect(f.started.length).toBeLessThan(3);
+    expect(f.cleaned.length).toBe(f.started.length);
+  } finally {
+    await f.worker.stop();
+  }
+});
+
+it("archives SDK execution and cleanup issues once across progress and final results", async () => {
+  const reportError = vi.fn(async () => randomUUID());
+  const f = fixture([1], 1, {
+    reportError,
+    execute: async () => {
+      throw new Error("Original execution failure");
+    },
+    teardown: async () => {
+      throw new Error("Original cleanup failure");
+    },
+  });
+  f.worker.start();
+  try {
+    await f.done;
+    const issues = [...f.finished.values()].flatMap(
+      (outcome) => outcome.result?.cases.flatMap((item) => item.errors) ?? [],
+    );
+    expect(issues.map((issue) => issue.message)).toEqual([
+      "Original execution failure",
+      "Original cleanup failure",
+    ]);
+    expect(reportError).toHaveBeenCalledTimes(2);
+    expect(new Set(issues.map((issue) => issue.diagnosticId)).size).toBe(2);
+    const completed = [...f.progress.values()]
+      .flat()
+      .filter((event) => event.type === "case-completed");
+    expect(
+      completed.at(-1)?.result.errors.map((issue) => issue.diagnosticId),
+    ).toEqual(issues.map((issue) => issue.diagnosticId));
+  } finally {
+    await f.worker.stop();
   }
 });

@@ -12,6 +12,7 @@ import {
   isFailureDescriptor,
   serializeFailure,
 } from "@kortyx/core/errors";
+import { observeEvalError } from "@kortyx/core/eval-attribution";
 import {
   safeStartSpan,
   safeTelemetryMetadata,
@@ -62,6 +63,7 @@ export interface CompiledGraphLike {
   execution?: {
     abortSignal?: AbortSignal | undefined;
     budget?: ExecutionBudget | undefined;
+    resumeDelivery?: import("@kortyx/runtime").ResumeDelivery | undefined;
     completeResponse?:
       | ((
           options: import("@kortyx/hooks").CompleteResponseOptions,
@@ -380,7 +382,9 @@ export async function orchestrateGraphStream({
   const errorChunk = (
     error: unknown,
     existingDiagnosticId?: unknown,
+    original = true,
   ): StreamChunk => {
+    if (original) observeEvalError(error);
     const failure = serializeFailure(error);
     let diagnosticId = existingDiagnosticId;
     if (!diagnosticId) {
@@ -877,6 +881,7 @@ export async function orchestrateGraphStream({
         errorChunk(
           outcomeError,
           (payload as { diagnosticId?: unknown })?.diagnosticId,
+          false,
         ),
       );
       write({ type: "done" });
@@ -1792,7 +1797,15 @@ export async function orchestrateGraphStream({
         try {
           const snapshot =
             frameworkAdapter &&
-            (await captureGraphSnapshot(frameworkAdapter.checkpointer, runId));
+            (await captureGraphSnapshot(
+              frameworkAdapter.checkpointer,
+              runId,
+              undefined,
+              {
+                runtimePatch,
+                response: currentGraph.execution?.resumeDelivery,
+              },
+            ));
           throwIfExecutionAborted(abortSignal);
           if (!snapshot)
             throw new Error(

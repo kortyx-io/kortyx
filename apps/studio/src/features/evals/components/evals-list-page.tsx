@@ -3,18 +3,27 @@ import { parseListTablePreferences } from "@/features/telemetry/lib/table-prefer
 import {
   readEvalHistory,
   readEvalTargets,
-  readEvaluationHistory,
+  readEvaluationTable,
 } from "../api/server";
 import { EvalsPageClient } from "./evals-page-client";
 import { EvaluationList } from "./evaluation-list";
-export async function EvalsListPage({ view }: { view: "runs" | "suites" }) {
+export async function EvalsListPage({
+  view,
+  query = {},
+}: {
+  view: "runs" | "suites";
+  query?: Record<string, string | string[] | undefined>;
+}) {
   if (view === "runs") {
     const [targets, history] = await Promise.allSettled([
       readEvalTargets(),
-      readEvaluationHistory(),
+      readEvaluationTable(query),
     ]);
     return (
       <EvaluationList
+        initialTotalCount={
+          history.status === "fulfilled" ? history.value.totalCount : 0
+        }
         initialTargets={
           targets.status === "fulfilled"
             ? targets.value
@@ -33,7 +42,7 @@ export async function EvalsListPage({ view }: { view: "runs" | "suites" }) {
   }
   const [targets, history, cookieStore] = await Promise.allSettled([
     readEvalTargets(),
-    readEvalHistory(),
+    readEvalHistory(true),
     cookies(),
   ]);
   return (

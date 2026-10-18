@@ -1,4 +1,8 @@
 import { EvalsListPage } from "@/features/evals/components/evals-list-page";
-export default function Page() {
-  return <EvalsListPage view="runs" />;
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return <EvalsListPage view="runs" query={await searchParams} />;
 }

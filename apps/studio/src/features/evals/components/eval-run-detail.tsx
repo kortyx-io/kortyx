@@ -1,19 +1,17 @@
 "use client";
+
 import { GitCompareArrows, Square } from "lucide-react";
-import { parseAsStringLiteral } from "nuqs";
 import type { ReactNode } from "react";
-import {
-  DataTable,
-  type DataTableColumn,
-  DataTableColumnsMenu,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
+import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
 import { KeyValue } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { Button } from "@/components/ui/button";
+import { ErrorNotices } from "@/features/diagnostics/error-notices";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
-import { useStudioQueryState } from "@/lib/nuqs";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import {
   type CaseRow,
   caseRows,
@@ -22,12 +20,13 @@ import {
   progressCounts,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
-import { EvalCost, EvalCostBreakdown } from "./eval-cost";
+import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalDuration } from "./eval-duration";
 import { EvalFailure } from "./eval-failure";
 import { EvalStatus } from "./eval-status";
 import { EvalSuiteDefinition } from "./eval-suite-definition";
+import { EvalSettingsSummary, evalTerminationNotice } from "./eval-termination";
 
 export function EvalRunDetail({
   run,
@@ -53,23 +52,21 @@ export function EvalRunDetail({
   const rows = caseRows(run);
   const counts = progressCounts(rows);
   const judge = run.result?.judge ?? run.request?.judge;
-  const [filter, setFilter] = useStudioQueryState(
-    "outcome",
-    parseAsStringLiteral(["all", "failed", "error", "passed"] as const)
-      .withDefault("all")
-      .withOptions({ shallow: true }),
-  );
   const columns: DataTableColumn<CaseRow>[] = [
     {
       key: "case",
+      filter: [
+        columnFilter("case", "Conversation", "text", (r) => r.name),
+        columnFilter("caseId", "Case ID", "text", (r) => r.caseId),
+      ],
       label: "Conversation",
       defaultWidth: 320,
       render: (item) => (
         <div className="min-w-0">
           <Button
-            variant="ghost"
-            size="xs"
-            className="max-w-full justify-start px-0 hover:bg-transparent"
+            variant="link"
+            size="inline"
+            className="max-w-full justify-start"
             onClick={() => onCaseChange(item.key)}
           >
             <span className="truncate">{item.name}</span>
@@ -82,12 +79,14 @@ export function EvalRunDetail({
     },
     {
       key: "status",
+      filter: columnFilter("status", "Outcome", "enum", (r) => r.status),
       label: "Outcome",
       defaultWidth: 130,
       render: (item) => <EvalStatus status={item.status} />,
     },
     {
       key: "attempt",
+      filter: columnFilter("attempt", "Attempt", "number", (r) => r.repetition),
       label: "Attempt",
       defaultWidth: 85,
       render: (item) => (
@@ -96,6 +95,20 @@ export function EvalRunDetail({
     },
     {
       key: "steps",
+      filter: [
+        columnFilter(
+          "steps",
+          "Completed steps",
+          "number",
+          (r) => r.steps.length,
+        ),
+        columnFilter(
+          "expectedSteps",
+          "Expected steps",
+          "number",
+          (r) => r.expectedSteps,
+        ),
+      ],
       label: "Steps",
       defaultWidth: 90,
       render: (item) => (
@@ -106,12 +119,21 @@ export function EvalRunDetail({
     },
     {
       key: "cost",
+      filter: columnFilter("cost", "Cost", "number", (r) =>
+        evalFilterCost(r.costs),
+      ),
       label: "Cost",
       defaultWidth: 110,
       render: (item) => <EvalCost costs={item.costs} />,
     },
     {
       key: "duration",
+      filter: columnFilter(
+        "duration",
+        "Duration (ms)",
+        "number",
+        (r) => r.durationMs,
+      ),
       label: "Duration",
       defaultWidth: 100,
       render: (item) => (
@@ -120,9 +142,52 @@ export function EvalRunDetail({
         </span>
       ),
     },
+
+    valueColumn<CaseRow>({
+      key: "sessionId",
+      label: "Session ID",
+      read: (r) => r.sessionId,
+    }),
+    valueColumn<CaseRow>({
+      key: "failure",
+      label: "Failure summary",
+      read: (r) => [
+        ...r.errors.map((error) => error.message),
+        ...r.steps
+          .filter((step) => step.status === "failed" || step.status === "error")
+          .map((step) => step.reason ?? ""),
+      ],
+    }),
+    valueColumn<CaseRow>({
+      key: "criteriaScore",
+      label: "Criteria passed (%)",
+      kind: "number",
+      read: (r) => {
+        const criteria = r.steps.flatMap((step) => step.criteria);
+        return criteria.length
+          ? (criteria.filter((item) => item.passed).length / criteria.length) *
+              100
+          : undefined;
+      },
+      format: (v) => `${Number(v).toFixed(1)}%`,
+    }),
+    valueColumn<CaseRow>({
+      key: "executionMs",
+      label: "Execution time (ms)",
+      kind: "number",
+      read: (r) => r.phaseDurationsMs?.execute,
+      format: (v) => formatDurationMs(Number(v)),
+    }),
+    valueColumn<CaseRow>({
+      key: "gradingMs",
+      label: "Judging time (ms)",
+      kind: "number",
+      read: (r) => r.phaseDurationsMs?.grading,
+      format: (v) => formatDurationMs(Number(v)),
+    }),
   ];
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div data-eval-run-id={run.id} className="flex h-full min-h-0 flex-col">
       <EvalDetailHeader
         title={run.suite.name ?? displayName(run.suiteId)}
         description={`${run.targetName} · ${run.environment} · ${formatDateTime(run.createdAt)}`}
@@ -130,10 +195,14 @@ export function EvalRunDetail({
         onBack={onBack}
         actions={
           <>
+            <EvalSettingsSummary
+              settings={run.resolvedSettings}
+              startedAt={run.startedAt}
+            />
             {liveControl}
-            <EvalStatus status={run.status} />
+            <EvalStatus status={run.status} termination={run.termination} />
             <Button
-              variant="outline"
+              variant="secondary"
               size="xs"
               onClick={onCompare}
               disabled={!canCompare || isActive(run.status)}
@@ -143,7 +212,7 @@ export function EvalRunDetail({
             </Button>
             {isActive(run.status) && canRun ? (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="xs"
                 onClick={onCancel}
                 disabled={cancelling || Boolean(run.cancelRequestedAt)}
@@ -155,7 +224,43 @@ export function EvalRunDetail({
           </>
         }
       >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border bg-muted/20 px-3 py-2">
+        <ErrorNotices
+          environment={run.environment}
+          items={[
+            ...evalTerminationNotice({
+              termination: run.termination,
+              settings: run.resolvedSettings,
+              completed: counts.completed,
+              total: counts.total,
+            }),
+            ...[
+              ...(run.issue && !run.termination ? [run.issue] : []),
+              ...(run.result?.errors ?? []),
+              ...rows.flatMap((row) => row.errors),
+            ]
+              .filter((issue) => issue.code !== "EVAL_RUN_TIMEOUT")
+              .map((issue, index) => ({
+                id: issue.diagnosticId ?? `issue-${index}`,
+                severity: "error" as const,
+                code: issue.code,
+                message: issue.message,
+                diagnosticId: issue.diagnosticId,
+                exception: issue.exception,
+                context: issue.phase,
+              })),
+            ...(!run.issue && !run.termination && run.error
+              ? [
+                  {
+                    id: "legacy-error",
+                    severity: "error" as const,
+                    code: "EVAL_EXECUTION_UNKNOWN",
+                    message: run.error,
+                  },
+                ]
+              : []),
+          ]}
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
           <EvalSummaryMetric
             label="Completed"
             value={`${counts.completed} / ${counts.total}`}
@@ -174,14 +279,7 @@ export function EvalRunDetail({
           </span>
         </div>
         <div className="empty:hidden [&:not(:empty)]:mt-2">
-          {run.error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-red-500/25 bg-red-500/5 p-2 text-xs text-red-700 dark:text-red-400"
-            >
-              {run.error}
-            </p>
-          ) : run.cancelRequestedAt && isActive(run.status) ? (
+          {run.cancelRequestedAt && isActive(run.status) ? (
             <p className="text-xs text-muted-foreground">
               Cancellation requested. Waiting for the application to finish
               cleanup.
@@ -191,59 +289,36 @@ export function EvalRunDetail({
       </EvalDetailHeader>
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="eval-run"
           queryKey="evalTab"
           tabs={[
             {
               id: "cases",
               label: "Case results",
               content: (
-                <DataTableProvider columns={columns}>
-                  <DataTable
-                    data={rows.filter(
-                      (r) => filter === "all" || r.status === filter,
-                    )}
-                    getRowKey={(r) => r.key}
-                    onRowClick={(r) => onCaseChange(r.key)}
-                    rowClassName={(r) =>
-                      r.status === "failed" || r.status === "error"
-                        ? "bg-red-500/[0.025]"
-                        : undefined
-                    }
-                    className="rounded-none border-0 shadow-none"
-                    header={
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {["all", "failed", "error", "passed"].map((value) => (
-                            <Button
-                              key={value}
-                              variant={filter === value ? "secondary" : "ghost"}
-                              size="xs"
-                              onClick={() => {
-                                void setFilter(
-                                  value as
-                                    | "all"
-                                    | "failed"
-                                    | "error"
-                                    | "passed",
-                                );
-                              }}
-                            >
-                              {value === "all"
-                                ? "All attempts"
-                                : displayName(value)}
-                            </Button>
-                          ))}
-                        </div>
-                        <DataTableColumnsMenu />
-                      </div>
-                    }
-                    emptyState={
-                      <p className="p-12 text-center text-sm text-muted-foreground">
-                        No attempts match this outcome.
-                      </p>
-                    }
-                  />
-                </DataTableProvider>
+                <DataTable
+                  help={{
+                    filters: studioHelp.filters,
+                    views: studioHelp.views,
+                  }}
+                  compatibility={{ aliases: { outcome: "status" } }}
+                  columns={withStudioColumnHelp(columns, "evals")}
+                  tableId="eval-cases"
+                  data={rows}
+                  getRowKey={(r) => r.key}
+                  onRowClick={(r) => onCaseChange(r.key)}
+                  rowTone={(r) =>
+                    r.status === "failed" || r.status === "error"
+                      ? "danger"
+                      : undefined
+                  }
+                  className="rounded-none border-0 shadow-none"
+                  emptyState={
+                    <p className="p-12 text-center text-sm text-muted-foreground">
+                      No attempts match this outcome.
+                    </p>
+                  }
+                />
               ),
             },
             {

@@ -1,4 +1,5 @@
 "use client";
+
 import {
   type PromptDetail,
   PromptDetailSchema,
@@ -6,10 +7,17 @@ import {
   type PromptLibrary,
   PromptLibrarySchema,
 } from "@kortyx/telemetry-contracts";
-import { MoreHorizontal, Play, Plus, Trash2, Users } from "lucide-react";
+import { Maximize2, MoreHorizontal, Play, Plus, Trash2, X } from "lucide-react";
 import { parseAsString, parseAsStringLiteral } from "nuqs";
-import { useEffect, useState } from "react";
-import { DetailDrawer } from "@/components/detail/detail-drawer";
+import { type ReactNode, useEffect, useState } from "react";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
+import { columnFilter } from "@/components/data-table/filter-fields";
+import { TablePageHeader } from "@/components/data-table/table-page-header";
+import { valueColumn } from "@/components/data-table/value-column";
+import {
+  DetailDrawer,
+  useDetailDrawer,
+} from "@/components/detail/detail-drawer";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { DetailLink } from "@/components/detail/detail-link";
 import { DetailPage } from "@/components/detail/detail-page";
@@ -26,8 +34,10 @@ import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { EvalRunSetup } from "@/features/evals/components/eval-run-setup";
 import { useEvalSetup } from "@/features/evals/hooks/use-eval-setup";
 import type { EvalTargets } from "@/features/evals/schema";
+import { formatDateTime } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
+import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { promptRequest } from "../api/client";
 import {
   usePromptLibrary,
@@ -166,11 +176,11 @@ export function PromptGroupsView({
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
-          size="icon"
+          size="icon-sm"
           variant="ghost"
           aria-label={`${group.name} group actions`}
         >
-          <MoreHorizontal className="size-4" />
+          <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -214,21 +224,14 @@ export function PromptGroupsView({
   );
   const content = (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b p-5">
-        <div className="min-w-0">
-          <h1
-            hidden={drawer}
-            className="truncate text-sm font-semibold"
-            title={group?.name}
-          >
-            {group?.name ?? "Test groups"}
-          </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {group
-              ? `${group.members.length} exact prompt versions`
-              : "Named selections of prompt versions for an eval launch."}
-          </p>
-        </div>
+      <PromptGroupHeader
+        title={group?.name ?? "Test groups"}
+        description={
+          group
+            ? `${group.members.length} exact prompt versions`
+            : "Named selections of prompt versions for an eval launch."
+        }
+      >
         {group ? (
           <div className="flex items-center gap-2">
             <Button
@@ -236,7 +239,7 @@ export function PromptGroupsView({
               disabled={!targets.canRun || !compatibleTarget(group)}
               onClick={() => run(group)}
             >
-              <Play className="size-3.5" />
+              <Play />
               Run a suite
             </Button>
             {actions(group)}
@@ -250,11 +253,11 @@ export function PromptGroupsView({
               setForm("create");
             }}
           >
-            <Plus className="size-3.5" />
+            <Plus />
             New group
           </Button>
         )}
-      </header>
+      </PromptGroupHeader>
       {(error || readError) && (
         <p
           role="alert"
@@ -264,7 +267,13 @@ export function PromptGroupsView({
         </p>
       )}
       <PromptWorkspace>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin]">
+        <div
+          className={
+            group
+              ? "min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 [scrollbar-width:thin]"
+              : "min-h-0 flex-1 overflow-hidden"
+          }
+        >
           {group ? (
             <div className="space-y-3">
               {group.members.map((member) => {
@@ -291,7 +300,7 @@ export function PromptGroupsView({
                       v{member.version}
                     </span>
                     <Button
-                      size="icon"
+                      size="icon-sm"
                       variant="ghost"
                       disabled={working || !library.permissions.edit}
                       aria-label={`Remove ${asset?.name ?? member.promptId} from group`}
@@ -304,14 +313,14 @@ export function PromptGroupsView({
                         });
                       }}
                     >
-                      <Trash2 className="size-3.5" />
+                      <Trash2 />
                     </Button>
                   </div>
                 );
               })}
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={!library.permissions.edit}
                 onClick={() => {
                   setEditing(group);
@@ -321,7 +330,7 @@ export function PromptGroupsView({
                   setReplace(false);
                 }}
               >
-                <Plus className="size-3.5" />
+                <Plus />
                 Add prompt version
               </Button>
               <p className="text-xs text-muted-foreground">
@@ -330,41 +339,91 @@ export function PromptGroupsView({
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border">
-              <div className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] gap-3 border-b bg-muted/20 px-4 py-3 text-[11px] font-medium text-muted-foreground">
-                <span>Group</span>
-                <span>Prompts</span>
-                <span className="sr-only">Actions</span>
-              </div>
-              {library.groups.length ? (
-                library.groups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] items-center gap-3 border-b px-4 py-3 last:border-0"
-                  >
-                    <DetailLink
-                      href={`/prompts/groups/${group.id}`}
-                      className="truncate text-xs font-medium hover:underline"
-                    >
-                      {group.name}
-                    </DetailLink>
-                    <span className="text-xs text-muted-foreground">
-                      {group.members.length}
-                    </span>
-                    {actions(group)}
-                  </div>
-                ))
-              ) : (
-                <div className="space-y-3 px-4 py-12 text-center">
-                  <Users className="mx-auto size-7 text-muted-foreground/50" />
-                  <p className="text-xs font-medium">No test groups yet</p>
-                  <p className="text-xs text-muted-foreground">
-                    Group candidate versions when a workflow uses several
-                    prompts.
-                  </p>
-                </div>
+            <DataTable
+              help={{ filters: studioHelp.filters, views: studioHelp.views }}
+              columns={withStudioColumnHelp(
+                [
+                  {
+                    key: "name",
+                    label: "Group",
+                    defaultWidth: 300,
+                    filter: columnFilter(
+                      "name",
+                      "Group",
+                      "text",
+                      (group: PromptGroup) => group.name,
+                    ),
+                    render: (group: PromptGroup) => (
+                      <DetailLink
+                        href={`/prompts/groups/${group.id}`}
+                        className="text-xs hover:underline"
+                      >
+                        {group.name}
+                      </DetailLink>
+                    ),
+                  },
+                  {
+                    key: "prompts",
+                    label: "Prompts",
+                    defaultWidth: 120,
+                    filter: columnFilter(
+                      "prompts",
+                      "Prompts",
+                      "number",
+                      (group: PromptGroup) => group.members.length,
+                    ),
+                    render: (group: PromptGroup) => (
+                      <span className="text-xs">{group.members.length}</span>
+                    ),
+                  },
+
+                  valueColumn<PromptGroup>({
+                    key: "updatedAt",
+                    label: "Updated",
+                    kind: "date",
+                    read: (g) => g.updatedAt,
+                    format: (v) => formatDateTime(String(v)),
+                  }),
+                  valueColumn<PromptGroup>({
+                    key: "memberNames",
+                    label: "Included prompts",
+                    read: (g) =>
+                      g.members.map((m) => m.name ?? m.key ?? m.promptId),
+                    width: 260,
+                  }),
+                  valueColumn<PromptGroup>({
+                    key: "memberVersions",
+                    label: "Selected versions",
+                    read: (g) =>
+                      g.members.map(
+                        (m) => `${m.key ?? m.name ?? m.promptId}@v${m.version}`,
+                      ),
+                    width: 260,
+                  }),
+                  {
+                    key: "actions",
+                    label: "Actions",
+                    defaultWidth: 80,
+                    filter: false,
+                    render: actions,
+                  },
+                ] satisfies DataTableColumn<PromptGroup>[],
+                "prompts",
               )}
-            </div>
+              tableId="prompt-groups"
+              search={{
+                label: "Search test groups",
+                placeholder: "Search groups…",
+              }}
+              data={library.groups}
+              getRowKey={(group) => group.id}
+              className="rounded-none border-0 shadow-none"
+              emptyState={
+                <p className="p-10 text-center text-xs text-muted-foreground">
+                  No test groups match these filters.
+                </p>
+              }
+            />
           )}
         </div>
       </PromptWorkspace>
@@ -571,6 +630,7 @@ export function PromptGroupsView({
   );
   return drawer ? (
     <DetailDrawer
+      customHeader
       matchPath={path}
       dismissPath={groupId ? "/prompts/groups" : "/prompts"}
       title={group?.name ?? "Test groups"}
@@ -580,10 +640,67 @@ export function PromptGroupsView({
     </DetailDrawer>
   ) : (
     <DetailPage
+      customHeader
       title={group?.name ?? "Test groups"}
       description="Candidate versions for testing"
     >
       {content}
     </DetailPage>
+  );
+}
+
+/** Keep drawer chrome compact; expanded and direct routes use the list header. */
+function PromptGroupHeader({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  const { navigation } = useDetailDrawer();
+  if (navigation && !navigation.expanded) {
+    return (
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
+        {navigation.canExpand && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Expand detail"
+            onClick={navigation.expand}
+          >
+            <Maximize2 />
+          </Button>
+        )}
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-sm font-semibold" title={title}>
+            {title}
+          </h1>
+          <p className="truncate text-xs text-muted-foreground">
+            Candidate versions for testing
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">{children}</div>
+        {navigation.isTop && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Close detail"
+            onClick={navigation.close}
+          >
+            <X />
+          </Button>
+        )}
+      </header>
+    );
+  }
+  return (
+    <TablePageHeader
+      help={studioHelp.prompts}
+      title={title}
+      description={description}
+      actions={children}
+    />
   );
 }

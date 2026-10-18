@@ -1,13 +1,17 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import { type EvalJudge, getEvalSuiteRevision } from "@kortyx/agent";
 import {
+  createEvalIssue,
+  EvalSettingsSchema,
   type EvalSuite,
+  resolveEvalSettings,
   StudioEvalStartRequestSchema,
 } from "@kortyx/agent/evals";
 import {
   enqueueEvalRun,
   ensureProjectEnvironmentAllowed,
   getEvalRun,
+  getEvalSettings,
   listEvalRuns,
   requestEvalCancellation,
   TelemetryForbiddenError,
@@ -17,6 +21,10 @@ import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
 import { freezeEvalPrompts } from "../evals/prompts";
+import {
+  evalInstallationSettings,
+  registerEvalSettingsRoutes,
+} from "../evals/settings";
 import {
   EvalDiscoveryError,
   type EvalTarget,
@@ -36,6 +44,8 @@ export function registerEvalRoutes(
   studioJudge?: EvalJudge,
   adapter?: EvalTargetAdapter,
 ) {
+  app.use("/v1/studio/evals/settings", bodyLimit({ maxSize: 16_384 }));
+  registerEvalSettingsRoutes(app);
   registerEvaluationRoutes(app, targets, studioJudge, adapter);
   const manifestFor = adapter
     ? (target: EvalTarget) => adapter.manifest(target)
@@ -65,7 +75,7 @@ export function registerEvalRoutes(
             ...base,
             manifest: null,
             revisions: {},
-            error: "Consumer eval environment is unavailable.",
+            error: createEvalIssue("execute", error).message,
             diagnostic: {
               code:
                 error instanceof TelemetryForbiddenError
@@ -93,7 +103,7 @@ export function registerEvalRoutes(
             ...base,
             manifest: null,
             revisions: {},
-            error: "Consumer eval endpoint is unavailable or incompatible.",
+            error: createEvalIssue("execute", error).message,
             diagnostic:
               error instanceof EvalDiscoveryError ? error.diagnostic : null,
           };
@@ -102,6 +112,13 @@ export function registerEvalRoutes(
     );
     return c.json({
       targets: items,
+      settings: {
+        defaults: await c.get("withTenantDatabase")((db) =>
+          getEvalSettings(db, auth),
+        ),
+        ...evalInstallationSettings(),
+        canEdit: await canApiAction(c, "studio:write"),
+      },
       canRun: await canApiAction(c, "eval:run"),
       studioJudge: studioJudge
         ? {
@@ -115,7 +132,11 @@ export function registerEvalRoutes(
   app.get("/v1/studio/evals/runs", async (c) =>
     c.json({
       runs: await c.get("withTenantDatabase")((db) =>
-        listEvalRuns(db, c.get("principal")),
+        listEvalRuns(
+          db,
+          c.get("principal"),
+          c.req.query("latestPerSuite") === "true",
+        ),
       ),
     }),
   );
@@ -135,7 +156,7 @@ export function registerEvalRoutes(
       await c.req.json().catch(() => null),
     );
     if (!parsed.success) return c.json({ error: "Invalid eval request." }, 400);
-    const { targetId, ...request } = parsed.data;
+    const { targetId, ...input } = parsed.data;
     const target = (adapter ? await adapter.list(auth) : targets).find(
       (value) =>
         value.id === targetId &&
@@ -149,9 +170,43 @@ export function registerEvalRoutes(
     let manifest: Awaited<ReturnType<typeof fetchEvalManifest>>;
     try {
       manifest = await manifestFor(target);
-    } catch {
-      return c.json({ error: "Consumer eval endpoint is unavailable." }, 503);
+    } catch (error) {
+      return c.json({ error: createEvalIssue("execute", error).message }, 503);
     }
+    let resolvedSettings: ReturnType<typeof resolveEvalSettings>;
+    try {
+      const config = evalInstallationSettings();
+      resolvedSettings = resolveEvalSettings(
+        EvalSettingsSchema.parse(
+          Object.fromEntries(
+            Object.entries(input).filter(([key]) =>
+              [
+                "judge",
+                "repetitions",
+                "concurrency",
+                "caseTimeoutMs",
+                "runTimeoutMs",
+              ].includes(key),
+            ),
+          ),
+        ),
+        await c.get("withTenantDatabase")((db) => getEvalSettings(db, auth)),
+        manifest.execution,
+        config.installation,
+        config.maxRunTimeoutMs,
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Invalid evaluation settings.",
+        },
+        400,
+      );
+    }
+    const request = { ...input, ...resolvedSettings.values };
     const suite = manifest.suites.find((value) => value.id === request.suiteId);
     if (
       !suite ||
@@ -226,6 +281,11 @@ export function registerEvalRoutes(
           suiteRevision: request.suiteRevision,
           repetitions: request.repetitions,
           concurrency: request.concurrency,
+          runTimeoutMs: request.runTimeoutMs,
+          resolvedSettings,
+          ...(manifest.execution?.overrides.includes("caseTimeoutMs")
+            ? { caseTimeoutMs: request.caseTimeoutMs }
+            : {}),
           ...(request.caseIds ? { caseIds: request.caseIds } : {}),
         },
         requestedBy:

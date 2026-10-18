@@ -1,7 +1,7 @@
 ---
 id: v0-choose-a-provider
 title: "Choose a Provider"
-description: "Pick a Kortyx provider package, configure credentials, and understand the current provider scope."
+description: "Choose and install a Kortyx model provider, configure credentials, centralize imports, and understand supported text, streaming, and provider options."
 keywords: [kortyx, providers, ai providers, openai, anthropic, google, deepseek, groq, mistral, openrouter]
 sidebar_label: "Choose a Provider"
 ---

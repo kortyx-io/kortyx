@@ -7,7 +7,7 @@ sidebar_label: "Conversation Evals"
 ---
 # Conversation evals in the consumer application
 
-New to eval setup? Follow [Run Your First Workflow Eval](../../../studio/v0/12-first-eval.md)
+New to eval setup? Follow [Run Your First Workflow Eval](/docs/studio/v0/first-eval)
 for a complete application-to-Studio recipe and deployment checks.
 
 `createEvals` runs scripted conversations against an existing `createAgent`
@@ -17,7 +17,7 @@ It executes real workflows, tools, and application logic.
 
 The SDK exposes serializable suites, a manifest, progress events, and results.
 Mount `createEvalRouteHandler` in the consumer app to let Studio execute suites
-and persist their observations and grades. See [Studio execution](../../../studio/v0/11-evals.md)
+and persist their observations and grades. See [Studio execution](/docs/studio/v0/evals)
 for the endpoint, database migration, and local Docker configuration.
 
 ## What an eval tests
@@ -502,7 +502,7 @@ and failed criteria with reasons/evidence. `--json` emits full SDK results for
 automation. All passes exit `0`, failures/errors exit `1`, cancellation exits `130`.
 Your existing setup, executor, responders, cleanup and code judge are reused.
 No Studio model or execution credentials are needed. See
-[CLI commands](../../../studio/v0/04-cli-commands.md) for filters, environment loading and
+[CLI commands](/docs/cli/v0/reference) for filters, environment loading and
 report options.
 
 When **Studio judge** is selected, the SDK bypasses the code judge, executes the
@@ -514,8 +514,7 @@ run. A case is not counted as passed while awaiting evaluation. Semantic grading
 happens after execution, so a semantic failure does not stop subsequent scripted
 steps in this mode. **App judge** retains per-step grading and stop-on-failure.
 
-Studio's run drawer offers both available locations. The CLI defaults to Studio
-judging; pass `--judge app` to select the code judge. A missing judge or incompatible
+Studio's run drawer offers both available locations. The CLI resolves the project judge default (Studio when unset); pass `--judge app` to select the code judge. A missing judge or incompatible
 consumer SDK prevents starting that selection; there is no automatic fallback.
 The Studio backend pins the selected judge's ID and version when enqueuing. A
 changed judge causes an error before execution. Saved results include the identity
@@ -672,16 +671,18 @@ has executed. This is not
 a complete reproducibility record of model versions, prompts, app code, and
 external data; retain those deployment details in your app's run record.
 
-Declared-safe failures retain their code, message, details and bounded causes in
-`errors[].failure`. Unknown exception details remain private. When the agent has
-native telemetry configured with `diagnostics: { enabled: true }`, hook failures
-are reported through `agent.reportError`; eval issues and native stream errors
-retain their `diagnosticId`. Studio offers **View diagnostic** beside these
-failures. A custom agent can supply `createEvals({ reportError })` with the same
-synchronous reporter contract. Exporter failures do not alter eval outcomes.
-Historical results without a diagnostic reference cannot recover discarded data.
-Progress events are snapshots; listener failures mark the run as a reporting
-error without skipping case cleanup.
+Eval issues preserve the original message, exception type, stack, causes and
+provider/HTTP response properties in `errors[].exception` by default. Known
+credential fields, authorization headers and credential patterns are redacted;
+ordinary error content is retained. Capture size/depth limits are explicit in
+`exception.capture`. No diagnostic flag or custom reporter is required for this
+evidence. `errors[].failure` remains the separate public failure descriptor.
+
+An existing native diagnostic reference is loaded automatically by Studio under
+its project permissions. Optional `agent.reportError` or `createEvals({ reportError })`
+can also archive evidence; exporter failure never changes the eval outcome.
+Previously discarded content cannot be reconstructed. Progress listener failures
+remain reporting errors and do not skip cleanup.
 
 Use `verify({ prepared, result, signal, ...context })` for application
 postconditions, after the conversation and before teardown:
@@ -735,7 +736,7 @@ not provider-only latency.
 `evals.listSuites()` returns editable copies. `evals.describe()` returns schema
 version 1, suites, named handlers, optional parameter JSON Schema, and judge
 identity. Neither invokes setup. `createEvalRouteHandler` exposes this manifest
-and runs to the Studio control plane. See [Studio execution](../../../studio/v0/11-evals.md)
+and runs to the Studio control plane. See [Studio execution](/docs/studio/v0/evals)
 for authenticated transport, persistent runs, and local Docker setup. Saved-run comparisons are available in Studio. Prompt version pinning remains subsequent work.
 
 ## Optional typed case parameters
@@ -816,7 +817,55 @@ restart recovery, pass `createPostgresEvalExecutionStore({connectionString,names
 from `kortyx`, sharing the namespace, service key, suites and capacity settings.
 Defaults allow one evaluation group, twenty attempts and a thousand queued jobs.
 Forward GET, POST and DELETE with all headers and query parameters. Keep the host
-alive while accepted execution runs; close the handler before closing its store.
+alive while accepted execution runs. For planned retirement use
+`await handleEvals.drain()`; it stops new execution admission and finishes local active jobs
+plus a bounded snapshot of accepted queued jobs. Authenticated observation and
+cancellation remain available. Keep HTTP and the store open until Studio has
+persisted results, then retire HTTP, call `close()` and close the store. `close()`
+retains its explicit abort behavior. A failed drain is not successful retirement.
+
+With one consumer, drain Studio workers first while this endpoint still accepts
+their later cases, wait for durable Studio outcomes, then drain the consumer.
+With replicas, first route new work to a compatible replacement sharing the
+durable store, namespace, service key, suites and limits. Consumer drain does not
+cover future Studio submissions or transfer another owner's active execution.
+Memory stores cannot be shared between processes. Upgrade agent/runtime together;
+custom stores require scoped `queued` and atomic `claimQueued` capabilities for
+this hook. See [retire evaluation workers](/docs/self-hosting/deployment-lifecycle) for the
+full ordering and hosting requirements.
+
 Lost running leases are never replayed automatically; queued jobs can recover.
 External side effects still require application-owned idempotency. Upgrade SDK
 consumers first, then API and Studio together; older consumers retain legacy streams.
+
+## Execution defaults and application limits
+
+```ts
+const evals = createEvals({
+  agent,
+  suites: [suite],
+  defaults: { repetitions: 2, concurrency: 2, caseTimeoutMs: 120_000 },
+  limits: { concurrency: 4, caseTimeoutMs: 300_000 },
+});
+// Direct SDK execution uses explicit run values, then configured SDK defaults.
+await evals.run({ suiteId: suite.id, caseTimeoutMs: 180_000 });
+```
+
+Studio resolves each field as: per-run override → Studio project default →
+explicit SDK default → SDK built-in default. Omitted values remain omitted until
+resolution. The manifest's `execution` advertises declared defaults, limits and
+supported overrides. Application limits are ceilings, independent of precedence;
+an excessive value is rejected before setup, never silently clamped.
+
+SDK built-ins are one repetition, concurrency one and a 60-second case timeout.
+Repetitions and concurrency support 1–20; millisecond deadlines support positive
+integers up to 2,147,483,647. Setup, verification and cleanup budgets remain
+application-owned (`defaults.setupTimeoutMs`, `verificationTimeoutMs`,
+`cleanupTimeoutMs`). Changing the per-run case deadline does not change these
+independently resolved lifecycle budgets.
+
+The whole-evaluation deadline belongs to Studio scheduling, independently of the
+SDK case budget. Studio defaults to 30 minutes across all selected suites,
+including execution and Studio grading, starting when execution begins. Queue
+waiting is excluded. Direct `evals.run` has no Studio scheduler deadline; callers
+can pass `signal`. Aborts remain cooperative and cannot forcibly terminate work.

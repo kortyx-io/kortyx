@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { z } from "zod";
 import {
   type EvalExecutionJob,
+  type EvalExecutionLimits,
   type EvalExecutionStore,
   evalExecutionCancelled,
   evalExecutionError,
@@ -190,6 +191,32 @@ export function createPostgresEvalExecutionStore({
         { record: EvalExecutionJob }[]
       >`SELECT record-'payload' AS record FROM kortyx_eval_execution_jobs WHERE namespace=${namespace} AND record->>'state' IN ('queued','running','unknown') ORDER BY (record->>'createdAt')::bigint,id`
     ).map((row) => row.record);
+  const claim = (
+    owner: string,
+    scope: string,
+    limits: EvalExecutionLimits,
+    ids?: readonly string[],
+  ) =>
+    transact(async (tx, now) => {
+      validateEvalExecutionLimits(limits);
+      const selected = ids && new Set(ids);
+      const candidates = await jobs(tx);
+      const candidate = candidates.find(
+        (job) =>
+          job.scope === scope &&
+          job.state === "queued" &&
+          (!selected || selected.has(job.id)) &&
+          evalExecutionFits(candidates, job, limits),
+      );
+      if (!candidate) return undefined;
+      const job = await load(tx, candidate.id);
+      if (!job) return undefined;
+      job.state = "running";
+      job.leaseOwner = owner;
+      job.leaseUntil = now + leaseMs;
+      await save(tx, job);
+      return job;
+    });
   return {
     heartbeatIntervalMs: Math.max(1, Math.min(2000, Math.floor(leaseMs / 3))),
     generation: async () => {
@@ -256,25 +283,14 @@ export function createPostgresEvalExecutionStore({
         await tx`INSERT INTO kortyx_eval_execution_jobs (namespace,id,record) VALUES (${namespace},${job.id},${tx.json(z.json().parse(job))})`;
         return job;
       }),
-    claim: (owner, scope, limits) =>
-      transact(async (tx, now) => {
-        validateEvalExecutionLimits(limits);
-        const candidates = await jobs(tx);
-        const candidate = candidates.find(
-          (job) =>
-            job.scope === scope &&
-            job.state === "queued" &&
-            evalExecutionFits(candidates, job, limits),
-        );
-        if (!candidate) return undefined;
-        const job = await load(tx, candidate.id);
-        if (!job) return undefined;
-        job.state = "running";
-        job.leaseOwner = owner;
-        job.leaseUntil = now + leaseMs;
-        await save(tx, job);
-        return job;
-      }),
+    claim,
+    queued: (scope) =>
+      transact(async (tx) =>
+        (await jobs(tx))
+          .filter((job) => job.scope === scope && job.state === "queued")
+          .map((job) => job.id),
+      ),
+    claimQueued: claim,
     get: (id) => transact((tx) => load(tx, id)),
     status: (id) =>
       transact(

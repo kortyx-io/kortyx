@@ -46,19 +46,25 @@ it("requires Studio browser authentication when basic auth is enabled", async ()
   expect((await proxyEvalRequest(request(), ["runs"])).status).toBe(401);
   expect(fetch).not.toHaveBeenCalled();
 });
-it("keeps server credentials in the forwarded request and does not return API error bodies", async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValue(
-      Response.json({ error: "PRIVATE CONSUMER TOKEN" }, { status: 409 }),
-    );
+it("keeps server credentials in the forwarded request and preserves the actual API error and redacts credentials", async () => {
+  const fetch = vi.fn().mockResolvedValue(
+    Response.json(
+      {
+        error:
+          "Suite revision changed. Authorization: Bearer private-consumer-token",
+      },
+      { status: 409 },
+    ),
+  );
   vi.stubGlobal("fetch", fetch);
   const response = await proxyEvalRequest(request(), ["runs"]);
   expect(fetch.mock.calls[0]?.[0]).toBe("http://api:6400/v1/studio/evals/runs");
   expect(fetch.mock.calls[0]?.[1]?.headers.authorization).toBe(
     "Bearer private-studio-key",
   );
-  expect(await response.text()).not.toContain("PRIVATE CONSUMER TOKEN");
+  const body = await response.json();
+  expect(body.error).toContain("Suite revision changed.");
+  expect(body.error).not.toContain("private-consumer-token");
   expect(response.status).toBe(409);
 });
 it("allows only the fixed eval paths", async () => {

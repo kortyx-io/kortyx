@@ -1,7 +1,7 @@
 ---
 id: v0-define-workflows
 title: "Define Workflows"
-description: "Define type-safe workflows and node behavior with Kortyx core contracts."
+description: "Define typed Kortyx workflows with nodes, edges, callable child workflows, data reducers, return values, and validation for explicit agent behavior."
 keywords: [kortyx, defineWorkflow, workflow-schema, node-result]
 sidebar_label: "Define Workflows"
 ---

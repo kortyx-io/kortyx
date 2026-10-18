@@ -5,6 +5,62 @@
 - Render queued, retrying and reconnecting eval dispatch updates without treating
   them as terminal case results.
 
+## [0.21.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.20.1...cli-v0.21.0) (2026-10-16)
+
+
+### Features
+
+* **evals:** configurable deadlines and original error visibility ([#354](https://github.com/kortyx-io/kortyx/issues/354)) ([7dde173](https://github.com/kortyx-io/kortyx/commit/7dde173b54eb37a2d28ff28ac342a3333e5ed902))
+* **telemetry:** improve failure classification and add CLI usage ([#355](https://github.com/kortyx-io/kortyx/issues/355)) ([c5fbbed](https://github.com/kortyx-io/kortyx/commit/c5fbbed3064ea7b2b3020617db7ce09d1b175db3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.39.0
+    * @kortyx/core bumped to 0.15.0
+    * @kortyx/prompts bumped to 0.2.2
+    * @kortyx/telemetry-contracts bumped to 0.18.0
+    * @kortyx/usage-telemetry bumped to 0.4.0
+
+## [0.20.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.20.0...cli-v0.20.1) (2026-10-14)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.38.1
+
+## [0.20.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.19.1...cli-v0.20.0) (2026-10-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **agent:** Consumer eval routes cap active attempts at 20 by default. Set maxActiveAttempts before upgrading consumers with higher concurrency. Upgrade API and Studio together for the new case-dispatch progress events.
+
+### Features
+
+* **agent:** make concurrent eval execution resilient ([#339](https://github.com/kortyx-io/kortyx/issues/339)) ([84d0e4f](https://github.com/kortyx-io/kortyx/commit/84d0e4fe3d35e5cf80713f7550ef2b1d83e5a2ec))
+* **studio:** enable OSS capabilities by default ([#336](https://github.com/kortyx-io/kortyx/issues/336)) ([7e55ba5](https://github.com/kortyx-io/kortyx/commit/7e55ba55c5a5a488b4284ae79b57b23ca6b6b494))
+
+
+### Bug Fixes
+
+* **evals:** preserve diagnostics and separate postcondition failures ([#337](https://github.com/kortyx-io/kortyx/issues/337)) ([d4fce4e](https://github.com/kortyx-io/kortyx/commit/d4fce4e670971d3b755835fc681c8125f67a9c70))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.38.0
+    * @kortyx/core bumped to 0.14.0
+    * @kortyx/prompts bumped to 0.2.1
+    * @kortyx/telemetry-contracts bumped to 0.17.2
+    * @kortyx/usage-telemetry bumped to 0.3.0
+
 ## [0.19.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.19.0...cli-v0.19.1) (2026-10-13)
 
 

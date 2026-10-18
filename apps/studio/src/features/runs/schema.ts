@@ -24,6 +24,18 @@ export const ProviderSchema = z.string();
 export const EnvironmentSchema = z.string();
 
 export const RunSchema = z.object({
+  filterValues: z
+    .record(
+      z.string(),
+      z.union([
+        z.string(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+        z.array(z.string()),
+      ]),
+    )
+    .optional(),
   feedback: FeedbackSummarySchema.optional(),
   parentRunId: z.string().optional(),
   parentWorkflowId: z.string().optional(),
@@ -34,6 +46,7 @@ export const RunSchema = z.object({
   status: RunStatusSchema,
   started: z.string(),
   startedAt: z.string(),
+  endedAt: z.string().nullable().optional(),
   workflow: z.string(),
   workflowIds: z.array(z.string()).optional(),
   workflowRefs: z
@@ -51,6 +64,7 @@ export const RunSchema = z.object({
   session: z.string(),
   model: z.string(),
   models: z.number().optional(),
+  modelNames: z.array(z.string()).optional(),
   duration: z.number(),
   tokens: z.number().optional(),
   cost: z.number().optional(),

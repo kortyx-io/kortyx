@@ -187,7 +187,7 @@ export function PromptImport({
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={working}
                 onClick={() => setPlan(null)}
               >
@@ -195,7 +195,7 @@ export function PromptImport({
               </Button>
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 onClick={() => downloadJson("prompt-transfer-plan.json", plan)}
               >
                 Save plan for retry

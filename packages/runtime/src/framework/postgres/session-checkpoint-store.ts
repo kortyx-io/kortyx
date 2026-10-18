@@ -3,10 +3,11 @@ import { KortyxError, PersistenceError } from "@kortyx/core/errors";
 import type postgres from "postgres";
 import { captureGraphSnapshot } from "../graph-snapshot";
 import type { PendingRequestRecord } from "../pending-requests";
-import type {
-  CheckpointSummary,
-  SessionCheckpointRecord,
-  SessionCheckpointStore,
+import {
+  type CheckpointSummary,
+  type SessionCheckpointRecord,
+  type SessionCheckpointStore,
+  sessionCheckpointPayloadFields,
 } from "../session-checkpoints";
 import type { PostgresCheckpointSaver } from "./checkpointer";
 import { savePendingRequest } from "./pending-request-store";
@@ -128,23 +129,13 @@ export function createPostgresSessionCheckpointStore(
     async list(sessionId) {
       const { sql } = store;
       const rows =
-        await store.query(sql`SELECT c.record, c.active FROM kortyx_runtime_session_checkpoints c
+        await store.query(sql`SELECT (c.record - ARRAY(SELECT jsonb_array_elements_text(${sql.json([...sessionCheckpointPayloadFields])}))) AS record, c.active FROM kortyx_runtime_session_checkpoints c
         JOIN kortyx_runtime_sessions s ON s.scope = c.scope AND s.id = c.session_id
         WHERE c.session_id = ${sessionId} AND ${visible(sql, Date.now())} ORDER BY c.turn_index`);
-      return rows.map((row) => {
-        const {
-          state: _state,
-          effects: _effects,
-          activePendingRequests: _pending,
-          runId: _runId,
-          graphCheckpointId: _graphId,
-          ...summary
-        } = row.record as SessionCheckpointRecord;
-        return {
-          ...summary,
-          branchStatus: row.active ? "active" : "abandoned",
-        } as CheckpointSummary;
-      });
+      return rows.map((row) => ({
+        ...(row.record as CheckpointSummary),
+        branchStatus: row.active ? ("active" as const) : ("abandoned" as const),
+      }));
     },
     async getHead(sessionId) {
       const { sql } = store;

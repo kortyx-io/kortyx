@@ -21,6 +21,28 @@ test.describe("Eval route and drawer navigation", () => {
     // exercises persisted Runs -> Suites history in both dev and production.
     await page.reload();
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+    const sections = page.getByRole("navigation", { name: "Eval navigation" });
+    await expect(
+      page.getByRole("heading", { name: "Evals", exact: true }),
+    ).toBeVisible();
+    await expect(
+      sections.getByRole("link", { name: "Runs", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    const sectionBox = await sections.boundingBox();
+    const breadcrumbs = await page
+      .getByRole("navigation", { name: "Workspace navigation" })
+      .boundingBox();
+    expect(
+      sectionBox &&
+        breadcrumbs &&
+        sectionBox.x > breadcrumbs.x + breadcrumbs.width,
+    ).toBeTruthy();
+    expect(sectionBox?.y).toBeLessThan(48);
+    await expect(
+      page
+        .locator("[data-table-ready]")
+        .getByRole("navigation", { name: "Eval navigation" }),
+    ).toHaveCount(0);
     await page
       .getByRole("navigation", { name: "Eval navigation" })
       .getByRole("link", { name: "Suites", exact: true })
@@ -142,12 +164,18 @@ test.describe("Eval route and drawer navigation", () => {
   });
   test("persists comparison filters and attempts in URL", async ({ page }) => {
     await page.goto(comparePath);
-    await page.getByRole("button", { name: "Improved", exact: true }).click();
-    await expect(page).toHaveURL(/change=improved/);
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    await page
+      .getByRole("checkbox", { name: "Change: improved", exact: true })
+      .check();
+    await expect
+      .poll(() =>
+        new URL(page.url()).searchParams.get("tableFilters.eval-comparison"),
+      )
+      .toContain('"improved"');
+    const filteredUrl = page.url();
     await page.reload();
-    await expect(
-      page.getByRole("button", { name: "Improved", exact: true }),
-    ).toHaveClass(/secondary/);
+    await expect(page).toHaveURL(filteredUrl);
     await page
       .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
@@ -387,7 +415,9 @@ test.describe("Eval drawer hardening", () => {
       .getByRole("button", { name: "Configuration", exact: true })
       .click();
     await expect(
-      page.getByText("fixture-judge · 1", { exact: true }),
+      page
+        .getByRole("tabpanel")
+        .getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
     // nuqs updates the visible tab before its batched URL write completes.
     // Reload only after the state being tested is actually in the URL.
@@ -396,7 +426,9 @@ test.describe("Eval drawer hardening", () => {
     );
     await page.reload();
     await expect(
-      page.getByText("fixture-judge · 1", { exact: true }),
+      page
+        .getByRole("tabpanel")
+        .getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
   });
 

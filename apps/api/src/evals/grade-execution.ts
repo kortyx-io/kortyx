@@ -48,6 +48,7 @@ export async function gradeEvalExecution(
   judge: EvalJudge,
   signal: AbortSignal,
   onProgress: (event: EvalProgress) => Promise<void>,
+  reportError?: (error: unknown) => Promise<string | undefined>,
 ): Promise<EvalRunResult> {
   const started = Date.now();
   const result = structuredClone(execution);
@@ -57,8 +58,9 @@ export async function gradeEvalExecution(
     for (const step of item.steps) {
       if (step.status !== "ungraded") continue;
       signal.throwIfAborted();
+      const gradingTimeout = AbortSignal.timeout(60_000);
       try {
-        const deadline = AbortSignal.any([signal, AbortSignal.timeout(60_000)]);
+        const deadline = AbortSignal.any([signal, gradingTimeout]);
         for (const [index, value] of (
           step.expectation.criteria ?? []
         ).entries()) {
@@ -101,9 +103,16 @@ export async function gradeEvalExecution(
       } catch (error) {
         signal.throwIfAborted();
         step.status = "error";
+        const diagnosticId = await reportError?.(error).catch(() => undefined);
         const issue = createEvalIssue("grading", error, {
           code: "EVAL_GRADING_FAILED",
+          ...(diagnosticId ? { diagnosticId } : {}),
         });
+        if (gradingTimeout.aborted) {
+          issue.code = "EVAL_GRADING_TIMEOUT";
+          issue.message = "Studio grading exceeded its 60-second time limit.";
+          issue.details = { timeoutMs: 60_000 };
+        }
         step.reason = issue.message;
         item.errors.push(issue);
       }

@@ -1,3 +1,4 @@
+import { isSampleProject } from "@/features/sample-project/server";
 import "server-only";
 
 import { studioShell } from "@studio/shell";
@@ -9,5 +10,12 @@ import { studioHref } from "./studio-routing";
 export async function scopedRedirect(href: string): Promise<never> {
   const context = await getStudioShellContext();
   const contribution = await studioShell.resolve(context);
-  redirect(studioHref(href, contribution.routeScope));
+  redirect(
+    studioHref(
+      href,
+      (await isSampleProject())
+        ? { sampleProject: true }
+        : contribution.routeScope,
+    ),
+  );
 }

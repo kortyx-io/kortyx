@@ -52,7 +52,10 @@ class HelperTests(unittest.TestCase):
         self.fake("curl", '''import json, os, sys
 args = sys.argv[1:]
 with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps(args) + "\\n")
-if "DELETE" in args: print(os.environ.get("DELETE_STATUS", "200"))
+if "DELETE" in args:
+    count = len(open(os.environ["TEST_LOG"]).readlines())
+    statuses = os.environ.get("DELETE_STATUS", "200").split(",")
+    print(statuses[min(count - 1, len(statuses) - 1)])
 elif "POST" in args: print('{"deployments":[{"deployment_uuid":"deploy-1"}]}')
 else: print(json.dumps({"status": os.environ.get("DEPLOY_STATUS", "finished")}))
 ''')
@@ -98,6 +101,22 @@ else: print(json.dumps({"status": os.environ.get("DEPLOY_STATUS", "finished")}))
     def test_cleanup_rejects_other_http_statuses(self):
         self.assertNotEqual(self.coolify(OPERATION="remove-preview", PR_NUMBER="42",
                                        DELETE_STATUS="500").returncode, 0)
+        self.assertEqual(len(self.calls()), 5)
+
+    def test_cleanup_recovers_transient_outage(self):
+        result = self.coolify(OPERATION="remove-preview", PR_NUMBER="42", DELETE_STATUS="500,503,200")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.calls()), 3)
+
+    def test_cleanup_does_not_retry_permission_denial(self):
+        result = self.coolify(OPERATION="remove-preview", PR_NUMBER="42", DELETE_STATUS="403")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(self.calls()), 1)
+
+    def test_cleanup_rejects_invalid_pr_number_before_request(self):
+        result = self.coolify(OPERATION="remove-preview", PR_NUMBER="../42")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls(), [])
 
     def test_missing_configuration_fails_before_request(self):
         result = self.coolify(COOLIFY_TOKEN="")

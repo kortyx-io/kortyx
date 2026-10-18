@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import {
   createLiveRefreshController,
   type LiveRefreshSnapshot,
@@ -19,9 +20,10 @@ export const useLiveRefresh = ({
   refresh?: () => Promise<void>;
 }) => {
   const router = useRouter();
+  const sample = useStudioRouteScope()?.sampleProject === true;
   const [transitioning, startTransition] = useTransition();
   const [snapshot, setSnapshot] = useState<LiveRefreshSnapshot>({
-    status: enabled ? "connecting" : "off",
+    status: enabled && !sample ? "connecting" : "off",
     refreshing: false,
   });
   const transitionResolveRef = useRef<(() => void) | undefined>(undefined);
@@ -93,8 +95,8 @@ export const useLiveRefresh = ({
   }, [resource, relatedKey]);
 
   useEffect(() => {
-    controllerRef.current?.setEnabled(enabled);
-  }, [enabled]);
+    controllerRef.current?.setEnabled(enabled && !sample);
+  }, [enabled, sample]);
 
   return {
     status: snapshot.status,

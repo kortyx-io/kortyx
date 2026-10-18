@@ -11,7 +11,7 @@ const footerGroups = [
       ["Examples", "/examples"],
       ["Open source", "/open-source"],
       ["Documentation", "/docs"],
-      ["Studio setup", "/docs/studio/run-locally"],
+      ["Studio setup", "/docs/self-hosting/run-locally"],
       ["GitHub", "https://github.com/kortyx-io/kortyx"],
     ],
   },

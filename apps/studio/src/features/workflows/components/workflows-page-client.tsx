@@ -1,15 +1,11 @@
 "use client";
 
-import { CircleHelp } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRouter } from "@/lib/scoped-navigation";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 import { useWorkflowQuery } from "../hooks/use-workflow-query";
 import { CONNECTION_STYLE } from "../lib/connection-style";
@@ -168,6 +164,7 @@ export default function WorkflowsPageClient({
   return (
     <div
       data-workflows-ready={hydrated ? "true" : "false"}
+      data-page-help-records={system.workflows.length}
       className="flex h-full min-h-[620px] overflow-hidden rounded-xl border bg-background shadow-sm"
     >
       <div
@@ -240,27 +237,13 @@ export default function WorkflowsPageClient({
               />
               Observed calls
             </label>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Explain observed calls"
-                  className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                >
-                  <CircleHelp className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-72">
-                Show real child-workflow calls recorded during runs on top of
-                the connections published from source.
-              </TooltipContent>
-            </Tooltip>
+            <HelpCircle help={studioHelp.observedCalls} />
             <span className="rounded bg-violet-500/10 px-1.5 text-violet-600">
               {system.observedCalls?.length ?? 0}
             </span>
           </div>
         </div>
-        <div className="min-h-0 flex-1">
+        <div data-page-help="workflow-map" className="min-h-0 flex-1">
           <WorkflowCanvas
             system={canvasSystem}
             mode={params.mode}

@@ -7,6 +7,8 @@ export interface StudioUsageConfig {
   environment: "production" | "staging";
   key: string;
   host: string;
+  runtimeMode?: "development" | "production" | "ci" | "unknown";
+  trafficSource?: "internal" | "synthetic" | "external" | "unknown";
   endpoint?: string;
   catalog?: UsageCatalog;
 }
