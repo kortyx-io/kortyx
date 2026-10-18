@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.1](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.19.0...telemetry-contracts-v0.19.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **studio:** correct page help and failed-run Trace guidance ([aae818d](https://github.com/kortyx-io/kortyx/commit/aae818d61229b981aa34a423dab54c030c0ad885))
+* **studio:** guide failed Trace through its selected inspector ([37b891b](https://github.com/kortyx-io/kortyx/commit/37b891b3ed615597adf004f5c45bcc74fd63e487))
+
 ## [0.19.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.18.0...telemetry-contracts-v0.19.0) (2026-10-18)
 
 

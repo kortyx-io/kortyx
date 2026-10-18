@@ -14,6 +14,15 @@
   child outputs, deterministic parallel joins and checkpoint resume. Surface
   callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
 
+## [0.26.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.26.0...runtime-v0.26.1) (2026-10-18)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.35.2
+
 ## [0.26.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.25.0...runtime-v0.26.0) (2026-10-18)
 
 

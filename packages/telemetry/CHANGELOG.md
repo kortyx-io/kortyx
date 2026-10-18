@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.17.2](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.17.1...telemetry-v0.17.2) (2026-10-18)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.35.2
+    * @kortyx/telemetry-contracts bumped to 0.19.1
+
 ## [0.17.1](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.17.0...telemetry-v0.17.1) (2026-10-18)
 
 
