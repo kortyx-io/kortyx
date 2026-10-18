@@ -817,7 +817,23 @@ restart recovery, pass `createPostgresEvalExecutionStore({connectionString,names
 from `kortyx`, sharing the namespace, service key, suites and capacity settings.
 Defaults allow one evaluation group, twenty attempts and a thousand queued jobs.
 Forward GET, POST and DELETE with all headers and query parameters. Keep the host
-alive while accepted execution runs; close the handler before closing its store.
+alive while accepted execution runs. For planned retirement use
+`await handleEvals.drain()`; it stops new execution admission and finishes local active jobs
+plus a bounded snapshot of accepted queued jobs. Authenticated observation and
+cancellation remain available. Keep HTTP and the store open until Studio has
+persisted results, then retire HTTP, call `close()` and close the store. `close()`
+retains its explicit abort behavior. A failed drain is not successful retirement.
+
+With one consumer, drain Studio workers first while this endpoint still accepts
+their later cases, wait for durable Studio outcomes, then drain the consumer.
+With replicas, first route new work to a compatible replacement sharing the
+durable store, namespace, service key, suites and limits. Consumer drain does not
+cover future Studio submissions or transfer another owner's active execution.
+Memory stores cannot be shared between processes. Upgrade agent/runtime together;
+custom stores require scoped `queued` and atomic `claimQueued` capabilities for
+this hook. See [Deployment Lifecycle](/docs/studio/deployment-lifecycle) for the
+full ordering and hosting requirements.
+
 Lost running leases are never replayed automatically; queued jobs can recover.
 External side effects still require application-owned idempotency. Upgrade SDK
 consumers first, then API and Studio together; older consumers retain legacy streams.

@@ -116,6 +116,12 @@ The application server must reach the telemetry endpoint. The key must never ent
 
 ## Upgrade
 
+When evals are enabled, first follow the
+[retirement procedure](/docs/self-hosting/deployment-lifecycle). Keep an API available for
+progress and cancellation while workers finish. For a release requiring schema
+recreation, retire every relevant worker before changing the database; additional
+web replicas do not make an incompatible migration safe.
+
 1. Back up PostgreSQL and deployment secrets.
 2. Change `KORTYX_STUDIO_IMAGE_TAG` to the next supported release.
 3. Pull the images.
@@ -145,6 +151,11 @@ Reference secret-manager entries from workload definitions. Do not serialize raw
 
 Use the [Configuration Reference](/docs/self-hosting/configuration-reference) to map ports, variables, health checks, startup order, and service responsibilities to your platform.
 
-For production availability, use at least two replicas and follow the [High Availability contract](/docs/self-hosting/high-availability).
+For production availability, use at least two web replicas and follow the
+[High Availability contract](/docs/self-hosting/high-availability). If evaluations are
+enabled, choose a combined or separate-worker topology and follow
+[Deployments and Evaluation Draining](/docs/self-hosting/deployment-lifecycle) before
+replacing containers. Web replicas and worker retirement solve different parts
+of the deployment.
 
 For a complete private AWS implementation, continue with [Deploy on AWS with CDK](/docs/self-hosting/deploy-aws-cdk).

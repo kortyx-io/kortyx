@@ -61,6 +61,15 @@ export interface EvalExecutionStore {
     scope: string,
     limits: EvalExecutionLimits,
   ): Promise<EvalExecutionJob | undefined>;
+  /** Bounded snapshot of queued identities in this scope, after maintenance. */
+  queued?(scope: string): Promise<string[]>;
+  /** Atomic claim restricted to the retirement snapshot; never claim newer work. */
+  claimQueued?(
+    owner: string,
+    scope: string,
+    limits: EvalExecutionLimits,
+    ids: readonly string[],
+  ): Promise<EvalExecutionJob | undefined>;
   get(id: string): Promise<EvalExecutionJob | undefined>;
   status(
     id: string,
@@ -264,6 +273,30 @@ export function createInMemoryEvalExecutionStore({
       );
     return job;
   };
+  const claim = async (
+    owner: string,
+    scope: string,
+    limits: EvalExecutionLimits,
+    ids?: readonly string[],
+  ) => {
+    validateEvalExecutionLimits(limits);
+    maintain();
+    const selected = ids && new Set(ids);
+    for (const job of jobs.values()) {
+      if (
+        job.scope !== scope ||
+        job.state !== "queued" ||
+        (selected && !selected.has(job.id))
+      )
+        continue;
+      if (!evalExecutionFits([...jobs.values()], job, limits)) continue;
+      job.state = "running";
+      job.leaseOwner = owner;
+      job.leaseUntil = now() + leaseMs;
+      return evalExecutionClone(job);
+    }
+    return undefined;
+  };
   return {
     heartbeatIntervalMs: Math.max(1, Math.min(2000, Math.floor(leaseMs / 3))),
     async generation() {
@@ -321,19 +354,14 @@ export function createInMemoryEvalExecutionStore({
       jobs.set(job.id, job);
       return evalExecutionClone(job);
     },
-    async claim(owner, scope, limits) {
-      validateEvalExecutionLimits(limits);
+    claim,
+    async queued(scope) {
       maintain();
-      for (const job of jobs.values()) {
-        if (job.scope !== scope || job.state !== "queued") continue;
-        if (!evalExecutionFits([...jobs.values()], job, limits)) continue;
-        job.state = "running";
-        job.leaseOwner = owner;
-        job.leaseUntil = now() + leaseMs;
-        return evalExecutionClone(job);
-      }
-      return undefined;
+      return [...jobs.values()]
+        .filter((job) => job.scope === scope && job.state === "queued")
+        .map((job) => job.id);
     },
+    claimQueued: claim,
     async get(id) {
       maintain();
       const job = jobs.get(id);

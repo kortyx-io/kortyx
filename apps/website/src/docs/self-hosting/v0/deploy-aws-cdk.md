@@ -239,6 +239,12 @@ When an AWS environment needs continuous application availability, implement the
 
 For stronger database availability, enable `databaseMultiAz`; it does not remove the convenience construct's single application task restart window.
 
+For evaluations, [worker retirement and the consumer application's lifetime](/docs/self-hosting/deployment-lifecycle)
+are additional requirements. Do not assume an ECS replica setting transfers
+active evaluations. Independent worker services and their rollout orchestration
+belong in an operator-managed topology; they are not added by duplicating this
+convenience construct.
+
 ## 4. Bootstrap, inspect, and deploy
 
 Confirm the AWS identity and Region:

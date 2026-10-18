@@ -127,6 +127,16 @@ The default memory store only survives within its process. See
 [execution resilience](../../docs/evals/execution-resilience.md) for configuration,
 retention, legacy compatibility and upgrade order.
 
+For planned retirement, `await handleEvals.drain()` stops new admissions and
+finishes accepted local/queued executions without aborting them. Keep HTTP and
+the store open for observation/cancellation; `close()` remains explicit abort.
+With one consumer, drain Studio workers first while the consumer still accepts
+later cases, then drain the consumer after Studio persists results. Overlapping
+consumers require a compatible replacement and shared durable execution storage.
+The built-in stores support this; custom `EvalExecutionStore` implementations need
+`queued` and `claimQueued` for drain. Upgrade agent and runtime together. See the
+linked guide for ordering, failure handling and resource lifetime.
+
 ## Runtime checkpoint integrity
 
 Runtime-owned hook records, child snapshots, and parallel journals are complete replacements. Application node `data` retains its default deep merge and opt-in reducers. Readers accept legacy object snapshots/journals and the single-element array encoding used by older consumer patches. Unsupported or ambiguous legacy budget state fails safely instead of reusing an approval. Upgrade execution workers together before writing new suspension envelopes.

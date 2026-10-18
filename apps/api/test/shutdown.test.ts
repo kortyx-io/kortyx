@@ -2,6 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { shutdownApiRuntime } from "../src/shutdown";
 
 describe("API graceful shutdown", () => {
+  it("retains a falsy resource rejection while closing the remaining resources", async () => {
+    const database = vi.fn(async () => {});
+    await expect(
+      shutdownApiRuntime({
+        markNotReady() {},
+        server: { close: (done) => done() },
+        studioChangeBus: { close: () => Promise.reject(undefined) },
+        database: { close: database },
+      }),
+    ).rejects.toBeUndefined();
+    expect(database).toHaveBeenCalledOnce();
+  });
+
   it("stops readiness, drains HTTP, then closes shared dependencies", async () => {
     const events: string[] = [];
     const server = {

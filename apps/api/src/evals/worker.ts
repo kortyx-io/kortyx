@@ -97,7 +97,9 @@ export function createEvalWorker(
 ) {
   const baseStore: EvalJobStore = options.store ?? {
     claim: async (owner) => {
-      const runs = await claimEvalRuns(db, owner, targets);
+      const runs = await claimEvalRuns(db, owner, targets, {
+        maxConcurrentEvaluations: options.maxConcurrentEvaluations ?? 4,
+      });
       return runs.length ? runs : undefined;
     },
     heartbeat: (id, owner) => heartbeatEvalRun(db, id, owner),
@@ -189,8 +191,17 @@ export function createEvalWorker(
             )));
   const usageScopes = new Map<string, UsageOperation>();
   const claimedRuns = new Map<string, EvalWorkerRun>();
+  const heartbeats = new Set<Promise<unknown>>();
   const store: EvalJobStore = {
-    heartbeat: (id, owner) => baseStore.heartbeat(id, owner),
+    heartbeat: async (id, owner) => {
+      const pending = baseStore.heartbeat(id, owner);
+      heartbeats.add(pending);
+      try {
+        return await pending;
+      } finally {
+        heartbeats.delete(pending);
+      }
+    },
     executionGeneration: async (...args) =>
       baseStore.executionGeneration?.(...args),
     executionEvidence: async (...args) =>
@@ -317,6 +328,7 @@ export function createEvalWorker(
   let stopped = false;
   let draining = false;
   let drainFailure: Error | undefined;
+  let retirement: Promise<void> | undefined;
   let loop: Promise<void> | undefined;
   const active = new Set<AbortController>();
   const pause = () => new Promise<void>((resolve) => setTimeout(resolve, 500));
@@ -840,9 +852,9 @@ export function createEvalWorker(
                 }
               });
           } catch {
-            if (draining && !stopped)
+            if (!stopped)
               drainFailure ??= new Error(
-                "Evaluation claim could not be confirmed during drain.",
+                "Evaluation claim could not be confirmed.",
               );
             if (!stopped && !draining) await pause();
           }
@@ -853,17 +865,27 @@ export function createEvalWorker(
     /** Stop admission, retaining leases, cancellation and final writes until done.
      * A claim already in flight belongs to this worker and is also completed.
      * There is no retirement timeout: the caller must preserve the owning process.
-     * Use stop() explicitly to abort instead. A drained worker cannot restart.
+     * Use stop() explicitly to abort instead; it rejects a pending drain.
+     * A drained worker cannot restart. Prior ambiguous claims remain failures.
      */
-    async drain() {
+    drain() {
       draining = true;
-      await loop;
-      if (drainFailure) throw drainFailure;
+      retirement ??= (async () => {
+        await loop;
+        await Promise.allSettled(heartbeats);
+        if (stopped)
+          throw new Error(
+            "Evaluation worker retirement was explicitly aborted.",
+          );
+        if (drainFailure) throw drainFailure;
+      })();
+      return retirement;
     },
     async stop() {
       stopped = true;
       for (const controller of active) controller.abort();
       await loop;
+      await Promise.allSettled(heartbeats);
       usageScopes.clear();
       claimedRuns.clear();
       attemptIssues.clear();

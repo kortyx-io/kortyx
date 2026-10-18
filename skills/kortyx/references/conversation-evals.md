@@ -426,12 +426,30 @@ The default `createInMemoryEvalExecutionStore()` handles one process. For replic
 pass `createPostgresEvalExecutionStore({connectionString,namespace})` as
 `executionStore`, with identical service keys, suite definitions and capacity
 settings. Configure `maxActiveRuns` (1), `maxActiveAttempts` (20) and
-`maxQueuedExecutions` (1000). Call store.setup() before traffic and handler.close()
-before store.close() on shutdown. Queued jobs recover across restart; a lost running
+`maxQueuedExecutions` (1000). Call store.setup() before traffic. For planned
+retirement call handler.drain(), keep HTTP/store available for authenticated
+observation and cancellation, then close HTTP, handler and store after observers
+finish. handler.close() remains explicit abort. Drain rejects ambiguous admission,
+claim or terminal persistence; do not treat that as successful retirement.
+Matching jobs-v1 POST retries for known IDs reattach evidence during drain;
+changed content returns 409. New IDs are refused without admission or replay.
+With a single consumer, drain Studio workers first while the consumer still
+accepts their later cases, wait for durable Studio outcomes, then drain the
+consumer. With replicas, make a compatible replacement reachable first with the
+same durable store/namespace, service key, suite revisions and capacity settings.
+Consumer drain finishes its own active jobs and a bounded queued snapshot, not
+future Studio cases or another owner's live jobs. The built-in memory/PostgreSQL
+stores implement optional queued/claimQueued capabilities; old custom stores work
+normally but drain fails until these atomic scoped capabilities are implemented.
+Upgrade agent/runtime together; jobs-v1 and legacy wire formats are unchanged.
+Queued jobs recover across restart; a lost running
 lease becomes Unknown and is never automatically replayed. Inspect side effects
 before explicit cancellation or a new run. Application nodes own external
 idempotency; no data reducers or node/workflow shape changes are required.
 Upgrade consumers before API/Studio; legacy consumers keep request-owned streams.
+Verify hook availability in the installed build: published kortyx 0.32.0 / agent
+0.39.0 / runtime 0.25.0 lack consumer drain. Use a later coordinated release that
+includes it; never silently substitute aborting close when graceful drain is absent.
 
 ## Execution defaults and application limits
 

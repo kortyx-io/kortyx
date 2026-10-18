@@ -153,6 +153,39 @@ function fixture() {
 }
 
 describe("evaluation worker admission drain", () => {
+  it("waits for an outstanding heartbeat before dependencies can close", async () => {
+    const f = fixture();
+    const heartbeat = deferred<{ cancelRequestedAt: Date | null }>();
+    f.worker.start();
+    try {
+      await vi.waitFor(() => expect(f.contexts).toHaveLength(1));
+      const initial = vi.mocked(f.store.heartbeat).mock.calls.length;
+      vi.mocked(f.store.heartbeat).mockImplementationOnce(
+        () => heartbeat.promise,
+      );
+      await vi.waitFor(
+        () =>
+          expect(
+            vi.mocked(f.store.heartbeat).mock.calls.length,
+          ).toBeGreaterThan(initial),
+        { timeout: 3500 },
+      );
+      let drained = false;
+      const drain = f.worker.drain().then(() => {
+        drained = true;
+      });
+      f.release();
+      await vi.waitFor(() => expect(f.completed).toHaveLength(1));
+      expect(drained).toBe(false);
+      heartbeat.resolve({ cancelRequestedAt: null });
+      await drain;
+      expect(drained).toBe(true);
+    } finally {
+      heartbeat.resolve({ cancelRequestedAt: null });
+      f.release();
+      await f.worker.stop();
+    }
+  });
   it("keeps leases, all suite attempts, cleanup and terminal persistence alive", async () => {
     const f = fixture();
     f.worker.start();
@@ -308,7 +341,9 @@ describe("evaluation worker admission drain", () => {
     f.worker.start();
     try {
       await vi.waitFor(() => expect(f.contexts).toHaveLength(1));
-      const drain = f.worker.drain();
+      const drain = expect(f.worker.drain()).rejects.toThrow(
+        "explicitly aborted",
+      );
       await f.worker.stop();
       await drain;
       expect(f.signals[0]?.aborted).toBe(true);
@@ -342,10 +377,28 @@ describe("evaluation worker admission drain", () => {
     f.worker.start();
     const drain = f.worker.drain();
     claim.reject(new Error("private connection details"));
-    await expect(drain).rejects.toThrow(
-      "claim could not be confirmed during drain",
-    );
+    await expect(drain).rejects.toThrow("claim could not be confirmed");
     await f.worker.stop();
+  });
+
+  it("retains an ambiguous claim from before preparation even after polling recovers", async () => {
+    const f = fixture();
+    vi.mocked(f.store.claim)
+      .mockResolvedValue(undefined)
+      .mockRejectedValueOnce(new Error("Lost claim acknowledgement"));
+    f.worker.start();
+    try {
+      await vi.waitFor(() =>
+        expect(vi.mocked(f.store.claim).mock.calls.length).toBeGreaterThan(1),
+      );
+      await expect(f.worker.drain()).rejects.toThrow(
+        "claim could not be confirmed",
+      );
+      expect(f.contexts).toHaveLength(0);
+    } finally {
+      f.release();
+      await f.worker.stop();
+    }
   });
 
   it("makes drain-before-start terminal and repeatable without queue access", async () => {
@@ -354,6 +407,7 @@ describe("evaluation worker admission drain", () => {
     f.worker.start();
     await f.worker.drain();
     await f.worker.stop();
+    await f.worker.drain(); // A later close does not revoke confirmed retirement.
     expect(f.store.claim).not.toHaveBeenCalled();
   });
 
@@ -362,7 +416,9 @@ describe("evaluation worker admission drain", () => {
     const claim = deferred<EvalWorkerRun[]>();
     vi.mocked(f.store.claim).mockImplementationOnce(() => claim.promise);
     f.worker.start();
-    const drain = f.worker.drain();
+    const drain = expect(f.worker.drain()).rejects.toThrow(
+      "explicitly aborted",
+    );
     const stop = f.worker.stop();
     claim.resolve([f.run]);
     await stop;

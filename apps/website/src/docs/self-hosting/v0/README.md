@@ -20,7 +20,7 @@ Use [Deploy on a server](/docs/self-hosting/deploy-server) for the portable cont
 
 ## Operate the installation
 
-Plan [backups, restoration, and upgrades](/docs/self-hosting/operations). Read [multiple-replica deployment](/docs/self-hosting/high-availability) before changing availability assumptions. Operators also configure [evaluation targets and judging](/docs/self-hosting/configure-evaluations).
+Plan [backups, restoration, and upgrades](/docs/self-hosting/operations). Read [multiple-replica deployment](/docs/self-hosting/high-availability) before changing availability assumptions. Operators also configure [evaluation targets and judging](/docs/self-hosting/configure-evaluations). Before replacing processes, [retire evaluation workers safely](/docs/self-hosting/deployment-lifecycle) so accepted work and results can finish.
 
 ## Use Studio and the CLI
 

@@ -6,35 +6,51 @@
       "label": "Get started",
       "position": 1,
       "description": "Choose a deployment path and inspect a first run locally.",
-      "pages": ["", "run-locally"]
+      "pages": [
+        "",
+        "run-locally"
+      ]
     },
     {
       "slug": "deploy",
       "label": "Deploy Studio",
       "position": 2,
       "description": "Set up a team installation and its optional evaluation services.",
-      "pages": ["deploy-server", "deploy-aws-cdk", "configure-evaluations"]
+      "pages": [
+        "deploy-server",
+        "deploy-aws-cdk",
+        "configure-evaluations"
+      ]
     },
     {
       "slug": "security",
       "label": "Credentials and access",
       "position": 3,
       "description": "Keep browser, ingestion, and read credentials in their intended services.",
-      "pages": ["credentials-secrets"]
+      "pages": [
+        "credentials-secrets"
+      ]
     },
     {
       "slug": "operate",
       "label": "Operate and upgrade",
       "position": 4,
       "description": "Back up, restore, upgrade, and scale your installation.",
-      "pages": ["operations", "high-availability", "evaluation-operations"]
+      "pages": [
+        "operations",
+        "deployment-lifecycle",
+        "high-availability",
+        "evaluation-operations"
+      ]
     },
     {
       "slug": "reference",
       "label": "Configuration reference",
       "position": 5,
       "description": "Look up variables, defaults, owning services, and restart requirements.",
-      "pages": ["configuration-reference"]
+      "pages": [
+        "configuration-reference"
+      ]
     }
   ]
 }

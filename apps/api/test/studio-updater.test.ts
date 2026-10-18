@@ -9,6 +9,7 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Docker } from "../src/updater/docker";
+import { EVALUATION_UPDATE_GUARD } from "../src/updater/docker";
 import { applyUpdate } from "../src/updater/engine";
 import {
   latestStudioRelease,
@@ -73,6 +74,7 @@ async function pending(path: string) {
 function runtime(failure?: "pull" | "backup" | "install" | "verify") {
   let installed = false;
   const run = vi.fn<Docker>(async (args, output) => {
+    if (args.includes(EVALUATION_UPDATE_GUARD)) return "safe-no-evals";
     if (args.includes("pg_dump")) {
       if (failure === "backup") throw new Error("Backup failed");
       if (output) await writeFile(output, "archive");
@@ -146,6 +148,34 @@ describe("published releases", () => {
 });
 
 describe("update execution", () => {
+  it.each([
+    "targets",
+    "unknown",
+    "unreachable",
+  ])("refuses destructive update when eval safety is %s", async (kind) => {
+    const path = await home();
+    const id = await pending(path);
+    const base = runtime();
+    const run = vi.fn<Docker>(async (args, output) => {
+      if (args.includes(EVALUATION_UPDATE_GUARD)) {
+        if (kind === "unreachable") throw new Error("Unreachable API");
+        return kind === "targets" ? "configured-evals" : "";
+      }
+      return base(args, output);
+    });
+    await applyUpdate(path, id, run);
+    expect((await operation(path))?.phase).toBe("failed");
+    expect((await operation(path))?.messages.join(" ")).toContain(
+      "controlled evaluation draining",
+    );
+    expect((await settings(path)).automatic).toBe(false);
+    expect(
+      run.mock.calls.some(
+        ([args]) =>
+          args.includes("stop") || args.includes("up") || args[0] === "pull",
+      ),
+    ).toBe(false);
+  });
   it("backs up before migrations, preserves credentials, and pins both published digests", async () => {
     const path = await home();
     const id = await pending(path);

@@ -49,6 +49,7 @@ type EvalExecutionTransport = {
   existing(request: Request): Promise<Response | undefined>;
   submit(request: Request, body: EvalRemoteRunRequest): Promise<Response>;
   capabilityHeaders(): Promise<Record<string, string>>;
+  drain(): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -71,8 +72,32 @@ export function createEvalExecutionTransport({
     string,
     { controller: AbortController; completion: Promise<void> }
   >();
-  let ticking = false;
+  let ticking: Promise<void> | undefined;
+  let draining = false;
   let stopped = false;
+  let drain: Promise<void> | undefined;
+  let closing: Promise<void> | undefined;
+  let retirementFailure: Error | undefined;
+  const unsupportedRetirement = new Error(
+    "Execution store requires queued and claimQueued for graceful retirement.",
+  );
+  const admissions = new Set<Promise<void>>();
+  const heartbeats = new Set<Promise<unknown>>();
+  const failedRetirement = () => {
+    retirementFailure ??= new Error(
+      "Consumer evaluation retirement could not be confirmed.",
+    );
+  };
+  const finish = async (id: string, state: "completed" | "cancelled") => {
+    try {
+      await store.finish(id, owner, state);
+      if ((await store.status(id))?.state !== state)
+        throw new Error("Consumer completion was not confirmed.");
+    } catch (error) {
+      failedRetirement();
+      throw error;
+    }
+  };
   const key = (id: string) =>
     createHash("sha256").update(`${scope}\0${id}`).digest("hex");
   const fail = async (job: EvalExecutionJob, error: unknown) => {
@@ -90,8 +115,11 @@ export function createEvalExecutionTransport({
     const timer = setInterval(() => {
       if (renewing) return;
       renewing = true;
-      void store
-        .heartbeat(job.id, owner)
+      const pending = Promise.resolve().then(() =>
+        store.heartbeat(job.id, owner),
+      );
+      heartbeats.add(pending);
+      void pending
         .then(
           (current) => {
             if (!current) controller.abort("lease-lost");
@@ -101,6 +129,7 @@ export function createEvalExecutionTransport({
           () => controller.abort("lease-lost"),
         )
         .finally(() => {
+          heartbeats.delete(pending);
           renewing = false;
         });
     }, store.heartbeatIntervalMs);
@@ -140,9 +169,8 @@ export function createEvalExecutionTransport({
           store.append(job.id, owner, { type: "progress", event }),
       });
       await store.append(job.id, owner, { type: "result", result });
-      await store.finish(
+      await finish(
         job.id,
-        owner,
         result.status === "cancelled" ? "cancelled" : "completed",
       );
     } catch (error) {
@@ -162,14 +190,14 @@ export function createEvalExecutionTransport({
             },
           );
         await fail(job, error);
-        await store.finish(
+        await finish(
           job.id,
-          owner,
           controller.signal.reason === "user-cancelled"
             ? "cancelled"
             : "completed",
         );
       } catch {
+        failedRetirement();
         /* A lost lease remains unknown; another owner must never replay this job. */
       }
     } finally {
@@ -178,27 +206,39 @@ export function createEvalExecutionTransport({
       active.delete(job.id);
     }
   };
-  const tick = async () => {
-    if (stopped || ticking) return;
-    ticking = true;
-    try {
-      while (!stopped) {
-        const job = await store.claim(owner, scope, limits);
-        if (!job) break;
-        const controller = new AbortController();
-        const completion = run(job, controller);
-        active.set(job.id, { controller, completion });
-        try {
-          onExecution?.(completion);
-        } catch {
-          /* Optional host integration must not change execution. */
+  const tick = (selected?: readonly string[]): Promise<void> => {
+    // Requests must keep polling cancellation while another claim is in flight.
+    // Retirement/close explicitly await ticking before releasing dependencies.
+    if (ticking) return Promise.resolve();
+    if (stopped || (draining && !selected)) return Promise.resolve();
+    // Install the promise before invoking adapters, which may throw synchronously.
+    ticking = Promise.resolve().then(async () => {
+      try {
+        while (!stopped && (!draining || selected)) {
+          const job = selected
+            ? await store.claimQueued!(owner, scope, limits, selected)
+            : await store.claim(owner, scope, limits);
+          if (!job) break;
+          // A late claim belongs to us during drain, but explicit close must not
+          // dispatch new side effects after the abort snapshot.
+          if (stopped) break;
+          const controller = new AbortController();
+          const completion = run(job, controller);
+          active.set(job.id, { controller, completion });
+          try {
+            onExecution?.(completion);
+          } catch {
+            /* Optional host integration must not change execution. */
+          }
         }
+      } catch {
+        failedRetirement();
+        /* Store availability is also reported by authenticated admission/observation. */
+      } finally {
+        ticking = undefined;
       }
-    } catch {
-      /* Store availability is also reported by authenticated admission/observation. */
-    } finally {
-      ticking = false;
-    }
+    });
+    return ticking;
   };
   const timer = setInterval(() => {
     void tick();
@@ -375,8 +415,9 @@ export function createEvalExecutionTransport({
     async submit(request: Request, body: EvalRemoteRunRequest) {
       const negotiated =
         request.headers.get("x-kortyx-eval-protocol") === protocol;
-      if (stopped)
-        return problem(
+      const retiring = draining;
+      const refused = () =>
+        problem(
           new KortyxError(
             "EVAL_EXECUTOR_BUSY",
             "Eval executor is draining; execution was not accepted.",
@@ -390,6 +431,7 @@ export function createEvalExecutionTransport({
           ),
           negotiated,
         );
+      if (stopped || (retiring && !negotiated)) return refused();
       const id = negotiated
         ? request.headers.get("idempotency-key")
         : randomUUID();
@@ -413,39 +455,90 @@ export function createEvalExecutionTransport({
           },
           { status: 410 },
         );
+      const fingerprint = createHash("sha256")
+        .update(canonical(body))
+        .digest("hex");
       try {
-        if (
-          negotiated &&
-          request.headers.get("x-kortyx-eval-generation") !==
-            (await store.generation())
-        )
-          return Response.json(
-            {
-              error: "Execution storage changed; execution status is unknown.",
-              code: "EVAL_EXECUTION_STORE_CHANGED",
-            },
-            { status: 409 },
-          );
-        await store.submit(
-          {
-            id: key(id),
-            scope,
-            fingerprint: createHash("sha256")
-              .update(canonical(body))
-              .digest("hex"),
-            group: key(body.attempt?.evaluationId ?? id),
-            concurrency: body.concurrency,
-            weight: body.attempt ? 1 : body.concurrency,
-            payload: body,
-            queued: negotiated,
-          },
-          limits,
-        );
+        let admitted!: () => void;
+        const pending = new Promise<void>((resolve) => {
+          admitted = resolve;
+        });
+        admissions.add(pending);
+        try {
+          if (
+            negotiated &&
+            request.headers.get("x-kortyx-eval-generation") !==
+              (await store.generation())
+          )
+            return Response.json(
+              {
+                error:
+                  "Execution storage changed; execution status is unknown.",
+                code: "EVAL_EXECUTION_STORE_CHANGED",
+              },
+              { status: 409 },
+            );
+          if (retiring) {
+            // A lost POST response can be retried after preparation begins.
+            // Reattach existing evidence without admitting or replaying work.
+            const existing = await store.get(key(id));
+            if (!existing) return refused();
+            if (existing.fingerprint !== fingerprint)
+              throw new KortyxError(
+                "EVAL_EXECUTION_CONFLICT",
+                "Execution identity was reused with a different request.",
+                {
+                  category: "request",
+                  status: 409,
+                  retryable: false,
+                  safeMessage:
+                    "Execution identity was reused with a different request.",
+                },
+              );
+            return await observe(request, id);
+          }
+          try {
+            await store.submit(
+              {
+                id: key(id),
+                scope,
+                fingerprint,
+                group: key(body.attempt?.evaluationId ?? id),
+                concurrency: body.concurrency,
+                weight: body.attempt ? 1 : body.concurrency,
+                payload: body,
+                queued: negotiated,
+              },
+              limits,
+            );
+          } catch (error) {
+            if (
+              !(error instanceof KortyxError) ||
+              ![
+                "EVAL_EXECUTOR_BUSY",
+                "EVAL_EXECUTION_CONFLICT",
+                "EVAL_CONCURRENCY_UNSUPPORTED",
+                "EVAL_CONCURRENCY_CHANGED",
+                "EVAL_EVIDENCE_LIMIT",
+              ].includes(error.code)
+            )
+              failedRetirement();
+            throw error;
+          }
+        } finally {
+          admissions.delete(pending);
+          admitted();
+        }
+        if (stopped && !negotiated) {
+          throw new Error("Consumer execution was explicitly closed.");
+        }
         await tick();
         if (!negotiated) {
           // Legacy clients own the request lifetime and enter execution before
           // receiving the stream, so immediate disconnect still signals cleanup.
           while ((await store.status(key(id)))?.state === "queued") {
+            if (stopped)
+              throw new Error("Consumer execution was explicitly closed.");
             request.signal.throwIfAborted();
             await wait(10, request.signal);
             await tick();
@@ -453,7 +546,7 @@ export function createEvalExecutionTransport({
         }
         return await observe(request, id, 0, negotiated);
       } catch (error) {
-        if (!negotiated && request.signal.aborted) {
+        if (!negotiated && (request.signal.aborted || stopped)) {
           active.get(key(id))?.controller.abort("user-cancelled");
           await store.cancel(key(id)).catch(() => {});
         }
@@ -466,11 +559,56 @@ export function createEvalExecutionTransport({
         "x-kortyx-eval-generation": await store.generation(),
       };
     },
-    async close() {
+    drain() {
+      draining = true;
+      clearInterval(timer);
+      drain ??= (async () => {
+        try {
+          await Promise.all(admissions);
+          await ticking;
+          if (!store.queued || !store.claimQueued) throw unsupportedRetirement;
+          const selected = new Set(await store.queued(scope));
+          if (selected.size > limits.maxQueuedExecutions)
+            throw new Error("Retirement queue exceeds the configured bound.");
+          while (!stopped) {
+            if (selected.size) await tick([...selected]);
+            for (const id of selected) {
+              const status = await store.status(id);
+              if (!status || status.state === "unknown") failedRetirement();
+              if (status?.state !== "queued") selected.delete(id);
+            }
+            await Promise.all(
+              [...active.values()].map((job) => job.completion),
+            );
+            if (!selected.size || retirementFailure) break;
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+          await Promise.all([...active.values()].map((job) => job.completion));
+          await Promise.allSettled(heartbeats);
+          if (stopped)
+            throw new Error("Consumer retirement was explicitly aborted.");
+          if (retirementFailure) throw retirementFailure;
+        } catch (error) {
+          failedRetirement();
+          // Host errors never include store contents or credentials.
+          throw error === unsupportedRetirement
+            ? unsupportedRetirement
+            : retirementFailure;
+        }
+      })();
+      return drain;
+    },
+    close() {
       stopped = true;
       clearInterval(timer);
-      for (const job of active.values()) job.controller.abort("host-stopped");
-      await Promise.all([...active.values()].map((job) => job.completion));
+      closing ??= (async () => {
+        for (const job of active.values()) job.controller.abort("host-stopped");
+        await Promise.all(admissions);
+        await ticking;
+        await Promise.all([...active.values()].map((job) => job.completion));
+        await Promise.allSettled(heartbeats);
+      })();
+      return closing;
     },
   };
 }

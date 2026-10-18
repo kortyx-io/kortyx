@@ -7,6 +7,8 @@ export type ApiConfig = {
   apiKeyPepper: string;
   nodeEnv: string;
   deployment: ApiDeployment;
+  evalWorkerEnabled: boolean;
+  evalMaxConcurrentEvaluations: number;
 };
 
 export const loadApiConfig = (): ApiConfig => {
@@ -32,5 +34,26 @@ export const loadApiConfig = (): ApiConfig => {
     apiKeyPepper,
     nodeEnv,
     deployment,
+    ...loadEvalWorkerConfig(),
+  };
+};
+
+export const loadEvalWorkerConfig = () => {
+  const workerEnabled = process.env.KORTYX_API_EVAL_WORKER_ENABLED ?? "true";
+  if (workerEnabled !== "true" && workerEnabled !== "false")
+    throw new Error("KORTYX_API_EVAL_WORKER_ENABLED must be true or false.");
+  const workerConcurrency =
+    process.env.KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS ?? "4";
+  if (
+    !/^[1-9]\d*$/.test(workerConcurrency) ||
+    !Number.isSafeInteger(Number(workerConcurrency))
+  )
+    throw new Error(
+      "KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS must be a positive integer.",
+    );
+
+  return {
+    evalWorkerEnabled: workerEnabled === "true",
+    evalMaxConcurrentEvaluations: Number(workerConcurrency),
   };
 };
