@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { STUDIO_REQUEST_PATH } from "@/lib/studio-routing";
-import { promptRequest } from "./client";
+import { PromptRequestError, promptRequest } from "./client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -46,5 +46,64 @@ describe("prompt request scope", () => {
     expect(headers.get(STUDIO_REQUEST_PATH)).toBe(
       "/projects/project-b/prompts",
     );
+  });
+});
+
+describe("prompt save failures", () => {
+  it.each([
+    [409, "PROMPT_REVISION_CONFLICT", true],
+    [409, "PROMPT_CONFLICT", false],
+    [503, "PROMPT_REVISION_CONFLICT", false],
+    [503, "SERVICE_UNAVAILABLE", false],
+    [403, "FORBIDDEN", false],
+  ] as const)("preserves status %s and code %s without guessing a revision conflict", async (status, code, conflict) => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ error: code, message: "Save rejected." }, { status }),
+        ),
+    );
+    const error = await promptRequest(
+      "actions",
+      { action: "draft" },
+      undefined,
+      "/prompts",
+    ).catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(PromptRequestError);
+    expect(error).toMatchObject({
+      status,
+      code,
+      message: "Save rejected.",
+      revisionConflict: conflict,
+    });
+  });
+
+  it("keeps a non-JSON 503 recognizable instead of reporting a JSON parse failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response("Service unavailable", { status: 503 }),
+        ),
+    );
+    await expect(
+      promptRequest("actions", { action: "draft" }, undefined, "/prompts"),
+    ).rejects.toMatchObject({
+      status: 503,
+      revisionConflict: false,
+      message: "Prompt request failed. Please try again.",
+    });
+  });
+
+  it("preserves an offline failure without claiming a server-side conflict", async () => {
+    const offline = new TypeError("Failed to fetch");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(offline));
+    await expect(
+      promptRequest("actions", { action: "draft" }, undefined, "/prompts"),
+    ).rejects.toBe(offline);
+    expect(offline).not.toBeInstanceOf(PromptRequestError);
   });
 });

@@ -48,7 +48,7 @@ import { DETAIL_TAB_IDS } from "@/lib/detail-tab-contract";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { studioHelp } from "@/lib/studio-help";
-import { promptRequest } from "../api/client";
+import { PromptRequestError, promptRequest } from "../api/client";
 import {
   usePromptDetail,
   usePromptLibrary,
@@ -250,11 +250,15 @@ export function PromptDetailView({
           setAutosave("Draft saved");
         } catch (cause) {
           conflicted.current = true;
-          setAutosave("Draft conflict");
+          const revisionConflict =
+            cause instanceof PromptRequestError && cause.revisionConflict;
+          setAutosave(revisionConflict ? "Draft conflict" : "Draft not saved");
           setError(
-            cause instanceof Error
-              ? cause.message
-              : "Could not save draft. Your local edits are retained.",
+            revisionConflict
+              ? "This draft changed elsewhere. Your local edits are still open here."
+              : cause instanceof Error
+                ? cause.message
+                : "Could not save draft. Your local edits are retained.",
           );
         }
       }
@@ -824,7 +828,15 @@ export function PromptDetailView({
           role="alert"
           className="flex flex-wrap items-center justify-between gap-2 border-b bg-destructive/5 px-5 py-3 text-xs text-destructive"
         >
-          <span>{error || readError}</span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <span>{error || readError}</span>
+            {conflicted.current && (
+              <p>
+                Keep this page open. Export your local draft before reloading so
+                you have a copy of your edits.
+              </p>
+            )}
+          </div>
           {conflicted.current && (
             <div className="flex flex-wrap gap-2">
               <Button
@@ -1175,6 +1187,11 @@ export function PromptDetailView({
                             ? autosave
                             : "Invalid fields · changes are not saved"}
                         </output>
+                      </p>
+                      <HelpCircle help={studioHelp.promptDraft} />
+                      <p className="basis-full text-xs text-muted-foreground">
+                        Only edits marked Draft saved are stored. Copy unsaved
+                        or invalid edits before reloading.
                       </p>
                     </div>
                     <PromptFields
