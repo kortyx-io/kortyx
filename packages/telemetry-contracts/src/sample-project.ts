@@ -37,6 +37,9 @@ export const SAMPLE_PROJECT = {
   candidateEvalRunId: "10000000-0000-4000-8000-000000000032",
   pendingApprovalId: "sample-pending-credit-review",
   pendingChoiceId: "sample-pending-parcel-choice",
+  diagnosticIds: {
+    budgetLimit: "30000000-0000-4000-8000-e6dfcc9c117a",
+  },
   interruptId: "sample-refund-approval",
   promptId: "10000000-0000-4000-8000-000000000002",
   evaluationId: "10000000-0000-4000-8000-000000000003",

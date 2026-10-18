@@ -83,6 +83,7 @@ export function studioFeature(
 ) {
   if (
     operation !== "studio.sample" &&
+    operation !== "studio.help" &&
     typeof window !== "undefined" &&
     isSamplePath(window.location.pathname)
   )
@@ -95,6 +96,7 @@ export function studioOperation(
 ) {
   if (
     operation !== "studio.sample" &&
+    operation !== "studio.help" &&
     typeof window !== "undefined" &&
     isSamplePath(window.location.pathname)
   )

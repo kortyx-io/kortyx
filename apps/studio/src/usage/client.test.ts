@@ -171,6 +171,38 @@ it("allowlists tour outcomes and honors opt-out without sending tour content", a
   await usage.flushStudioUsage();
   expect(fetch).toHaveBeenCalledOnce();
 });
+it("measures page help in both sample and real views without collecting customer context", async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>(
+    async () => new Response(null, { status: 200 }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("window", { location: { pathname: "/sample/runs" } });
+  vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} });
+  const usage = await import("./client");
+  usage.configureStudioUsage(config);
+  usage.studioFeature("studio.help", {
+    help_action: "start",
+    help_page: "run",
+    help_context: "sample",
+    help_step: "content",
+    runId: "private-run",
+    url: "private-url",
+    content: "private-text",
+  });
+  await usage.flushStudioUsage();
+  const body = String(fetch.mock.calls[0]?.[1]?.body);
+  expect(body).toContain("studio.help");
+  expect(body).toContain('"help_page":"run"');
+  expect(body).not.toContain("private-");
+  usage.configureStudioUsage({ ...config, enabled: false });
+  usage.studioFeature("studio.help", {
+    help_action: "complete",
+    help_page: "run",
+    help_context: "real",
+  });
+  await usage.flushStudioUsage();
+  expect(fetch).toHaveBeenCalledOnce();
+});
 
 it("collects finite chapter diagnostics while excluding arbitrary step names and errors", async () => {
   const fetch = vi.fn<typeof globalThis.fetch>(

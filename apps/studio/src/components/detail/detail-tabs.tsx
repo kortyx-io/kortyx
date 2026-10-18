@@ -70,7 +70,10 @@ export function DetailTabs({
 
   return (
     <div className="@container flex h-full min-h-0 flex-col">
-      <div className="data-table-header-scroll z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6">
+      <div
+        data-page-help="tabs"
+        className="data-table-header-scroll z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}

@@ -21,14 +21,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
-import { usePathname, useRouter } from "@/lib/scoped-navigation";
+import { useRouter } from "@/lib/scoped-navigation";
 import type { StudioLearningGuide } from "@/lib/studio-learning-guides";
 import { studioFeature } from "@/usage/client";
 import type { HubProps } from "./hub";
-import { prepareSampleTour } from "./navigation";
+import { prepareSamplePage, prepareSampleTour } from "./navigation";
+import type { PageHelpProps } from "./page-help";
+import type { PageGuideId } from "./page-help-registry";
 import {
   checkpoint,
-  contextChapter,
   emptyProgress,
   entryIntent,
   finishChapter,
@@ -60,6 +61,7 @@ type Summary = {
 interface LearningContextValue {
   openHub(): void;
   start(id: ChapterId): void;
+  explain(): void;
   active: boolean;
   sample: boolean;
   visible: boolean;
@@ -100,6 +102,8 @@ export function LearningProvider({
   const [loading, setLoading] = useState(false);
   const [Runtime, setRuntime] = useState<ComponentType<RuntimeProps>>();
   const [Hub, setHub] = useState<ComponentType<HubProps>>();
+  const [PageHelp, setPageHelp] = useState<ComponentType<PageHelpProps>>();
+  const [pageHelpOpen, setPageHelpOpen] = useState(false);
   const [generation, setGeneration] = useState(0);
   const [summary, setSummary] = useState<Summary | null>(null);
   const mounted = useRef(false);
@@ -167,7 +171,7 @@ export function LearningProvider({
     focusLauncher();
   }
   async function openHub() {
-    if (screenRef.current === "tour" || busy.current) return;
+    if (screenRef.current === "tour" || busy.current || pageHelpOpen) return;
     opener.current =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
@@ -189,6 +193,69 @@ export function LearningProvider({
       }
     } finally {
       if (mounted.current && ticket === loadTicket.current) setLoading(false);
+    }
+  }
+  async function explain() {
+    if (screenRef.current === "tour" || busy.current || pageHelpOpen) return;
+    opener.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const ticket = ++loadTicket.current;
+    setLoading(true);
+    setScreen("loading");
+    setError("");
+    try {
+      const { PageHelp } = await import("./page-help");
+      if (!mounted.current || ticket !== loadTicket.current) return;
+      setPageHelp(() => PageHelp);
+      setPageHelpOpen(true);
+      setScreen("idle");
+    } catch {
+      if (mounted.current && ticket === loadTicket.current) {
+        setError("Could not load this page's guide. Please try again.");
+        setScreen("idle");
+      }
+    } finally {
+      if (mounted.current && ticket === loadTicket.current) setLoading(false);
+    }
+  }
+  async function openSamplePage(page: PageGuideId) {
+    if (busy.current) return;
+    busy.current = true;
+    const ticket = ++loadTicket.current;
+    const controller = new AbortController();
+    transferAbort.current = controller;
+    setPageHelpOpen(false);
+    setLoading(true);
+    setScreen("loading");
+    try {
+      if (!available) throw new Error();
+      const prepared = await prepareSamplePage({
+        page,
+        visible,
+        returnTo,
+        signal: controller.signal,
+      });
+      if (!mounted.current || ticket !== loadTicket.current) return;
+      if (prepared.shown) track("show", null);
+      window.location.assign(prepared.href);
+    } catch {
+      if (
+        mounted.current &&
+        ticket === loadTicket.current &&
+        !controller.signal.aborted
+      ) {
+        setLoading(false);
+        setScreen("idle");
+        setError(
+          "Could not open the sample example. Your current project is unchanged. Please try again.",
+        );
+        focusLauncher();
+      }
+    } finally {
+      if (ticket === loadTicket.current) busy.current = false;
+      if (transferAbort.current === controller) transferAbort.current = null;
     }
   }
   async function play() {
@@ -272,6 +339,7 @@ export function LearningProvider({
     mode: TourMode = "chapter",
     resumeChapter = false,
   ) {
+    if (pageHelpOpen) return;
     if (!sample) return transfer(mode === "full" ? "full" : "chapter", id);
     const saved = current.current.chapters[id];
     let next = startChapter(current.current, id, mode);
@@ -357,6 +425,14 @@ export function LearningProvider({
     update(saved);
     if (sample && !intentConsumed.current) {
       intentConsumed.current = true;
+      if (new URLSearchParams(window.location.search).get("explain") === "1") {
+        const params = new URLSearchParams(window.location.search);
+        params.delete("explain");
+        const destination = `${window.location.pathname}${params.size ? `?${params}` : ""}`;
+        window.history.replaceState(window.history.state, "", destination);
+        void explain();
+        return;
+      }
       const intent = entryIntent(window.location.search);
       if (intent) {
         const params = new URLSearchParams(window.location.search);
@@ -400,16 +476,33 @@ export function LearningProvider({
     <LearningContext.Provider
       value={{
         openHub,
+        explain: () => {
+          void explain();
+        },
         start: (id) => {
           void start(id);
         },
-        active: screen === "tour" || loading,
+        active: screen === "tour" || loading || pageHelpOpen,
         sample,
         visible,
         available,
       }}
     >
       {children}
+      {PageHelp && pageHelpOpen && (
+        <PageHelp
+          sample={sample}
+          available={available}
+          visible={visible}
+          onClose={() => {
+            setPageHelpOpen(false);
+            focusLauncher();
+          }}
+          onExample={(page) => {
+            void openSamplePage(page);
+          }}
+        />
+      )}
       {loading && (
         <output
           className="fixed right-4 bottom-4 rounded-md border bg-popover p-3 text-sm text-popover-foreground"
@@ -510,8 +603,6 @@ export function LearningProvider({
 
 export function LearningControls() {
   const learning = useLearning();
-  const pathname = usePathname();
-  const chapter = contextChapter(pathname);
   if (!learning) return null;
   return (
     <div
@@ -540,22 +631,11 @@ export function LearningControls() {
               Explore Studio
             </DropdownMenuItem>
             <DropdownMenuItem
-              disabled={!chapter || !learning.available}
-              onSelect={() => {
-                if (chapter)
-                  requestAnimationFrame(() => learning.start(chapter));
-              }}
+              onSelect={() => requestAnimationFrame(learning.explain)}
             >
               <CircleHelp />
               <span className="flex flex-col gap-0.5">
                 <span>Explain this page</span>
-                {!learning.sample && chapter && (
-                  <span className="text-xs text-muted-foreground">
-                    {learning.visible
-                      ? "Opens the sample project"
-                      : "Shows the hidden sample project"}
-                  </span>
-                )}
               </span>
             </DropdownMenuItem>
           </DropdownMenuGroup>

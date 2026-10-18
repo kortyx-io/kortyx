@@ -2,6 +2,7 @@
 import { act, useEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { PageHelpProps } from "./page-help";
 import type { RuntimeProps } from "./runtime";
 
 const { feature, replace } = vi.hoisted(() => ({
@@ -42,6 +43,15 @@ vi.mock("./runtime", () => ({
     );
   },
 }));
+vi.mock("./page-help", () => ({
+  PageHelp: (props: PageHelpProps) => (
+    <section data-page-help-runtime="true">
+      <button type="button" onClick={props.onClose}>
+        Close page guide
+      </button>
+    </section>
+  ),
+}));
 
 import {
   checkpoint,
@@ -67,10 +77,15 @@ afterEach(async () => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
-async function render() {
+async function render(sample = true, available = true) {
   await act(async () =>
     root.render(
-      <LearningProvider sample visible available returnTo="/runs">
+      <LearningProvider
+        sample={sample}
+        visible
+        available={available}
+        returnTo="/runs"
+      >
         <LearningControls />
       </LearningProvider>,
     ),
@@ -84,7 +99,7 @@ function button(text: string) {
   return node;
 }
 async function click(text: string) {
-  if (text === "Explore Studio") {
+  if (text === "Explore Studio" || text === "Explain this page") {
     await act(async () => {
       button("Explore").dispatchEvent(
         new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
@@ -103,6 +118,7 @@ async function click(text: string) {
   }
   await act(async () => {
     button(text).click();
+    await new Promise(requestAnimationFrame);
     await vi.dynamicImportSettled();
   });
 }
@@ -159,7 +175,25 @@ it("offers page help and documentation through the single Explore menu", async (
     await new Promise(requestAnimationFrame);
     await vi.dynamicImportSettled();
   });
-  expect(active()?.getAttribute("data-active-chapter")).toBe("debug-execution");
+  expect(document.querySelector("[data-page-help-runtime]")).not.toBeNull();
+  expect(active()).toBeNull();
+});
+it("explains real pages without sample access or changing saved walkthrough progress", async () => {
+  const saved = checkpoint(
+    startChapter(emptyProgress(), "debug-execution", "full"),
+    "failure-trace",
+  );
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(saved));
+  const request = vi.fn();
+  vi.stubGlobal("fetch", request);
+  await render(false, false);
+  await click("Explain this page");
+  expect(document.querySelector("[data-page-help-runtime]")).not.toBeNull();
+  expect(request).not.toHaveBeenCalled();
+  expect(replace).not.toHaveBeenCalled();
+  expect(JSON.parse(localStorage.getItem(PROGRESS_KEY) ?? "{}")).toEqual(saved);
+  await click("Close page guide");
+  expect(document.querySelector("[data-page-help-runtime]")).toBeNull();
 });
 it("runs the full queue with chapter breaks, pause/resume and honest skip totals", async () => {
   await render();

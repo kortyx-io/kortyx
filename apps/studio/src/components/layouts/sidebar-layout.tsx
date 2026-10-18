@@ -107,7 +107,10 @@ export async function SidebarLayout({
                   />
                   <LearningControls />
                 </header>
-                <main className="min-h-0 flex-1 overflow-hidden pr-1 pb-1">
+                <main
+                  data-studio-page="true"
+                  className="min-h-0 flex-1 overflow-hidden pr-1 pb-1"
+                >
                   {children}
                 </main>
               </SidebarInset>

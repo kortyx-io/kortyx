@@ -25,6 +25,16 @@ Node delivery lazily stores a random installation UUID in `~/.config/kortyx/usag
 
 The shared catalog allows fixed operation names, outcome enums, Kortyx release versions, provider families, storage/transport kinds, coarse HTTP status, known error codes and booleans. Arbitrary property keys are dropped; unrecognized enum values and error codes become `other`. The error projection reads only own data properties and does not invoke application getters.
 
+Studio page explanations use `studio.help` with finite `help_page`, `help_step`,
+`help_context` (real/sample), and `help_action` values. Starts count explanation
+attempts; step events count displayed steps, including Back. Completion, skip,
+exit, error, and example request/accept/cancel distinguish local help from a
+confirmed sample transfer. Compare completions against starts within the same
+page/context cohort, accounting for best-effort delivery and abandoned tabs.
+Record identifiers, URLs, selectors, setting values, and page content are excluded.
+Page-help facts are allowed in sample views while ordinary execution metrics remain
+suppressed; they do not measure SDK activation or customer execution outcomes.
+
 Prompts, inputs/outputs, messages, schemas, workflow/node/tool names, URLs, paths, custom application error codes, customer IDs, credentials, raw errors and stacks are excluded. Capture requests omit browser cookies and referrers, disable PostHog person profiles and geolocation enrichment, and send `$ip: null`. Network infrastructure still receives a request's source IP; the payload is not proof of legal anonymity. There is no autocapture, session replay or global exception handler.
 
 Records aggregate matching operations, outcomes and approved dimensions over a 60-second flush window. A scope finishes once. Successes and failures use the same counting policy. `usage.operation` records reliability and duration; `usage.feature` records deliberate adoption or explicit feature configuration. Background reads/refreshes have separate origins and must not be used as click counts.

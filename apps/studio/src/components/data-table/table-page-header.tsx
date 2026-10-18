@@ -13,7 +13,10 @@ export function TablePageHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="shrink-0 bg-background px-5 pt-4 pb-2">
+    <header
+      data-page-help="header"
+      className="shrink-0 bg-background px-5 pt-4 pb-2"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1 basis-48">
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>

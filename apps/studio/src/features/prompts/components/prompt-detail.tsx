@@ -1150,6 +1150,7 @@ export function PromptDetailView({
               viewportClassName="overscroll-contain"
             >
               <div
+                data-page-help="prompt-content"
                 data-prompt-content-version={
                   !query.edit && query.tab === "content"
                     ? selected.version

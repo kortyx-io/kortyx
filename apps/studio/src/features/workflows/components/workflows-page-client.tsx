@@ -169,6 +169,7 @@ export default function WorkflowsPageClient({
   return (
     <div
       data-workflows-ready={hydrated ? "true" : "false"}
+      data-page-help-records={system.workflows.length}
       className="flex h-full min-h-[620px] overflow-hidden rounded-xl border bg-background shadow-sm"
     >
       <div
@@ -262,7 +263,7 @@ export default function WorkflowsPageClient({
             </span>
           </div>
         </div>
-        <div className="min-h-0 flex-1">
+        <div data-page-help="workflow-map" className="min-h-0 flex-1">
           <WorkflowCanvas
             system={canvasSystem}
             mode={params.mode}

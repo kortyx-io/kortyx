@@ -328,6 +328,7 @@ function DataTableContent<T, S extends string>({
     <div className={cn("relative flex h-full min-h-0 min-w-0", className)}>
       <div
         data-table-ready={interactive}
+        data-page-help-records={data.length}
         className={cn(
           "flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
           className,

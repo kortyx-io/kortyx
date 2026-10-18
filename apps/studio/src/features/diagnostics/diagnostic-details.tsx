@@ -56,7 +56,10 @@ export function DiagnosticDetails({
     : null;
 
   return (
-    <div className="@container flex h-full min-h-0 min-w-0 flex-col">
+    <div
+      data-page-help="diagnostic"
+      className="@container flex h-full min-h-0 min-w-0 flex-col"
+    >
       <DetailHeader
         eyebrow="Error diagnostic"
         title={manifest.summary.type}
@@ -114,6 +117,7 @@ export function DiagnosticDetails({
                 label: "Exception",
                 content: content ? (
                   <section
+                    data-page-help="diagnostic-content"
                     aria-label="Exception and provider details"
                     className="flex h-full min-h-0 min-w-0 flex-col gap-3 p-4 @lg:p-6"
                   >

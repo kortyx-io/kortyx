@@ -273,3 +273,54 @@ failures retain grading evidence without invented runtime exceptions.
 - The v4 tour and active-grading changes are preserved. No local Playwright E2E,
   production/auth build, container/deployment, or private Cloud check was run for
   this follow-up. Final-head hosted CI remains a separate release requirement.
+
+## Current-page explanations and explicit sample entry
+
+Acceptance: Explain this page must use the current view and its visible data,
+preserve project/record/query state, work on every primary Studio route, and never
+switch to or reveal a sample without the explicit example choice. Page help must
+leave saved walkthrough progress intact.
+
+- Added a typed registry for list/detail views, prompt groups, suite/evaluation/
+  case/comparison views, diagnostics, all settings sections, setup, and a general
+  explanation for edition extension pages. A filesystem route-inventory test
+  requires a specific explanation for each primary OSS route. Shared semantic
+  anchors let future UI changes update the guides without fixture-specific IDs.
+- Current page help captures only foreground element references and authored copy.
+  It reads no record payloads, changes no filters/tabs, and performs no data writes.
+  Selected run, prompt, session, approval, eval, and diagnostic tabs have local
+  explanations. Missing controls are omitted; entering drawers are planned before
+  animation and awaited before display. Background drawer evidence is excluded.
+- Empty/unavailable views offer local control guidance or a matching sample
+  example. Sample entry reuses the authenticated preference boundary and requires
+  the explicit Open sample example choice, including hidden-sample disclosure.
+  Unavailable sample access leaves local help enabled. No example is offered for
+  pages without populated fixtures. An explicit sample-entry intent starts only
+  the matching page's explanation and is consumed from history.
+- Manual local browser: current run Events preserved its exact URL and tab;
+  Sessions controls/row guidance; Workflows toolbar/catalog/map; diagnostic header,
+  tabs, and evidence; settings navigation and selected-section help; prompt library
+  and prompt v2 Activity; approval Timeline; evaluation case drawer (including
+  immediate launch during entry, Back, and exit); baseline comparison. Browser
+  error log was empty. A 390×844 prompt guide fitted its viewport; viewport reset.
+- On the real unconfigured `/runs` view, declined sample entry and completed local
+  guidance without navigation. Then explicitly accepted sample entry and verified
+  `/sample/runs` opened its page explanation without starting a sample chapter.
+  The real-data positive case, scoped project URLs, unavailable sample access,
+  no-write/no-navigation behavior, and progress isolation have unit/DOM coverage;
+  no connected real-project backend or private Cloud was used in this browser run.
+- The hub retained all 6 completed chapters and optional-guide completion after
+  page help. Replayed Quick orientation through selector, stable run, execution
+  detail, and completion to check the shared tooltip extraction.
+- Studio: `pnpm exec vitest run --maxWorkers=1`: **433 passed, 86 files**.
+  Latest focused onboarding/usage checks: **65 passed, 10 files**. Studio type
+  check passed. Lint passed with 142 existing warnings and one informational
+  diagnostic. `git diff --check` passed. Usage telemetry: **47 tests passed**.
+  telemetry-contracts and usage-telemetry builds passed.
+- `studio.help` measures finite page/step/context/action facts separately from
+  sample-tour completion and customer execution observability. Opt-out and payload
+  exclusion tests passed. No new customer event, SDK API, migration, or dependency
+  was introduced. User guidance, architecture, usage guidance, and Kortyx skill
+  reference were updated. Existing private-edition integration/release checks
+  remain pending; no local E2E, production/auth/container build, deployment, or
+  private Cloud verification was performed.

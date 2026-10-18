@@ -10,13 +10,29 @@ intentionally not run at the user's request; see
 ## Experience and ownership
 
 The navbar has one **Explore** menu: **Explore Studio** opens the library,
-**Explain this page** starts the matching chapter, and **Documentation** opens the
+**Explain this page** explains the current view in place, and **Documentation** opens the
 website docs. **Help & tours** in the Studio/account menu opens the same library.
 All core chapters are visible, followed by a separate optional section. The modal
 header and footer stay fixed; only the guide list scrolls. Cards use short Start,
 Resume, and Restart actions. Progress, reset, and full-tour controls live in the
 footer. A visible explanation precedes actions that show a hidden sample. Nothing
 auto-launches on login, reload, an ordinary sample visit, or deployment.
+
+Page help has a separate typed registry and runtime. It captures references to
+visible controls in the active page/drawer, never record content. It preserves
+the URL, query, selected tabs, and real project. All primary Studio routes have
+specific explanations; a route-inventory regression requires new routes to add
+one. Shared headers, tables, tabs, and settings expose stable semantic anchors.
+Unknown edition pages retain general help rather than a disabled menu entry.
+Short page explanations do not contribute to sample chapter completion.
+
+With no visible records, the user chooses local control guidance or a matching
+read-only example. Sample entry requires the explicit Open sample example action,
+including disclosure before showing a hidden sample. The existing authenticated
+preference boundary handles entry; cancellation does not navigate or write.
+An explicit `explain=1` sample-entry intent starts only that page's explanation and
+is removed from browser history. Unavailable sample access does not disable local
+help. Connection failures are explained as missing evidence, not an empty project.
 
 The full tour uses the same ordered chapter definitions as individual tours.
 Next/Back navigate within a chapter; Back from the first step can revisit the

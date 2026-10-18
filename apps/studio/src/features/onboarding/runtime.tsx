@@ -1,9 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import {
-  type ArrowRenderProps,
   EVENTS,
   STATUS,
   type Step,
@@ -11,7 +9,6 @@ import {
   useJoyride,
 } from "react-joyride";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { useRouter } from "@/lib/scoped-navigation";
 import {
@@ -22,6 +19,7 @@ import {
   type TourMode,
 } from "./registry";
 import { findLessonTarget, lessonTargetReady } from "./targets";
+import { GuideTooltip, LearningArrow } from "./tour-presentation";
 import { waitForTourTarget } from "./wait-for-target";
 
 export interface RuntimeProps {
@@ -45,114 +43,29 @@ const RuntimeContext = createContext<
   | null
 >(null);
 
-/** Leave the base open and overlap the panel border by one pixel. */
-function LearningArrow({ base, placement, size }: ArrowRenderProps) {
-  const side = placement.split("-")[0];
-  const vertical = side === "top" || side === "bottom";
-  const width = vertical ? base : size;
-  const height = vertical ? size : base;
-  const points =
-    side === "top"
-      ? `0,-1 ${base / 2},${size} ${base},-1`
-      : side === "bottom"
-        ? `0,${size + 1} ${base / 2},0 ${base},${size + 1}`
-        : side === "left"
-          ? `-1,0 ${size},${base / 2} -1,${base}`
-          : `${size + 1},0 0,${base / 2} ${size + 1},${base}`;
-  return (
-    <svg
-      aria-hidden="true"
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      className="block overflow-visible"
-      data-tour-arrow="true"
-    >
-      <polygon points={points} fill="var(--popover)" />
-      <polyline
-        points={points}
-        fill="none"
-        stroke="var(--border)"
-        strokeWidth="1"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function LearningTooltip({
-  backProps,
-  primaryProps,
-  skipProps,
-  index,
-  size,
-  step,
-  tooltipProps,
-  isLastStep,
-}: TooltipRenderProps) {
+function LearningTooltip(props: TooltipRenderProps) {
   const context = useContext(RuntimeContext);
   if (!context) return null;
   const chapterIndex = FULL_TOUR.indexOf(context.chapter);
-  const canGoBackChapter = context.mode === "full" && chapterIndex > 0;
   return (
-    <div
-      {...tooltipProps}
-      role="alertdialog"
-      data-slot="dialog-content"
-      data-studio-tour="true"
-      aria-labelledby="studio-lesson-title"
-      aria-describedby="studio-lesson-description"
-      className="w-80 max-w-[calc(100vw-2rem)] rounded-lg border bg-popover text-popover-foreground shadow-lg"
-    >
-      <header className="flex items-start justify-between gap-3 px-4 pt-4">
-        <h2 id="studio-lesson-title" className="pt-0.5 text-sm font-semibold">
-          {step.title}
-        </h2>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Exit tour"
-          onClick={context.onExit}
-        >
-          <X />
-        </Button>
-      </header>
-      <p id="studio-lesson-description" className="px-4 pt-2 text-sm">
-        {step.content}
-      </p>
-      <div className="flex flex-wrap items-center gap-2 p-4">
-        <Button {...skipProps} variant="ghost" size="sm" className="mr-auto">
-          {context.mode === "full" ? "Skip chapter" : "Skip"}
-        </Button>
-        <Button
-          {...backProps}
-          variant="secondary"
-          size="sm"
-          disabled={index === 0 && !canGoBackChapter}
-          onClick={
-            index === 0 && canGoBackChapter
-              ? context.onPrevious
-              : backProps.onClick
-          }
-        >
-          Back
-        </Button>
-        <Button {...primaryProps} size="sm">
-          {isLastStep ? "Done" : "Next"}
-        </Button>
-      </div>
-      <Separator />
-      <footer className="flex flex-wrap items-center justify-between gap-1 px-4 py-3 text-xs text-muted-foreground">
-        <span>
-          {chapterById(context.chapter).title} · Step {index + 1} of {size}
-        </span>
-        {context.mode === "full" && (
+    <GuideTooltip
+      {...props}
+      label={chapterById(context.chapter).title}
+      onExit={context.onExit}
+      onPrevious={
+        context.mode === "full" && chapterIndex > 0
+          ? context.onPrevious
+          : undefined
+      }
+      skipLabel={context.mode === "full" ? "Skip chapter" : "Skip"}
+      footer={
+        context.mode === "full" ? (
           <span>
             Chapter {chapterIndex + 1} of {FULL_TOUR.length}
           </span>
-        )}
-      </footer>
-    </div>
+        ) : undefined
+      }
+    />
   );
 }
 

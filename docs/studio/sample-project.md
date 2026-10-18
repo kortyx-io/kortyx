@@ -39,10 +39,30 @@ The library shows all six chapters and a separate **Optional guides** section fo
 stay fixed while the guide cards scroll. Cards offer **Start**, **Resume**, or
 **Restart**; progress and full-tour actions stay in the footer.
 
-Choose **Explore → Explain this page** to start the chapter for the current page.
-**Explore → Documentation** opens the website docs. Starting from a real project
-opens the sample. If the sample is hidden, the menu or library explains that it
-will be shown before starting. Opening the menu or library alone does not change
+Choose **Explore → Explain this page** for a short guide to the current page,
+using the visible records and selected tab. It preserves the project, record,
+filters, and URL. It is available on list and detail pages, workflows, prompt
+groups, evaluation results/comparisons, diagnostics, every settings section, and
+setup pages. It never edits data, launches an evaluation, or changes a setting.
+
+If no records are visible, Studio offers **Explain this page** in place or
+**Open sample example**. Only choosing the latter switches projects. The dialog
+discloses when this will also restore a hidden sample entry. Filters, permissions,
+or a failed connection can also cause an empty view; the sample does not repair
+those conditions. Pages without a relevant sample example still have local help.
+Closing the choice makes no preference request. Sample examples open the matching
+page and its explanation; they do not start a multi-page chapter.
+
+Page help restarts from the Explore menu and does not change saved walkthrough
+progress. Next, Back, Skip, ×, and Escape work within the current explanation.
+Browser navigation closes it. Missing or hidden controls are omitted; a changed
+target offers recovery instead of opening another record. Unknown edition pages
+retain a general workspace explanation; private edition-specific walkthroughs
+still require the edition's own integration.
+
+**Explore → Documentation** opens the website docs. Starting a chapter or the full
+tour through **Explore Studio** opens the sample; its launch action explains when
+a hidden sample will be shown. Opening the menu or library alone does not change
 visibility.
 
 **Next** and **Back** move through steps. Full-tour mode also supports Back to the
@@ -231,6 +251,15 @@ compiled authentication boundary without contacting an upstream service.
 ## Usage measurement
 
 `studio.sample` keeps learning separate from normal execution/evaluation usage.
+`studio.help` measures current-page explanations separately, in real and sample
+contexts. Its finite `help_page`, `help_step`, `help_context`, and `help_action`
+values measure starts, displayed steps, completion, skip/exit/error, and sample
+choice request/accept/cancel. Compare starts and completions per page/context to
+identify where people seek help; attempts are not unique users. No record IDs,
+URLs, selectors, settings values, or page/tooltip content are sent. Existing
+opt-out, aggregation budgets, and best-effort delivery apply; closing a tab can
+leave an attempt without a terminal fact.
+
 `select`, `view`, `hide`, and `show` describe sample exploration. Onboarding records
 `tour_hub`, `tour_start`, `tour_step`, `tour_complete`, `tour_skip`, `tour_exit`,
 `tour_resume`, `tour_error`, `tour_reset`, `tour_full_start`, `tour_full_complete`,
