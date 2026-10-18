@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { EnsureWorkflowTopologyRequest } from "@kortyx/telemetry-contracts";
 import { describe, expect, it, vi } from "vitest";
+import { summarizeDiscovery } from "../src/topology-summary";
 import { discoverWorkflowCalls } from "../src/workflow-calls";
 
 // These integration cases build real TypeScript programs; coverage on shared
@@ -29,6 +30,7 @@ function discover(
   source: string,
   options: {
     snapshots?: EnsureWorkflowTopologyRequest[];
+    brokenPackage?: boolean;
   } = {},
 ) {
   const dir = mkdtempSync(join(process.cwd(), ".calls-test-"));
@@ -50,6 +52,26 @@ function discover(
       export function recurse() { recurse(); }
     `,
     );
+    if (options.brokenPackage) {
+      const pkg = join(dir, "node_modules", "@fixture", "contracts");
+      mkdirSync(pkg, { recursive: true });
+      writeFileSync(
+        join(pkg, "package.json"),
+        JSON.stringify({
+          name: "@fixture/contracts",
+          exports: {
+            "./specialists": {
+              types: "./src/MissingCatalog.ts",
+              default: "./specialists.js",
+            },
+          },
+        }),
+      );
+      writeFileSync(
+        join(pkg, "specialists.js"),
+        "exports.CATALOG = {scribe: {workflowId: 'child'}};",
+      );
+    }
     writeFileSync(join(dir, "targets.ts"), `export const target = "child";`);
     writeFileSync(
       join(dir, "entry.ts"),
@@ -130,9 +152,7 @@ describe("child workflow source discovery", () => {
       }}},edges:[]});`);
     expect(result.calls.get("parent")).toEqual([]);
     expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]).toContain(
-      "unresolved or unregistered child target",
-    );
+    expect(result.warnings[0]).toContain("KTX_TOPOLOGY_UNRESOLVED_TARGET");
   });
   it("does not attribute calls from another workflow or an uncalled module helper", () => {
     const result =
@@ -402,5 +422,80 @@ it("marks discovered tools unresolved when custom helper traversal exceeds its b
   expect(result.tools.get("parent")?.get("chat")?.toolDiscovery).toMatchObject({
     status: "unresolved",
     warnings: ["Custom-hook discovery depth exceeded."],
+  });
+});
+
+it("reports missing package type exports with resolution evidence and call location", () => {
+  const result = discover(
+    `import {CATALOG} from "@fixture/contracts/specialists";
+    const parent = define({id:"parent",version:"1",nodes:{chat:{run:async()=>{
+      // kortyx-dynamic-call: cannot exempt a broken package export
+      await invoke({workflow:CATALOG.scribe.workflowId,input:{}});
+    }}},edges:[]});`,
+    { brokenPackage: true },
+  );
+  expect(result.diagnostics).toHaveLength(1);
+  expect(result.diagnostics[0]).toMatchObject({
+    code: "KTX_TOPOLOGY_UNRESOLVED_TARGET",
+    expression: "CATALOG.scribe.workflowId",
+    workflowId: "parent",
+    nodeId: "chat",
+    location: { line: 9 },
+  });
+  expect(result.diagnostics[0]?.exemptionReason).toBeUndefined();
+  expect(result.diagnostics[0]?.reason).toBe("module-resolution-failed");
+  expect(result.warnings[0]).toContain("Matched 'exports' condition 'types'");
+  expect(result.warnings[0]).toContain("./src/MissingCatalog.ts");
+  expect(result.warnings[0]).toContain("does not exist");
+  expect(result.warnings[0]).toContain("Observed runs may add the link later");
+});
+
+it("separates unregistered IDs from unresolved expressions", () => {
+  const result =
+    discover(`const parent = define({id:"parent",version:"1",nodes:{chat:{run:async()=>{
+    await invoke({workflow:"missing",input:{}});
+  }}},edges:[]});`);
+  expect(result.diagnostics[0]).toMatchObject({
+    code: "KTX_TOPOLOGY_UNREGISTERED_TARGET",
+    targetWorkflowId: "missing",
+  });
+  expect(summarizeDiscovery(result)).toMatchObject({
+    status: "incomplete",
+    unresolvedCallCount: 1,
+    exemptCallCount: 0,
+  });
+});
+
+it("allows only reasoned dynamic-call exemptions and keeps topology incomplete", () => {
+  const result =
+    discover(`const parent = define({id:"parent",version:"1",nodes:{chat:{run:async({input})=>{
+    // kortyx-dynamic-call: selected by the user at runtime
+    await invoke({workflow:input.target,input:{}});
+    // kortyx-dynamic-call:
+    await invoke({workflow:input.other,input:{}});
+    // kortyx-dynamic-call: should not hide a registration error
+    await invoke({workflow:"missing",input:{}});
+    // kortyx-dynamic-call: cannot exempt a missing argument
+    await invoke({input:{}});
+  }}},edges:[]});`);
+  expect(result.diagnostics[0]?.exemptionReason).toBe(
+    "selected by the user at runtime",
+  );
+  expect(
+    result.diagnostics.slice(1).every((item) => !item.exemptionReason),
+  ).toBe(true);
+  expect(summarizeDiscovery(result)).toMatchObject({
+    status: "incomplete",
+    exemptCallCount: 1,
+    unresolvedCallCount: 3,
+  });
+});
+
+it("reports unavailable source as a discovery gap", () => {
+  const result = discover("", { snapshots: [snapshot("missing")] });
+  expect(summarizeDiscovery(result)).toMatchObject({
+    status: "incomplete",
+    gapCount: 1,
+    unresolvedCallCount: 0,
   });
 });

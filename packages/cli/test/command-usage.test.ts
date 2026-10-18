@@ -1,3 +1,4 @@
+import { KortyxError } from "@kortyx/core/errors";
 import {
   createUsageTelemetry,
   type UsageRecord,
@@ -205,4 +206,57 @@ it("keeps connection and nested eval command families useful without dynamic nam
     cli_resource: "evals.runs",
     cli_action: "wait",
   });
+});
+
+it.each([
+  false,
+  true,
+])("records topology strict mode %s without call expressions or paths", async (strict) => {
+  const f = fixture();
+  const error = new KortyxError(
+    "KTX_TOPOLOGY_INCOMPLETE",
+    "customer-secret-expression",
+    {
+      category: "validation",
+      retryable: false,
+      safeMessage: "Topology publication is incomplete.",
+    },
+  );
+  f.program
+    .command("topology")
+    .command("push")
+    .option("--entry <path>")
+    .option("--fail-on-unresolved-calls")
+    .action(() => {
+      if (strict) throw error;
+    });
+  const running = runCliWithUsage(
+    f.program,
+    [
+      "topology",
+      "push",
+      "--entry",
+      "customer-secret-path",
+      ...(strict ? ["--fail-on-unresolved-calls"] : []),
+    ],
+    { usage: f.usage, exitCode: () => 0 },
+  );
+  if (strict) await expect(running).rejects.toBe(error);
+  else await running;
+  expect(f.records).toHaveLength(1);
+  expect(f.records[0]).toMatchObject({
+    outcome: strict ? "failed" : "success",
+    properties: {
+      cli_command: "topology.push",
+      topology_strict: strict,
+      ...(strict
+        ? {
+            error_code: "KTX_TOPOLOGY_INCOMPLETE",
+            error_category: "validation",
+            retryable: false,
+          }
+        : {}),
+    },
+  });
+  expect(JSON.stringify(f.records)).not.toContain("customer-secret");
 });

@@ -24,6 +24,43 @@ creating runs. Use `--dry-run` to inspect the projection locally. See [Connect y
 
 The CLI imports the application entry module and calls the telemetry API with its write key. Publication runs in your application's deployment environment; deploying Studio does not publish catalogs for your applications.
 
+## Check discovery before publishing
+
+Publication acceptance and child-call discovery are separate results. A successful
+upload can still omit a child-workflow link that source analysis could not resolve.
+The CLI reports unresolved expressions, IDs outside the publication set, and missing
+source separately. `--json` adds `publication`, `discovery`, `diagnostics`, and
+`warnings` alongside `workflows`; existing workflow fields are preserved.
+
+For CI that requires complete declared links, enable the optional strict check:
+
+```bash
+npx kortyx topology push --entry src/lib/agent.ts --fail-on-unresolved-calls
+```
+
+Non-exempt unresolved calls, unregistered IDs, or source-discovery gaps exit nonzero
+before uploading any snapshots. `--dry-run --fail-on-unresolved-calls` runs this check
+without publishing. This option requires a CLI version whose `topology push --help`
+lists it; existing commands retain their warning-and-publish behavior by default.
+
+For an intentionally dynamic target, place a reason immediately above the child call:
+
+```ts
+// kortyx-dynamic-call: choose a registered specialist from the request
+await useWorkflow({ workflow: input.specialistWorkflowId, input: {} });
+```
+
+```js
+// kortyx-dynamic-call: choose a registered specialist from the request
+await useWorkflow({ workflow: input.specialistWorkflowId, input: {} });
+```
+
+Exemptions remain visible and discovery stays incomplete. Missing arguments,
+unregistered literal IDs and broken imports cannot be exempted. For a custom hook,
+put the comment above its `useWorkflow` call. Preserve the comment if publishing
+compiled JavaScript. Import-resolution diagnostics contain local source paths and
+expressions; they are CLI output, not fields uploaded with topology or usage telemetry.
+
 ## Verify publication
 
 Open **Workflows** in the intended Studio project and inspect the declared map. A published map can exist before any run has used its paths. Send a real application request to add execution evidence.
