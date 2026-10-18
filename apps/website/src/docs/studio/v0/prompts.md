@@ -71,6 +71,21 @@ You can browse saved versions and other tabs, then return to the draft. Valid
 changes autosave and are flushed when leaving the prompt. Invalid JSON remains
 in the mounted editor while browsing versions and tabs.
 
+> **Good to know:** **Draft saved** means Studio has accepted the latest valid edits. **Unsaved changes**, **Draft not saved**, or invalid fields mean some edits may exist only in the open editor. Keep the page open and copy or export those edits before refreshing, closing the tab, or navigating away. A Studio update may reload the page during navigation; an open tab does not guarantee that unsaved edits survive.
+
+If a save fails, Studio keeps your edits in the open editor and pauses autosave.
+**Draft conflict** means the saved revision changed. A temporary service or
+connection failure shows **Draft not saved** instead.
+
+- **Export local draft** downloads your current edits as JSON so you have a copy
+  before reloading. Keep that file somewhere safe; it contains your prompt text.
+- **Use local draft on latest** reads the latest saved revision, keeps your local
+  content, and resumes autosave against that revision. It does not merge another
+  editor's changes into yours. Review the content before saving a version.
+
+After recovery, wait for **Draft saved**. This saves a shared draft; making it
+available to your app still requires [saving and promoting a version](/docs/studio/publish-prompt).
+
 **Save version** opens the same diff dialog used by **Compare**: removed content
 is red, added content is green, and desktop views align both versions. The diff
 compares the draft against its recorded base version. Change notes are optional by
@@ -87,8 +102,8 @@ another editor cannot be deleted using an outdated revision.
 Messages, configuration, format, contracts, and exact dependencies contribute to
 the executable hash. A note-only change cannot create another executable version.
 Concurrent changes to the head, draft, or assignment are rejected; your local draft
-remains available for recovery. Retrying an accepted save with the same idempotency
-key does not create another version.
+remains available for recovery while the editor stays open. Retrying an accepted
+save with the same idempotency key does not create another version.
 
 ## Version reviews
 

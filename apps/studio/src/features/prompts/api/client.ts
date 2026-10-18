@@ -1,6 +1,21 @@
 import { studioFetch } from "@/lib/studio-fetch";
 import { STUDIO_REQUEST_PATH } from "@/lib/studio-routing";
 import { studioFeature, studioOperation } from "@/usage/client";
+
+export class PromptRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
+    super(message);
+  }
+
+  get revisionConflict() {
+    return this.status === 409 && this.code === "PROMPT_REVISION_CONFLICT";
+  }
+}
+
 export async function promptRequest(
   path: string,
   body?: unknown,
@@ -42,9 +57,20 @@ export async function promptRequest(
         phase: "http",
         http_status: String(response.status),
       });
-    const data = await response.json();
-    if (!response.ok)
-      throw new Error(data.message ?? data.error ?? "Prompt request failed.");
+    const data = await response.json().catch((error: unknown) => {
+      if (response.ok) throw error;
+      return null;
+    });
+    if (!response.ok) {
+      const code = typeof data?.error === "string" ? data.error : undefined;
+      throw new PromptRequestError(
+        typeof data?.message === "string"
+          ? data.message
+          : (code ?? "Prompt request failed. Please try again."),
+        response.status,
+        code,
+      );
+    }
     scope.end();
     return data;
   } catch (error) {

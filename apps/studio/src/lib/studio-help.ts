@@ -179,6 +179,11 @@ export const studioHelp = {
     "Extra settings and input rules saved with a prompt. Saving changes creates a version but does not make it live.",
     "prompts",
   ),
+  promptDraft: help(
+    "Saving a draft",
+    "Draft saved means Studio accepted your latest edits. Unsaved or invalid edits can be lost if this page reloads. After a save failure, Export local draft downloads a copy. Use local draft on latest keeps your edits and tries saving against the latest revision; it does not merge another person's changes.",
+    "prompts#review-and-save",
+  ),
   connect: help(
     "Connect your application",
     "Send your app's workflow activity to Studio using the endpoint and API key shown here. Keep the key on your app's server, then run a workflow to check the connection.",

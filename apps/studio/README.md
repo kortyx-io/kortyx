@@ -469,4 +469,6 @@ Table header titles own their help tooltip; existing symbols own their explanati
 
 Settings cards with an authored `help` definition also supply the current-page explanation and its documentation footer. This keeps edition-specific guidance with the contributing card. The planner reads authored metadata rather than account or record text, accepts public Kortyx documentation destinations, and highlights the compact card header; missing metadata retains shared guidance.
 
+Prompt draft help explains server-acknowledged saves, local-only edits and explicit recovery. Essential keep-page-open/export instructions stay visible during a failed save. Only the API's known revision-conflict code with HTTP 409 receives the conflict label; connection or service failures remain “Draft not saved.” Neither help nor export retries a write. Customer steps live in [Review and save](https://kortyx.io/docs/studio/v0/prompts#review-and-save).
+
 Verify hover-to-card movement, keyboard access to the footer, Escape/outside dismissal, narrow-screen placement and surrounding drawer behavior. Every destination must resolve to a page/anchor in the supported docs line. See [the audit](../../docs/audits/studio-contextual-help.md) and [completion policy](../../docs/internal/definition-of-done.md).

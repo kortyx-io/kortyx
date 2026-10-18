@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import {
   createPrompts,
   definePrompt,
@@ -76,6 +77,8 @@ async function cleanup() {
     await sql`delete from prompt_assets where key=${`${compositionKey}-actions`}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-draft`}`;
     await sql`delete from prompt_assets where key=${`${compositionKey}-continuity`}`;
+    for (const failure of ["revision", "service", "offline"])
+      await sql`delete from prompt_assets where key=${`${compositionKey}-recovery-${failure}`}`;
     await sql`delete from prompt_assets where key=${fixtureKey}`;
     await sql`delete from prompt_categories where name=${`${categoryName} disposable`}`;
     await sql`delete from prompt_categories where name=${categoryName}`;
@@ -1755,6 +1758,120 @@ test.describe("Prompt detail drawers", () => {
       .toEqual(candidate);
     expect(errors).toEqual([]);
   });
+
+  for (const failure of ["revision", "service", "offline"] as const) {
+    test(`retains, exports and explicitly recovers a draft after ${failure} failure`, async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(60_000);
+      if (failure === "service")
+        await page.setViewportSize({ width: 390, height: 844 });
+      const { id: draftId } = await action(request, {
+        action: "create",
+        key: `${compositionKey}-recovery-${failure}`,
+        name: `E2E draft recovery ${failure}`,
+        content,
+      });
+      await page.goto(`/prompts/${draftId}`);
+      await page
+        .getByRole("button", { name: "New version", exact: true })
+        .click();
+      const status = page.locator("output").filter({ visible: true });
+      await expect(status).toHaveText("Draft saved");
+      const headers = {
+        authorization: `Bearer ${process.env.KORTYX_STUDIO_API_KEY ?? "ktyx_test_localstudio_oss-demo-studio-secret-change-me"}`,
+      };
+      const readDraft = async () => {
+        const response = await request.get(
+          `${apiUrl}/v1/studio/prompts/assets/${draftId}`,
+          { headers },
+        );
+        expect(response.ok()).toBe(true);
+        return response.json();
+      };
+      if (failure === "revision") {
+        const saved = await readDraft();
+        // A real independent editor advances the stored revision. No fake 409.
+        await action(request, {
+          action: "draft",
+          id: draftId,
+          baseVersion: 1,
+          expectedRevision: saved.draftRevision,
+          content: {
+            ...content,
+            messages: [
+              { role: "system", content: "Saved by another editor." },
+              content.messages[1],
+            ],
+          },
+        });
+      } else {
+        await page.route("**/api/studio/prompts/actions", (route) => {
+          if (route.request().postDataJSON()?.action !== "draft")
+            return route.continue();
+          return failure === "offline"
+            ? route.abort("internetdisconnected")
+            : route.fulfill({
+                status: 503,
+                contentType: "text/plain",
+                body: "Service unavailable",
+              });
+        });
+      }
+      const local = `Keep my unsaved ${failure} edits.`;
+      const editor = page
+        .getByLabel("System Message")
+        .filter({ visible: true });
+      await editor.fill(local);
+      await expect(status).toHaveText(
+        failure === "revision" ? "Draft conflict" : "Draft not saved",
+      );
+      const recovery = page
+        .getByRole("alert")
+        .filter({ hasText: "Keep this page open." });
+      await expect(recovery).toBeVisible();
+      await expect(editor).toHaveText(local);
+      await expect(
+        page.getByRole("button", { name: "Save version", exact: true }),
+      ).toBeDisabled();
+      expect((await readDraft()).draft.messages[0].content).not.toBe(local);
+      const downloading = page.waitForEvent("download");
+      await recovery
+        .getByRole("button", { name: "Export local draft", exact: true })
+        .click();
+      const download = await downloading;
+      const path = await download.path();
+      expect(path).not.toBeNull();
+      if (!path) throw new Error("Draft export did not produce a file");
+      expect(JSON.parse(await readFile(path, "utf8")).messages[0].content).toBe(
+        local,
+      );
+      await page
+        .getByRole("button", { name: "About Saving a draft", exact: true })
+        .click();
+      const help = page.getByRole("dialog", {
+        name: "About Saving a draft",
+        exact: true,
+      });
+      await expect(
+        help.getByRole("link", { name: /Read documentation/ }),
+      ).toHaveAttribute("href", /prompts#review-and-save$/);
+      await help.press("Escape");
+      await expect(editor).toHaveText(local);
+      if (failure !== "revision")
+        await page.unroute("**/api/studio/prompts/actions");
+      await recovery
+        .getByRole("button", { name: "Use local draft on latest", exact: true })
+        .click();
+      await expect(status).toHaveText("Draft saved");
+      expect((await readDraft()).draft.messages[0].content).toBe(local);
+      await page.reload();
+      await expect(
+        page.getByLabel("System Message").filter({ visible: true }),
+      ).toHaveText(local);
+    });
+  }
 
   test("creates a persistent draft from newest content, browses versions, and saves the exact diff", async ({
     page,

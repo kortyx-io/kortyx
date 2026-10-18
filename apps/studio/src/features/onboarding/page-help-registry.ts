@@ -97,7 +97,7 @@ export const PAGE_GUIDES = {
     overview:
       "This prompt has versioned content and recorded assignments. The selected version and environment matter: today's draft may differ from the version used by an earlier execution.",
     content:
-      "Use the version picker and history to inspect saved content. Compare versions to review the actual change. Evaluations and runs provide evidence about versions that were used.",
+      "Use the version picker and history to inspect saved content. Compare versions to review the actual change. When editing a draft, wait for Draft saved before leaving; copy or export unsaved edits before reloading. Evaluations and runs provide evidence about versions that were used.",
     example: `/prompts/${sample.promptId}`,
   },
   "prompt-groups": {
