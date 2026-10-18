@@ -55,20 +55,27 @@ export function useTableQuery<T, S extends string>(
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const saved = JSON.parse(raw);
-        void setState(
-          {
-            ...(!search.has(keys.sort) && sortKeys.includes(saved.sort)
-              ? { sort: saved.sort }
-              : {}),
-            ...(!search.has(keys.dir) && ["asc", "desc"].includes(saved.dir)
-              ? { dir: saved.dir }
-              : {}),
-            ...(!search.has(keys.pageSize) && pageSizes.includes(saved.pageSize)
-              ? { pageSize: saved.pageSize }
-              : {}),
-          },
-          { history: "replace" },
-        );
+        const preferences = {
+          ...(!search.has(keys.sort) &&
+          sortKeys.includes(saved.sort) &&
+          saved.sort !== state.sort
+            ? { sort: saved.sort }
+            : {}),
+          ...(!search.has(keys.dir) &&
+          ["asc", "desc"].includes(saved.dir) &&
+          saved.dir !== state.dir
+            ? { dir: saved.dir }
+            : {}),
+          ...(!search.has(keys.pageSize) &&
+          pageSizes.includes(saved.pageSize) &&
+          saved.pageSize !== state.pageSize
+            ? { pageSize: saved.pageSize }
+            : {}),
+        };
+        // Even an unchanged nuqs update can refresh a remote route and race
+        // with the user's next detail navigation.
+        if (Object.keys(preferences).length)
+          void setState(preferences, { history: "replace" });
       }
     } catch {
       /* Browser storage is optional. */

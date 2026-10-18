@@ -42,7 +42,12 @@ afterEach(async () => {
 async function mount() {
   await act(() =>
     root.render(
-      <NuqsTestingAdapter hasMemory searchParams="?cursor=40" onUrlUpdate={url}>
+      <NuqsTestingAdapter
+        hasMemory
+        resetUrlUpdateQueueOnMount={false}
+        searchParams="?cursor=40"
+        onUrlUpdate={url}
+      >
         <Controls />
       </NuqsTestingAdapter>,
     ),
@@ -85,4 +90,30 @@ it("namespaces embedded state while allowing existing URL keys to be configured"
     cursor: "childPage",
     filters: "tableFilters.child",
   });
+});
+
+it("does not navigate when persisted preferences already match the mounted table", async () => {
+  localStorage.setItem(
+    "kortyx.table.example.query.v1",
+    JSON.stringify({ sort: "name", dir: "desc", pageSize: 20 }),
+  );
+  await mount();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+  expect(url).not.toHaveBeenCalled();
+});
+
+it("restores changed preferences once without resetting the current page", async () => {
+  localStorage.setItem(
+    "kortyx.table.example.query.v1",
+    JSON.stringify({ sort: "name", dir: "asc", pageSize: 50 }),
+  );
+  await mount();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  });
+  expect(query).toMatchObject({ dir: "asc", pageSize: 50, cursor: 40 });
+  expect(url).toHaveBeenCalledTimes(1);
+  expect(url.mock.calls[0][0].options.history).toBe("replace");
 });
