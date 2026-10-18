@@ -9,6 +9,7 @@ vi.mock("server-only", () => ({}));
 import { StudioEvalDetailSchema } from "@kortyx/agent/evals";
 import { caseRows, compareRuns } from "@/features/evals/lib/presentation";
 import { buildModelExchanges } from "@/features/runs/lib/run-model-io";
+import { buildTraceStory } from "@/features/runs/lib/run-trace-story";
 import { readSampleDataset } from "@/features/sample-project/data";
 import { sampleResponse } from "@/features/sample-project/http";
 import { CHAPTERS, FULL_TOUR, resolveView } from "./registry";
@@ -106,6 +107,33 @@ it("finds the orientation run independently of saved sort order and page size", 
   expect(
     (await response.json()).runs.map((run: { id: string }) => run.id),
   ).toEqual([sample.runs.success]);
+});
+it("opens the actual failed Trace operation without waiting on a background tab", () => {
+  const events = StudioDetailEventSchema.array().parse(
+    readSampleDataset().detailEvents.filter(
+      (event) => event.runId === sample.runs.failure,
+    ),
+  );
+  const failed = buildTraceStory(events, true).find(
+    (item) => item.id === sample.traceItemIds.failure,
+  );
+  expect(failed?.status).toBe("failed");
+  expect(failed?.inspectEvent.payload.error).toMatchObject({
+    name: "ProviderTimeout",
+  });
+  const { href, target } = resolveView({
+    surface: "run",
+    run: "failure",
+    focus: "trace",
+  });
+  const url = new URL(href, "https://studio.example");
+  expect(url.pathname).toBe(`/runs/${sample.runs.failure}`);
+  expect(url.searchParams.get("tab")).toBe("trace");
+  expect(url.searchParams.get("trace")).toBe(failed?.id);
+  expect(target).toContain('[data-detail-inspector][data-state="open"]');
+  expect(target).toContain(`[data-trace-run-id="${sample.runs.failure}"]`);
+  expect(target).toContain(`[data-trace-item-id="${failed?.id}"]`);
+  expect(target).toContain('[data-guide-focus="trace-error"]');
 });
 it("the saved comparison is genuinely comparable and every execution link resolves", () => {
   const data = readSampleDataset();

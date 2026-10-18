@@ -34,6 +34,10 @@ full tour** for the six core chapters:
 5. Inspect prompt versions: version 1 → version 2 → their read-only diff.
 6. Read evaluation results: suite → saved result → case evidence → baseline comparison.
 
+The failed-run chapter opens the failed Trace operation's inspector directly.
+Its recorded error stays visible while the guide explains it, then Next opens
+Model I/O. The selected operation uses a stable manifest ID across data updates.
+
 Quick orientation is marked **Start here** for new visitors. Related guides retain
 their page badge even after completion. The six core chapters remain unchanged;
 **Optional guides** adds:

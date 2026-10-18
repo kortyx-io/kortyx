@@ -27,7 +27,9 @@ export function isLessonTargetReady(element: HTMLElement): boolean {
   if (!isLessonTargetAvailable(element)) return false;
   const rect = element.getBoundingClientRect();
   const bounds = visibleBounds(element);
-  const drawer = element.closest("[data-detail-drawer]");
+  const drawer = element.closest(
+    "[data-detail-drawer], [data-detail-inspector]",
+  );
   return (
     rect.left >= bounds.left - 1 &&
     rect.right <= bounds.right + 1 &&
@@ -110,7 +112,9 @@ export function isLessonTargetAvailable(element: HTMLElement): boolean {
     window.getComputedStyle(element).visibility === "hidden"
   )
     return false;
-  const drawer = element.closest("[data-detail-drawer]");
+  const drawer = element.closest(
+    "[data-detail-drawer], [data-detail-inspector]",
+  );
   if (drawer?.getAttribute("data-state") === "closed") return false;
   const openDrawers = [
     ...document.querySelectorAll<HTMLElement>(
@@ -118,7 +122,9 @@ export function isLessonTargetAvailable(element: HTMLElement): boolean {
     ),
   ].sort((a, b) => Number(a.style.zIndex) - Number(b.style.zIndex));
   const top = openDrawers.at(-1);
-  const dialog = element.closest<HTMLElement>('[data-slot="dialog-content"]');
+  const dialog = element.closest<HTMLElement>(
+    '[data-slot="dialog-content"], [data-detail-inspector]',
+  );
   return (
     !top ||
     top.contains(element) ||
