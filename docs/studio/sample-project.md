@@ -117,6 +117,48 @@ sample pages only after authentication. An edition-specific redirect or denial
 remains authoritative. Private Cloud source and deployments are not part of the
 public adapter verification.
 
+## Sample conversations and evaluation history
+
+Dataset version 3 replaces the original small examples with **50 root runs across
+20 sessions**. One coordinator calls two returning specialists: order research and
+resolution review. The child-execution toggle exposes 55 correlated specialist
+calls in addition to the 50 root runs.
+
+The fictional support scenarios cover completed, failed, running, interrupted,
+cancelled, and incomplete runs. Inspect provider timeouts, malformed carrier
+responses, a bounded tool retry, execution limits, duplicate-credit denial, and a
+failed resume. Interrupts include approved and declined reviews, cancellation,
+expiry, and two pending requests. Pending requests have no expiry and stay pending
+when the bundled dataset is viewed later. All sample controls remain read-only.
+
+Three saved evaluations show iterative prompt changes:
+
+| Snapshot | Complete suites | Passed / total | Pass rate |
+| --- | --- | --- | --- |
+| Initial baseline | Support quality; Resolution safety | 3 / 6 | 50% |
+| Review and evidence improvements | Same two suites | 4 / 6 | 66.7% |
+| Latest recorded sample | Same suites plus Recovery and review clarity | 7 / 8 | 87.5% |
+
+Each suite includes its full case definitions, recorded observations, criteria,
+grading reasons, execution links, and frozen prompt versions. Shared cases and the
+judge stay comparable across snapshots; the final evaluation expands coverage.
+The latest pending review intentionally fails because its proposal omits the
+amount. These are authored outcomes, not measurements of a deployed agent.
+
+The coordinator and each specialist have three concise prompt revisions, with
+computed content hashes and matching evaluation snapshots. The existing tour
+identities remain stable, including the improved order-status comparison.
+
+### Privacy of the sample
+
+Execution structure was informed by read-only inspection of real workflow
+lifecycle patterns. Every conversation, reference, tool name, prompt, error, tool
+result, timestamp, identifier, usage value, and cost in the bundle is invented.
+The fictional support domain carries no source-domain rules or knowledge. No
+source transcripts, fixtures, raw responses, business-specific prompts, customer
+records, or credentials are bundled. The generator has no network or database
+access; sample reads never contact the source environment.
+
 ## Extending the dataset
 
 - Keep stable identities and tour anchors in the exported

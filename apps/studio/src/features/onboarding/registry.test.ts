@@ -90,8 +90,10 @@ it("the saved comparison is genuinely comparable and every execution link resolv
     data.evals.baseline.run,
     data.evals.detail.run,
   );
-  expect(comparison).toHaveLength(1);
-  expect(comparison[0]?.change).toBe("improved");
+  expect(comparison).toHaveLength(3);
+  expect(comparison.find((row) => row.id === sample.caseId)?.change).toBe(
+    "improved",
+  );
   for (const detail of [data.evals.detail, data.evals.baseline])
     for (const entry of detail.run.result?.cases ?? []) {
       expect(

@@ -10,7 +10,7 @@ explicit resume, and a shared OSS connection guide. See the
 
 - Sample data projects canonical synthetic executions through production read models.
   Successful, failed, approved, follow-up, and baseline runs have stable identities.
-  Two runs share a session; saved eval comparison records reference real fixtures.
+  Fifty root runs share twenty sessions; saved evaluations reference synthetic fixtures.
   Domain schemas, failure evidence, comparison eligibility, and cross-links are tested.
 - The registry restricts navigation to known read-only sample views. Chapter/step IDs
   and versions are checked against the bounded usage catalog. Stale or unsupported
@@ -44,16 +44,16 @@ explicit resume, and a shared OSS connection guide. See the
 | Compatibility and extensions | Legacy quick-tour progress migrates; future history survives older readers; optional authorized help links and existing edition setup contracts remain additive. Private Cloud deployment/account-storage behavior was not verified. |
 | Security and privacy | Existing authentication and server write denial retained. No real provider calls, credentials, account memberships, or customer copies. Progress accepts finite IDs, not navigation paths; entry cancellation and unsafe help destinations are tested. |
 | Verification | Current checks and manual local browser coverage below. E2E, CI and production deployment checks remain outstanding. |
-| Release and operations | Bundled dataset version 2 preserves IDs; dependencies/build exports retained. No DB migration/backfill or server progress store. Local progress migration is bounded. No deployment or container build performed. |
+| Release and operations | Bundled dataset version 3 preserves IDs; dependencies/build exports retained. No DB migration/backfill or server progress store. Local progress migration is bounded. No deployment or container build performed. |
 
 ## Current local checks
 
 All Vitest suites were run with **one worker**, sequentially between packages.
 The local dev server was stopped before the full Studio regression suite.
 
-- `pnpm --filter kortyx-studio exec vitest run --maxWorkers=1`: **401 tests passed in 81 files**, rerun after the manual review fixes.
+- `pnpm --filter kortyx-studio exec vitest run --maxWorkers=1`: **406 tests passed in 81 files**, rerun after the manual review fixes.
 - `pnpm --filter @kortyx/telemetry-contracts exec vitest run --maxWorkers=1`: **47 passed**.
-- `pnpm --filter @kortyx/telemetry-db exec vitest run --maxWorkers=1`: **179 passed, 58 DB integration tests skipped** without their DB environment.
+- `pnpm --filter @kortyx/telemetry-db exec vitest run --maxWorkers=1`: **181 passed, 58 DB integration tests skipped** without their DB environment.
 - `pnpm --filter @kortyx/usage-telemetry exec vitest run --maxWorkers=1`: **47 passed**.
 - Studio, telemetry-contracts, telemetry-db and usage-telemetry type checks passed.
 - telemetry-contracts, telemetry-db and usage-telemetry dependency builds passed.
@@ -160,3 +160,44 @@ recording date and clock explanation). The project selector retains its Sample
 project entry. This is a presentation-only change; fixed-clock filtering and
 server write denial remain unchanged. Existing browser specs now identify sample
 scope through the selector instead of the removed notice; they were not run.
+
+## Replacement dataset verification (2026-10-18)
+
+Dataset version 3 replaces the earlier examples while preserving manifest and tour
+identities. The bundle contains 50 root runs, 20 sessions, 55 child calls, three
+workflows (one coordinator and two returning specialists), ten interrupts, and
+three evaluations. Counts include every run status and every interrupt status.
+Two interrupts remain pending without an expiry. Each of three prompt assets has
+three saved revisions; evaluations retain their frozen prompt snapshots and usage.
+
+The complete evaluation snapshots pass 3/6, 4/6, and 7/8 conversations. The final
+snapshot adds a third suite. All seven suite runs contain definitions, observations,
+criteria, grading reasons, tool evidence, costs, and links to synthetic executions.
+The latest incomplete credit proposal intentionally fails its review criterion.
+
+Privacy: inspected source execution shapes read-only, without exporting captured
+content. All bundled content and metrics are authored fiction in an unrelated
+support domain. No source tool names, transcripts, customer records, prompts,
+identifiers, endpoints, or domain rules were copied into these fixtures.
+
+Verification for this replacement:
+
+- Studio: 406 tests passed in 81 files, one worker.
+- telemetry-db: 181 tests passed; 58 DB integration tests skipped without a DB.
+- telemetry-contracts: 47 tests passed.
+- Type checks passed for Studio, telemetry-db, and telemetry-contracts.
+- Workspace dependency builds passed; telemetry-db's sample export rebuilt.
+- Changed-source Biome checks and `git diff --check` passed. Existing non-null
+  assertion warnings in the extracted workflow-call reducer remain warnings.
+- Manual local OSS browser checks at `http://127.0.0.1:6337`: 50-row run list;
+  three workflows with 38 research and 17 resolution calls; a resolved approval's
+  two returning child calls, two resolution attempts, completed wait, and cached
+  research reuse; pending decision content and frozen timing; three prompt
+  revisions; full evaluation suite results, history, costs, and comparable baseline.
+  Browser error/warning log was empty. The task server and verification tab were
+  closed afterward.
+- Future-clock regression reprojects the fixtures in 2040 and verifies identical
+  data, pending interrupts, workflow health, and call counts.
+- No local Playwright E2E suite, full tour controller walkthrough, production/auth
+  build, container build, deployment, or private Cloud check was run for this
+  replacement. Existing PR-level release verification remains outstanding.

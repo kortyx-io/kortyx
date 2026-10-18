@@ -6,10 +6,12 @@ import { createSamplePrompts } from "./prompts";
 // Private module state: responses are cloned before crossing a request boundary.
 let dataset: ReturnType<typeof build> | undefined;
 function build() {
+  const models = createSampleProjectReadModels();
+  const prompts = createSamplePrompts();
   return {
-    ...createSampleProjectReadModels(),
-    prompts: createSamplePrompts(),
-    evals: createSampleEvaluations(),
+    ...models,
+    prompts,
+    evals: createSampleEvaluations(models, prompts),
   };
 }
 export function readSampleDataset() {

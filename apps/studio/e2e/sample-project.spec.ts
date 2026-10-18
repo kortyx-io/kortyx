@@ -38,7 +38,7 @@ test("select, explore, hide and restore the immutable sample project", async ({
   await page.goto(`/sample/interrupts/${sample.interruptId}`);
   await expect(
     page
-      .getByText("Approve the fictional $24 refund?", { exact: true })
+      .getByText("Approve the $24 credit for SAMPLE-81?", { exact: true })
       .first(),
   ).toBeVisible();
   await page.goto("/sample/prompts");

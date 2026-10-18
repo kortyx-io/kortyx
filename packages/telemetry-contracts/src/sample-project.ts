@@ -2,7 +2,7 @@
 export const SAMPLE_PROJECT = {
   id: "kortyx-sample",
   name: "Sample project",
-  version: 2,
+  version: 3,
   recordedAt: "2026-10-01T12:00:00.000Z",
   referenceTime: "2026-10-01T12:10:00.000Z",
   workflowId: "sample-support-assistant",
@@ -21,6 +21,22 @@ export const SAMPLE_PROJECT = {
     followUp: "sample-session-success",
     baseline: "sample-session-baseline",
   },
+  specialistWorkflowIds: {
+    research: "sample-order-research",
+    resolution: "sample-order-resolution",
+  },
+  specialistRevisionIds: {
+    research: "10000000-0000-4000-8000-000000000020",
+    resolution: "10000000-0000-4000-8000-000000000021",
+  },
+  evaluationIds: {
+    baseline: "10000000-0000-4000-8000-000000000030",
+    candidate: "10000000-0000-4000-8000-000000000031",
+    latest: "10000000-0000-4000-8000-000000000003",
+  },
+  candidateEvalRunId: "10000000-0000-4000-8000-000000000032",
+  pendingApprovalId: "sample-pending-credit-review",
+  pendingChoiceId: "sample-pending-parcel-choice",
   interruptId: "sample-refund-approval",
   promptId: "10000000-0000-4000-8000-000000000002",
   evaluationId: "10000000-0000-4000-8000-000000000003",

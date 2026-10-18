@@ -1,7 +1,9 @@
 "use client";
 
+import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import { createSessionColumns } from "@/features/sessions/components/session-table-columns";
 import { SessionsEmptyState } from "@/features/sessions/components/sessions-empty-state";
@@ -42,7 +44,11 @@ export default function SessionsPageClient({
     enabled: query.live,
     resource: "sessions",
   });
-  const [now, setNow] = useState(initialNow);
+  const [wallClock, setNow] = useState(initialNow);
+  const sampleProject = useStudioRouteScope()?.sampleProject === true;
+  const now = sampleProject
+    ? Date.parse(SAMPLE_PROJECT.referenceTime)
+    : wallClock;
   const hasActiveSessions = query.filteredSessions.some((session) => {
     if (session.status === "running") return true;
     if (session.status !== "interrupted" || !session.interruptStatus) {
@@ -59,10 +65,10 @@ export default function SessionsPageClient({
     );
   });
   useEffect(() => {
-    if (!query.live && !hasActiveSessions) return;
+    if (sampleProject || (!query.live && !hasActiveSessions)) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [query.live, hasActiveSessions]);
+  }, [query.live, hasActiveSessions, sampleProject]);
   const columns = createSessionColumns({
     now,
     onCopy: (value) =>

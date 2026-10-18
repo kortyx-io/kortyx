@@ -28,7 +28,7 @@ function field(row: Row, key: string): TableFilterValue | TableFilterValue[] {
     started: "startedAt",
     name: "name",
   };
-  if (key === "execution") return "root";
+  if (key === "execution") return row.parentRunId ? "child" : "root";
   if (key === "feedback") return "unrated";
   const counts =
     row.counts && typeof row.counts === "object"
@@ -174,14 +174,25 @@ export function sampleResponse(path: string, method = "GET"): Response {
     if (resource === "catalogs") return json(data.catalogs);
     if (resource === "runs") {
       if (!id) {
-        const result = page(data.runs, params, "runs");
+        const rows =
+          params.get("includeChildren") === "true"
+            ? [...data.runs, ...data.childRuns]
+            : data.runs;
+        const result = page(rows, params, "runs");
         return json({ runs: result.rows, totalCount: result.totalCount });
       }
-      const run = data.runs.find((item) => item.id === id);
+      const run = [...data.runs, ...data.childRuns].find(
+        (item) => item.id === id,
+      );
       if (run && parts.length === 2)
         return json({
           run,
-          events: data.detailEvents.filter((event) => event.runId === id),
+          events: data.detailEvents.filter((event) =>
+            run.parentRunId
+              ? event.runId === run.parentRunId &&
+                event.payload.invocationId === run.invocationId
+              : event.runId === id,
+          ),
           session:
             data.sessions.find((session) => session.id === run.sessionId) ??
             null,
@@ -283,32 +294,35 @@ export function sampleResponse(path: string, method = "GET"): Response {
           totalCount: result.totalCount,
         });
       }
+      const prompt = data.prompts.details.find(
+        (detail) =>
+          detail.asset.id === parts[2] ||
+          detail.asset.key === decodeURIComponent(parts[2] ?? ""),
+      );
       if (
         id === "assets" &&
-        (parts.length === 3 || (parts.length === 4 && parts[3] === "tables")) &&
-        (parts[2] === sample.promptId ||
-          (params.get("lookup") === "key" &&
-            parts[2] === "support%2Fassistant") ||
-          decodeURIComponent(parts[2] ?? "") === "support/assistant")
+        prompt &&
+        (parts.length === 3 || (parts.length === 4 && parts[3] === "tables"))
       ) {
         if (parts[3] === "tables")
           return json({ runs: [], evaluations: [], evidence: [] });
-        return json(data.prompts.detail);
+        return json(prompt);
       }
       if (id === "filter-values") return json({ values: [] });
     }
     if (resource === "evals") {
       if (id === "targets") return json(data.evals.targets);
       if (id === "runs" && !parts[2])
-        return json({ runs: [data.evals.detail.run, data.evals.baseline.run] });
+        return json({ runs: data.evals.runs.map((detail) => detail.run) });
       if (id === "runs" && parts.length === 3) {
-        if (parts[2] === sample.evalRunId) return json(data.evals.detail);
-        if (parts[2] === sample.baselineEvalRunId)
-          return json(data.evals.baseline);
+        const detail = data.evals.runs.find(
+          (detail) => detail.run.id === parts[2],
+        );
+        if (detail) return json(detail);
       }
       if (id === "evaluations" && (!parts[2] || parts[2] === "table")) {
         const result = page(
-          [data.evals.evaluation.run],
+          data.evals.evaluations.map((evaluation) => evaluation.detail.run),
           params,
           undefined,
           EVALUATION_TABLE_FILTER_FIELDS,
@@ -317,19 +331,16 @@ export function sampleResponse(path: string, method = "GET"): Response {
       }
       if (
         id === "evaluations" &&
-        parts[2] === sample.evaluationId &&
         (parts.length === 3 || (parts.length === 4 && parts[3] === "results"))
-      )
-        return json(
-          parts[3] === "results"
-            ? {
-                run: {
-                  ...data.evals.evaluation.run,
-                  suites: [data.evals.detail.run],
-                },
-              }
-            : data.evals.evaluation,
+      ) {
+        const evaluation = data.evals.evaluations.find(
+          (evaluation) => evaluation.detail.run.id === parts[2],
         );
+        if (evaluation)
+          return json(
+            parts[3] === "results" ? evaluation.results : evaluation.detail,
+          );
+      }
     }
     if (resource === "filter-values") {
       const requested = params.get("resource");

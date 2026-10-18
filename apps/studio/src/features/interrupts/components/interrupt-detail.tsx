@@ -1,7 +1,10 @@
+"use client";
+
 import type {
   StudioInterruptDetailResponse,
   StudioInterruptStatus,
 } from "@kortyx/telemetry-contracts";
+import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { CheckCircle2, CircleAlert, CirclePause, Clock3 } from "lucide-react";
 import { DetailLink } from "@/components/detail/detail-link";
 import {
@@ -12,6 +15,7 @@ import {
 } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { PayloadViewer } from "@/components/detail/payload-viewer";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import {
   interruptInteractionLabel,
   interruptStatusLabel,
@@ -27,6 +31,7 @@ export function InterruptDetail({
   detail: StudioInterruptDetailResponse;
 }) {
   const { interrupt } = detail;
+  const sampleProject = useStudioRouteScope()?.sampleProject === true;
   const created = detail.events.find(
     (event) => event.type === "interrupt.created",
   );
@@ -48,7 +53,10 @@ export function InterruptDetail({
     typeof leaf.nodeId === "string"
       ? leaf.nodeId
       : null;
-  const timing = interruptTimingPresentation(interrupt, Date.now());
+  const timing = interruptTimingPresentation(
+    interrupt,
+    sampleProject ? Date.parse(SAMPLE_PROJECT.referenceTime) : Date.now(),
+  );
   const interactionLabel = interruptInteractionLabel(interrupt);
   return (
     <div

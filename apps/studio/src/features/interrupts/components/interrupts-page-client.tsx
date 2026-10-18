@@ -1,7 +1,9 @@
 "use client";
 
+import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
+import { useStudioRouteScope } from "@/components/studio-route-provider";
 import { createInterruptColumns } from "@/features/interrupts/components/interrupt-table-columns";
 import { InterruptsEmptyState } from "@/features/interrupts/components/interrupts-empty-state";
 import {
@@ -41,12 +43,18 @@ export default function InterruptsPageClient({
     enabled: query.live,
     resource: "interrupts",
   });
-  const [now, setNow] = useState(initialNow);
+  const [wallClock, setNow] = useState(initialNow);
+  const sampleProject = useStudioRouteScope()?.sampleProject === true;
+  const now = sampleProject
+    ? Date.parse(SAMPLE_PROJECT.referenceTime)
+    : wallClock;
   useEffect(() => {
+    if (sampleProject) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [sampleProject]);
   useEffect(() => {
+    if (sampleProject) return;
     const current = Date.now();
     const nextExpiry = interrupts
       .filter((interrupt) => interrupt.status === "pending")
@@ -64,7 +72,7 @@ export default function InterruptsPageClient({
       Math.max(0, nextExpiry - current + 50),
     );
     return () => window.clearTimeout(timer);
-  }, [interrupts, router]);
+  }, [interrupts, router, sampleProject]);
   const columns = createInterruptColumns({
     now,
     onCopy: (value) =>

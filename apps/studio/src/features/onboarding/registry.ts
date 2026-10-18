@@ -147,7 +147,7 @@ export const CHAPTERS = [
         view: { surface: "workflows" },
         title: "See the wider workflow",
         content:
-          "Workflows combines the published structure with observed activity. This workflow includes an order lookup and a refund approval branch. Select a node to inspect its role and connections.",
+          "Workflows combines the published structure with observed activity. The coordinator calls order research and resolution review, then receives their results. Select a workflow or call to inspect its role and evidence.",
       },
     ],
   },
@@ -166,7 +166,7 @@ export const CHAPTERS = [
         view: { surface: "interrupt", tab: "decision" },
         title: "Read the requested decision",
         content:
-          "The support assistant asked a human to approve a $24 refund. The recorded response is shown beside the request. The request is resolved; follow the timeline to see how execution continued.",
+          "The support assistant asked a human to approve a $24 credit. The recorded response is shown beside the request. The request is resolved; follow the timeline to see how execution continued.",
       },
       {
         id: "approval-timeline",
@@ -206,7 +206,7 @@ export const CHAPTERS = [
         view: { surface: "prompt", version: 2 },
         title: "Inspect the updated instruction",
         content:
-          "Version 2 explicitly requires human approval for refunds. The live tag points to this version. A tag assignment and the prompt's saved content are separate facts.",
+          "Version 2 adds human approval for credits and qualified delivery estimates. Version 3 is now live. A tag assignment and the prompt's saved content are separate facts.",
       },
       {
         id: "prompt-diff",
@@ -232,14 +232,14 @@ export const CHAPTERS = [
         view: { surface: "suite" },
         title: "Start with the expectation",
         content:
-          "This suite asks the assistant an order question and defines what a good answer must contain. A suite describes the test; it is not itself proof that a run passed.",
+          "This suite defines three conversations about shipment status, delivery estimates, and delivery notes. A suite describes the test; it is not itself proof that a run passed.",
       },
       {
         id: "evaluation-summary",
         view: { surface: "evaluation" },
         title: "Read the saved result",
         content:
-          "This suite run passed its case. Counts summarize the attempts in this run; open a case to inspect its evidence.",
+          "This suite run passed all three conversations. Counts summarize the attempts in this run; open a case to inspect its evidence.",
       },
       {
         id: "case-evidence",
