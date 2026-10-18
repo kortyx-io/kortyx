@@ -1,0 +1,11 @@
+{
+  "extends": "../../apps/studio/tsconfig.json",
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "incremental": false,
+    "types": ["node"]
+  },
+  "include": ["../../apps/studio/src/features/sample-project/evaluations.ts"],
+  "exclude": ["node_modules"]
+}

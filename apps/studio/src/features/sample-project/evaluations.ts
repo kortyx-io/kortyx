@@ -5,7 +5,7 @@ import {
   EvalObservationSchema,
   type EvalProgress,
   EvalRunResultSchema,
-  EvalSuiteSchema,
+  parseEvalSuite,
   StudioEvalDetailSchema,
   StudioEvalTargetsResponseSchema,
   StudioEvaluationDetailSchema,
@@ -20,6 +20,7 @@ import {
   sampleDiagnosticId,
   sumSampleEvaluationCosts,
 } from "@kortyx/telemetry-db/sample-project";
+import { z } from "zod";
 import type { createSamplePrompts } from "./prompts";
 
 type Conversation = (typeof SAMPLE_SUPPORT_CONVERSATIONS)[number];
@@ -54,7 +55,7 @@ const creditReview = (message: string, approve: boolean) => [
   },
 ];
 const suites = {
-  quality: EvalSuiteSchema.parse({
+  quality: parseEvalSuite({
     id: sample.suiteId,
     name: "Support quality",
     cases: [
@@ -99,7 +100,7 @@ const suites = {
       },
     ],
   }),
-  resolutions: EvalSuiteSchema.parse({
+  resolutions: parseEvalSuite({
     id: "sample-resolution-safety",
     name: "Resolution safety",
     cases: [
@@ -133,7 +134,7 @@ const suites = {
       },
     ],
   }),
-  recovery: EvalSuiteSchema.parse({
+  recovery: parseEvalSuite({
     id: "sample-recovery-and-review",
     name: "Recovery and review clarity",
     cases: [
@@ -318,7 +319,7 @@ function caseResult(
             event.payload.interruptId === observed.interrupt?.requestId,
         )
       : undefined;
-    observed = EvalObservationSchema.parse({
+    observed = {
       ...observed,
       ...(conversation.verdict === "error"
         ? {
@@ -333,8 +334,12 @@ function caseResult(
             event.type.startsWith("tool.") &&
             (!created || event.occurredAt <= created.occurredAt),
         )
-        .map((event) => ({ type: event.type, payload: event.payload })),
-    });
+        .map((event) => ({
+          type: event.type,
+          payload: z.json().parse(event.payload),
+        })),
+    };
+    EvalObservationSchema.parse(observed);
     const passed =
       conversation.verdict !== "error" &&
       !(conversation.verdict === "failed" && index === failedIndex);
@@ -342,7 +347,7 @@ function caseResult(
       index,
       input:
         "message" in step
-          ? { message: step.message }
+          ? { message: required(step.message) }
           : {
               resume: {
                 type: "select" as const,
@@ -553,7 +558,9 @@ export function createSampleEvaluations(
           caseId: pendingCase.caseId,
           repetition: pendingCase.repetition,
           phase: "grading",
-          stepIndex: pendingCase.steps.at(-1)?.index,
+          ...(pendingCase.steps.at(-1)
+            ? { stepIndex: required(pendingCase.steps.at(-1)).index }
+            : {}),
         });
       }
       const id =
