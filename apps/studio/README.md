@@ -468,24 +468,3 @@ Table header titles own their help tooltip; existing symbols own their explanati
 `InfoTooltip` uses the existing non-modal Popover so the separate documentation footer can receive keyboard focus. Providing `documentationUrl` adds that footer; `trigger` supports existing symbols and numeric controls such as cost values. Set `triggerAction="preserve"` when the trigger already sorts or selects a view: its original action and pointer gestures still run, while hover/focus opens help and Tab reaches the footer. Pass `disabled` during active drags so help cannot intercept drag cancellation. `HelpCircle` consumes a complete definition. `DocumentationLink` is for roomy setup/empty/error states. Keep essential instructions visible and never nest help inside another button or input label.
 
 Verify hover-to-card movement, keyboard access to the footer, Escape/outside dismissal, narrow-screen placement and surrounding drawer behavior. Every destination must resolve to a page/anchor in the supported docs line. See [the audit](../../docs/audits/studio-contextual-help.md) and [completion policy](../../docs/internal/definition-of-done.md).
-
-## Presentation captures
-
-From the repository root, install dependencies with `pnpm install --frozen-lockfile`
-and the browser with `pnpm --filter kortyx-studio exec playwright install chromium`.
-Then run `pnpm --filter kortyx-studio demo:capture` to build Studio's workspace
-dependencies and capture 20 dark-mode desktop views, including failed executions,
-sessions, interrupts, prompts, and evaluations.
-
-The command starts its own local Studio server and uses the immutable sample
-project with usage telemetry disabled. No database, telemetry ingestion, application,
-or provider credentials are required. Captures demonstrate recorded sample evidence; they do not verify
-an application's integration. Existing page help and guided tours use the same
-sample records. The capture is opt-in and excluded from the default E2E suite.
-
-PNG files go to `apps/studio/demo-screens/` (git-ignored). Set
-`KORTYX_DEMO_SCREENSHOT_DIR` to choose another output directory, or
-`KORTYX_SAMPLE_TEST_PORT` to change the default local port, 6327. The command
-requires that port to be free and never reuses a running Studio server. Re-running
-overwrites captures with the same filenames. A missing record or tab fails the
-capture command instead of silently producing an empty view.
