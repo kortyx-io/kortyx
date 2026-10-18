@@ -1391,3 +1391,60 @@ export const diagnosticAccess = pgTable(
     ),
   ],
 );
+
+/** Personal Cloud settings or the shared self-hosted project profile. */
+export const studioTablePreferences = pgTable(
+  "studio_table_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    ownerKind: text("owner_kind").$type<"project" | "user">().notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    tableId: text("table_id").notNull(),
+    defaults: jsonb("defaults")
+      .$type<import("@kortyx/telemetry-contracts").StudioTableDefaults>()
+      .notNull()
+      .default({}),
+    revision: integer("revision").notNull().default(0),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "studio_table_preferences_project_tenant_fk",
+      columns: [t.organizationId, t.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+    }).onDelete("cascade"),
+    check(
+      "studio_table_preferences_owner_check",
+      sql`(${t.ownerKind} = 'project' AND ${t.userId} IS NULL) OR (${t.ownerKind} = 'user' AND ${t.userId} IS NOT NULL)`,
+    ),
+    uniqueIndex("studio_table_preferences_user_unique")
+      .on(t.organizationId, t.projectId, t.userId, t.tableId)
+      .where(sql`${t.ownerKind} = 'user'`),
+    uniqueIndex("studio_table_preferences_project_unique")
+      .on(t.organizationId, t.projectId, t.tableId)
+      .where(sql`${t.ownerKind} = 'project'`),
+  ],
+);
+export const studioTableViews = pgTable(
+  "studio_table_views",
+  {
+    preferenceId: uuid("preference_id")
+      .notNull()
+      .references(() => studioTablePreferences.id, { onDelete: "cascade" }),
+    id: uuid("id").notNull(),
+    definition: jsonb("definition")
+      .$type<import("@kortyx/telemetry-contracts").StudioTableView>()
+      .notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("studio_table_views_preference_id_unique").on(
+      t.preferenceId,
+      t.id,
+    ),
+  ],
+);

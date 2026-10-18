@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from "react";
+import { act, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
@@ -7,7 +7,7 @@ import {
   DataTableProvider,
   useDataTable,
 } from "./data-table-context";
-import type { DataTableColumn } from "./types";
+import type { DataTableColumn, DataTableLayout } from "./types";
 
 vi.mock("@/usage/client", () => ({ studioFeature: vi.fn() }));
 const columns: DataTableColumn<unknown>[] = ["a", "b", "c", "d"].map((key) => ({
@@ -90,4 +90,34 @@ it("restores the latest shared layout in preference to a legacy seed", async () 
   expect(table.visibleColumnOrder).toEqual(["a", "b", "c", "d"]);
   expect(table.hidden).toEqual([]);
   expect(table.pinned).toEqual({});
+});
+it("hydrates an external layout without treating it as a user edit", async () => {
+  const changed = vi.fn();
+  const preferenceLayout = {
+    widths: { a: 150 },
+    order: ["d", "c", "b", "a"],
+    hidden: ["b"],
+    pinned: {},
+  };
+  function HydratedTable() {
+    const [restored, setRestored] = useState<DataTableLayout>();
+    useEffect(() => {
+      setRestored(preferenceLayout);
+    }, []);
+    return (
+      <DataTableProvider
+        columns={columns}
+        initialLayout={{ hidden: ["c"] }}
+        preferenceLayout={restored}
+        onLayoutChange={changed}
+      >
+        <Controls />
+      </DataTableProvider>
+    );
+  }
+  await act(() => root.render(<HydratedTable />));
+  expect(table.visibleColumnOrder).toEqual(["d", "c", "a"]);
+  expect(changed).not.toHaveBeenCalled();
+  await act(() => table.toggleColumnVisibility("b"));
+  expect(changed).toHaveBeenCalledTimes(1);
 });

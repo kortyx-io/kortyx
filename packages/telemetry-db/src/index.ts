@@ -119,6 +119,7 @@ export {
   listStudioWorkflows,
 } from "./repositories/studio-workflows";
 export { listStudioFilterValues } from "./repositories/table-filters";
+export * from "./repositories/table-preferences";
 export type { IngestTelemetryEventsResult } from "./repositories/telemetry-events";
 export { ingestTelemetryEvents } from "./repositories/telemetry-events";
 export type { EnsureWorkflowRevisionResult } from "./repositories/workflow-revisions";

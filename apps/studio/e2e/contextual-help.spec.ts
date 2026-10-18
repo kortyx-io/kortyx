@@ -24,6 +24,8 @@ test("centralized column controls explain layout without dismissing their panel"
     exact: true,
   });
   await expect(help).toBeVisible();
+  await expect(help).toContainText("Cloud views belong to you in this project");
+  await expect(help).toContainText("sync in the background");
   await expect(
     help.getByRole("link", { name: /Read documentation/ }),
   ).toHaveAttribute("href", /\/studio\/v0\/exploring-data#table-views$/);

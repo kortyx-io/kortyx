@@ -29,7 +29,9 @@ import {
   TelemetryValidationError,
   withRunFeedback,
 } from "@kortyx/telemetry-db";
+import type { ApiDeployment } from "../auth/contracts";
 import { canApiAction, principalActorId } from "../middleware/security";
+import { tablePreferenceScope } from "../preferences/owner";
 import type { ApiEnv } from "../types";
 import {
   compatibleStudioEvents,
@@ -278,7 +280,10 @@ const contextRoute = createRoute({
   },
 });
 
-export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
+export const registerStudioRoutes = (
+  app: OpenAPIHono<ApiEnv>,
+  deployment: ApiDeployment = "self-hosted",
+): void => {
   app.openapi(contextRoute, async (c) => {
     const auth = c.get("principal");
     const context = await c.get("withTenantDatabase")((db) =>
@@ -289,6 +294,7 @@ export const registerStudioRoutes = (app: OpenAPIHono<ApiEnv>): void => {
     );
     return c.json(
       {
+        tablePreferenceScope: tablePreferenceScope(auth, deployment),
         organization: { name: context.organizationName },
         project: { name: context.projectName },
         environments: context.environments,

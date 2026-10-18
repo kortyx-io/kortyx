@@ -31,6 +31,7 @@ import {
 } from "./routes/scores";
 import { registerStudioRoutes } from "./routes/studio";
 import { registerStudioChangeRoutes } from "./routes/studio-changes";
+import { registerTablePreferenceRoutes } from "./routes/table-preferences";
 import { registerTelemetryEventRoutes } from "./routes/telemetry/events";
 import { registerWorkflowRevisionRoutes } from "./routes/telemetry/workflow-revisions";
 import type { ApiEnv } from "./types";
@@ -154,7 +155,8 @@ export const createApiApp = (options: CreateApiAppOptions) => {
       action: "studio:read",
     }),
   );
-  registerStudioRoutes(app);
+  registerStudioRoutes(app, adapterOptions.deployment);
+  registerTablePreferenceRoutes(app, adapterOptions.deployment);
   app.use(
     "/v1/prompts/*",
     apiSecurity({ ...security, surface: "telemetry", action: "prompt:serve" }),

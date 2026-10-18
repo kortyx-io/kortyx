@@ -1,9 +1,13 @@
 "use client";
 
 import { parseAsInteger, parseAsString, parseAsStringLiteral } from "nuqs";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useSearchParams } from "@/lib/scoped-navigation";
+import {
+  CurrentTablePreference,
+  useTablePreferenceSnapshot,
+} from "./table-persistence";
 import type { DataTableColumn, DataTableQueryConfig } from "./types";
 export const TABLE_PAGE_SIZES = [10, 20, 50, 100] as const;
 
@@ -28,6 +32,11 @@ export function useTableQuery<T, S extends string>(
   columns: DataTableColumn<T, S>[],
   config?: DataTableQueryConfig<S>,
 ) {
+  const persistence = useContext(CurrentTablePreference);
+  const persisted = useTablePreferenceSnapshot(persistence);
+  const touched = useRef(false);
+  const initialSearch = useRef<URLSearchParams | null>(null);
+  const initialPath = useRef<string | null>(null);
   const keys = tableQueryKeys(tableId, config);
   const pageSizes = config?.pageSizes ?? TABLE_PAGE_SIZES;
   const sortKeys = columns.flatMap((column) =>
@@ -47,10 +56,46 @@ export function useTableQuery<T, S extends string>(
   );
   const search = useSearchParams();
   const [hydrated, setHydrated] = useState(false);
+  const savedQuery = persisted?.hydrated
+    ? (persisted.preferences.defaults.query ?? {
+        sort: config?.defaults?.sort ?? "",
+        dir: config?.defaults?.dir ?? "desc",
+        pageSize: config?.defaults?.pageSize ?? 20,
+      })
+    : undefined;
+  const savedQueryKey = JSON.stringify(savedQuery);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: preferences are defaults; preserve explicit URL state and user edits.
+  useEffect(() => {
+    initialSearch.current ??= new URLSearchParams(window.location.search);
+    initialPath.current ??= window.location.pathname;
+    if (
+      !savedQuery ||
+      touched.current ||
+      initialPath.current !== window.location.pathname
+    )
+      return;
+    const patch = {
+      ...(!initialSearch.current.has(keys.sort) &&
+      sortKeys.includes(savedQuery.sort as S) &&
+      savedQuery.sort !== state.sort
+        ? { sort: savedQuery.sort }
+        : {}),
+      ...(!initialSearch.current.has(keys.dir) && savedQuery.dir !== state.dir
+        ? { dir: savedQuery.dir }
+        : {}),
+      ...(!initialSearch.current.has(keys.pageSize) &&
+      pageSizes.includes(savedQuery.pageSize) &&
+      savedQuery.pageSize !== state.pageSize
+        ? { pageSize: savedQuery.pageSize }
+        : {}),
+    };
+    if (Object.keys(patch).length) void setState(patch, { history: "replace" });
+  }, [savedQueryKey]);
   const storageKey = `kortyx.table.${tableId}.query.v1`;
   // Preferences supply defaults only; explicit URL state always wins.
   // biome-ignore lint/correctness/useExhaustiveDependencies: hydrate once for this table identity.
   useEffect(() => {
+    if (persistence) return;
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
@@ -83,7 +128,7 @@ export function useTableQuery<T, S extends string>(
     setHydrated(true);
   }, [storageKey]);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || persistence) return;
     try {
       localStorage.setItem(
         storageKey,
@@ -96,7 +141,14 @@ export function useTableQuery<T, S extends string>(
     } catch {
       /* Browser storage is optional. */
     }
-  }, [storageKey, hydrated, state.sort, state.dir, state.pageSize]);
+  }, [
+    storageKey,
+    hydrated,
+    state.sort,
+    state.dir,
+    state.pageSize,
+    persistence,
+  ]);
   const sort = sortKeys.includes(state.sort as S)
     ? (state.sort as S)
     : undefined;
@@ -109,7 +161,39 @@ export function useTableQuery<T, S extends string>(
       cursor: number | null;
       pageSize: number | null;
     }>,
-  ) => setState({ ...patch, cursor: patch.cursor ?? null });
+  ) => {
+    touched.current = true;
+    if (
+      persistence &&
+      ("sort" in patch || "dir" in patch || "pageSize" in patch)
+    ) {
+      const previous = persistence.getSnapshot().preferences.defaults.query ?? {
+        sort: state.sort,
+        dir: state.dir,
+        pageSize: state.pageSize,
+      };
+      persistence.mutate({
+        kind: "defaults",
+        patch: {
+          query: {
+            sort:
+              "sort" in patch
+                ? (patch.sort ?? config?.defaults?.sort ?? "")
+                : previous.sort,
+            dir:
+              "dir" in patch
+                ? (patch.dir ?? config?.defaults?.dir ?? "desc")
+                : previous.dir,
+            pageSize:
+              "pageSize" in patch
+                ? (patch.pageSize ?? config?.defaults?.pageSize ?? 20)
+                : previous.pageSize,
+          },
+        },
+      });
+    }
+    return setState({ ...patch, cursor: patch.cursor ?? null });
+  };
   const setSortDirection = (key: S, dir: "asc" | "desc") => {
     if (!sortKeys.includes(key)) return;
     void change({ sort: key, dir });

@@ -397,13 +397,15 @@ order as the headers, with hidden columns retained at their configured positions
 Both headers and chooser rows support dragging; the chooser also has keyboard
 sorting and one-step move buttons. Pinning groups columns left/center/right.
 Dropping into a different group adopts its pin state, including when the dragged
-column is the sole pin. Layout, sort and page-size preferences persist automatically
-by table ID in this browser. Saved views capture search, filters, configured scope,
-sort, page size and the unstretched column widths. Old operational preference
-cookies remain readable as initial seeds; existing saved-view storage keys and
-legacy URL aliases are retained. Newer browser layout preferences win over seeds.
-Browser-only preferences hydrate after the server-rendered defaults; they are not
-synchronized to a user profile. Storage failure leaves in-memory controls usable.
+column is the sole pin. Layout, sort and page-size preferences persist through the
+shared database/cache provider. The scoped browser cache hydrates after server
+rendering and refreshes from PostgreSQL in the background without blocking the
+page. Self-hosted preferences belong to the project; cloud preferences belong to
+the authenticated user within a project. Unauthenticated development mode remains
+browser-local. Saved views capture search, filters, configured scope, sort, page
+size and unstretched column widths. Existing URL aliases remain supported.
+See [Table preferences and saved views](../../docs/studio/table-preferences.md)
+for ownership, conflict recovery, cache behavior, rollout and migration contracts.
 Scrollbars overlay the table using the shared ScrollBar UI, without reserving a
 gutter or adding header spacing. Header/body scrolling stays synchronized during
 a held column drag. Dragged
@@ -417,10 +419,10 @@ and evaluation judge/pass-rate/queue/case/comparison metrics. Missing evidence i
 shown as a dash. Comparison deltas use per-attempt means and require comparable
 evidence; cost deltas also require complete costs in one shared currency.
 
-Views save conditions, column layout, search/scope, sort and page size in this
-browser. Use Views to restore, rename or delete a view, or save the current
-configuration. Up to 30 views per table are retained; existing operational-table
-cookie views are imported. Views are not synchronized between browsers.
+Use Views to restore, rename or delete a view, or save the current configuration.
+Up to 30 views per owner/project/table are retained. Database-backed preferences
+are available across browsers; unsaved changes stay in the originating browser
+until acknowledged. Existing unscoped browser views are not imported.
 
 Runs, sessions, interrupts and prompt-library filters apply before server counts
 and pagination. Evaluation summaries scan history in batches before counting and

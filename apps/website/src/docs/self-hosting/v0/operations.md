@@ -19,7 +19,7 @@ The default local installation lives under `~/.kortyx/studio`:
 | `.env` | Generated credentials and secrets |
 | `config.json` | Selected image tag, ports, username, and Compose project |
 | `compose.yml` | Generated local stack definition |
-| Docker PostgreSQL volume | Runs, sessions, telemetry, projections, eval suite snapshots/results, and key verifier records |
+| Docker PostgreSQL volume | Runs, sessions, telemetry, projections, eval suite snapshots/results, key verifier records, and shared project table preferences/views |
 
 Protect the directory and database backups as secrets. A useful recovery set contains both the database and the matching credentials, especially the API-key pepper.
 
@@ -78,6 +78,8 @@ npx kortyx studio start --image-tag vX.Y.Z
 ```
 
 Start pulls the selected images and applies forward database migrations before the API starts. Existing data and credentials remain in the Studio home.
+
+Table layouts and named views use a shared profile for each self-hosted project. They are included in the PostgreSQL backup; the browser cache is not a backup for pending changes. For custom deployments, apply the release migrations and upgrade the API before Studio. See [table views](/docs/studio/exploring-data#table-views) for write permissions and save/conflict recovery.
 
 Database downgrade is unsupported. Do not point an older Studio image at a database migrated by a newer release; restore the matching older backup instead.
 

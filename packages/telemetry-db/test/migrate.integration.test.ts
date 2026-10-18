@@ -274,6 +274,7 @@ integration("native Drizzle migration cutover", () => {
       await cp(productionDir, folder, { recursive: true });
       const journalPath = path.join(folder, "meta/_journal.json");
       const journal = JSON.parse(await readFile(journalPath, "utf8"));
+      const productionMigrationCount = journal.entries.length;
       journal.entries = journal.entries.filter(
         (entry: { idx: number }) => entry.idx <= 8,
       );
@@ -322,7 +323,7 @@ integration("native Drizzle migration cutover", () => {
           (
             await sql`SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations`
           )[0]?.count,
-        ).toBe(14);
+        ).toBe(productionMigrationCount);
       });
     } finally {
       await rm(folder, { recursive: true, force: true });

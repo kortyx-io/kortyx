@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FeedbackSummarySchema, StudioScoreSchema } from "./scores";
+import { StudioTablePreferenceScopeSchema } from "./table-preferences";
 
 export * from "./diagnostics";
 export { SAMPLE_PROJECT } from "./sample-project";
@@ -883,6 +884,8 @@ export const StudioCatalogsResponseSchema = z
   .strip();
 export const StudioContextResponseSchema = z
   .object({
+    tablePreferenceScope:
+      StudioTablePreferenceScopeSchema.nullable().optional(),
     organization: z
       .object({
         name: z.string().min(1),
@@ -968,6 +971,7 @@ export { captureDiagnosticContent } from "./diagnostic-capture";
 export * from "./prompts";
 export * from "./studio-updates";
 export * from "./table-filters";
+export * from "./table-preferences";
 export {
   projectWorkflowCalls,
   type StudioWorkflowCall,
