@@ -35,3 +35,12 @@ it("bounds the page size and sends it to the API for pagination before display",
     ),
   ).toBe("20");
 });
+
+it("requests the next page from shared table numeric state with the same server cache key", () => {
+  const client = promptLibraryQuery({ q: "header/", cursor: 10, pageSize: 10 });
+  expect(new URLSearchParams(client).get("cursor")).toBe("10");
+  expect(new URLSearchParams(client).get("limit")).toBe("10");
+  expect(client).toBe(
+    promptLibraryQuery({ q: "header/", cursor: "10", pageSize: "10" }),
+  );
+});

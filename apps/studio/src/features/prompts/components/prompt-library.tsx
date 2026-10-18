@@ -17,7 +17,12 @@ import {
   Plus,
   Users,
 } from "lucide-react";
-import { parseAsArrayOf, parseAsString, parseAsStringLiteral } from "nuqs";
+import {
+  parseAsArrayOf,
+  parseAsInteger,
+  parseAsString,
+  parseAsStringLiteral,
+} from "nuqs";
 import { Collapsible } from "radix-ui";
 import { useRef, useState } from "react";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -90,8 +95,8 @@ export function PromptLibraryView({
       assetAction: parseAsStringLiteral(assetActions),
       actionAsset: parseAsString,
       q: parseAsString.withDefault(""),
-      cursor: parseAsString.withDefault("0"),
-      pageSize: parseAsString.withDefault("20"),
+      cursor: parseAsInteger.withDefault(0),
+      pageSize: parseAsInteger.withDefault(20),
       archived: parseAsString.withDefault("false"),
       tableFilters: parseAsString.withDefault(""),
       collapsed: parseAsArrayOf(parseAsString).withDefault([]),

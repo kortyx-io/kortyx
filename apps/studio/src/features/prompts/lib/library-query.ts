@@ -2,11 +2,18 @@ export type PromptLibrarySearch = Record<string, string | string[] | undefined>;
 
 /** One canonical query for both the server snapshot and its client cache key. */
 export function promptLibraryQuery(
-  input: PromptLibrarySearch = {},
+  input: Record<string, string | string[] | number | undefined> = {},
   categoryId?: string,
 ) {
-  const value = (key: string, fallback: string) =>
-    typeof input[key] === "string" ? (input[key] as string) : fallback;
+  const value = (key: string, fallback: string) => {
+    const candidate = input[key];
+    if (typeof candidate === "string") return candidate;
+    // Client pagination uses the same numeric parsers as the shared table;
+    // server search params arrive as strings. Both must produce the same key.
+    if (typeof candidate === "number" && Number.isFinite(candidate))
+      return String(candidate);
+    return fallback;
+  };
   return new URLSearchParams({
     search: value("q", ""),
     cursor: value("cursor", "0"),
