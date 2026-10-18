@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.26.0](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.25.8...example-nextjs-chat-api-route-v0.26.0) (2026-10-18)
+
+
+### Features
+
+* **cli:** validate topology and update compatible dependencies ([6c16ef3](https://github.com/kortyx-io/kortyx/commit/6c16ef3d1c9e8329d31f1a28e87aa26ae6dbe651))
+
+
+### Bug Fixes
+
+* retain workflow catalogs and text interrupt questions ([#369](https://github.com/kortyx-io/kortyx/issues/369)) ([7608f65](https://github.com/kortyx-io/kortyx/commit/7608f6503167ed94feda30a1f63db50f475557d6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.32.1
+    * @kortyx/telemetry bumped to 0.17.1
+
 ## [0.25.8](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.25.7...example-nextjs-chat-api-route-v0.25.8) (2026-10-16)
 
 
