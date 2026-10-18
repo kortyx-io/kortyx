@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.2](https://github.com/kortyx-io/kortyx/compare/studio-v0.23.1...studio-v0.23.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **studio:** explain prompt save failures and recovery ([d84ab76](https://github.com/kortyx-io/kortyx/commit/d84ab76dc1d1090046c4d25f4c324b444e92801f))
+* **studio:** explain prompt save failures and recovery ([b0a1cf4](https://github.com/kortyx-io/kortyx/commit/b0a1cf4ab2c56bd8684bf5506f03b04b6746a95a))
+
 ## [0.23.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.23.0...studio-v0.23.1) (2026-10-18)
 
 
