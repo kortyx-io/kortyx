@@ -83,6 +83,40 @@ it("waits for an offscreen target to settle within the viewport", () => {
   );
   expect(lessonTargetReady("[data-test-target]", destination())).toBe(true);
 });
+it("waits for the selected inspector and exact Trace URL, including its entry animation", () => {
+  const parent = document.createElement("section");
+  parent.dataset.detailDrawer = "/runs/failed";
+  parent.dataset.state = "open";
+  parent.style.zIndex = "50";
+  document.body.append(parent);
+  const inspector = document.createElement("section");
+  inspector.dataset.detailInspector = "";
+  inspector.dataset.state = "open";
+  inspector.style.zIndex = "60";
+  const animations = vi.fn(() => [{ playState: "running" }]);
+  Object.assign(inspector, { getAnimations: animations });
+  document.body.append(inspector);
+  target(inspector);
+  const expected = new URL(
+    "/sample/runs/failed?tab=trace&trace=failed-operation",
+    window.location.origin,
+  );
+  window.history.replaceState(null, "", expected);
+  expect(lessonTargetReady("[data-test-target]", expected)).toBe(false);
+  animations.mockReturnValue([]);
+  expect(lessonTargetReady("[data-test-target]", expected)).toBe(true);
+  window.history.replaceState(null, "", "/sample/runs/failed?tab=trace");
+  expect(lessonTargetReady("[data-test-target]", expected)).toBe(false);
+  window.history.replaceState(
+    null,
+    "",
+    "/sample/runs/failed?tab=trace&trace=another-operation",
+  );
+  expect(lessonTargetReady("[data-test-target]", expected)).toBe(false);
+  window.history.replaceState(null, "", expected);
+  inspector.dataset.state = "closed";
+  expect(lessonTargetReady("[data-test-target]", expected)).toBe(false);
+});
 it("rejects background content while permitting the top drawer or a comparison above it", () => {
   const lower = document.createElement("section");
   lower.dataset.detailDrawer = "/runs/first";

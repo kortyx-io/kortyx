@@ -1,6 +1,59 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { expect, test } from "@playwright/test";
 
+for (const width of [1280, 390]) {
+  test(`failed-run guide completes through the selected Trace inspector at ${width}px`, async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/sample/runs");
+    await page.getByRole("button", { name: "Explore", exact: true }).click();
+    await page
+      .getByRole("menuitem", { name: "Explore Studio", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Start Debug a failed run", exact: true })
+      .click();
+    const tooltip = page.getByRole("alertdialog");
+    for (const title of [
+      "Narrow the investigation",
+      "Start with the failure",
+      "Find the failed step",
+      "Inspect the model operation",
+    ]) {
+      await expect(tooltip).toHaveAccessibleName(title);
+      if (title === "Find the failed step") {
+        await expect(page).toHaveURL(
+          new RegExp(`tab=trace&trace=${sample.traceItemIds.failure}$`),
+        );
+        const error = page.locator(
+          `[data-detail-inspector][data-state="open"] [data-trace-item-id="${sample.traceItemIds.failure}"] [data-guide-focus="trace-error"]`,
+        );
+        await expect(error).toBeVisible();
+        await expect(error).toContainText("The model request timed out");
+        await expect(error).toBeInViewport({ ratio: 1 });
+        await page.screenshot({
+          path: test.info().outputPath("failed-trace-guide.png"),
+        });
+      }
+      await tooltip
+        .getByRole("button", {
+          name: title === "Inspect the model operation" ? "Done" : "Next",
+          exact: true,
+        })
+        .click();
+    }
+    // A missing target returns to the guide hub with Resume; that must fail.
+    await expect(
+      page.getByRole("heading", { name: "Chapter completed", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Resume tour", exact: true }),
+    ).toHaveCount(0);
+  });
+}
+
 test("select, explore, hide and restore the immutable sample project", async ({
   page,
 }) => {

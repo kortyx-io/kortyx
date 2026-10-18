@@ -226,3 +226,37 @@ it("explains preference ownership, recovery and isolated sample choices", () => 
   expect(sample?.content).toContain("stay in this browser, separately");
   expect(sample?.content).not.toContain("Cloud views");
 });
+
+it("uses authored edition settings help without reading account or table data", () => {
+  const result = plan(
+    "/projects/prj_0123456789abcdef01234567/settings/members",
+    `<section data-settings-card data-page-help-topic="true" data-page-help-title="Team collaboration" data-page-help-description="Team invitations are not available yet." data-page-help-documentation="https://kortyx.io/docs/cloud/workspaces#feature-availability"><div>private-account@example.test</div><p>private-customer-data</p></section>`,
+  );
+  expect(result.steps).toHaveLength(1);
+  expect(result.steps[0]).toMatchObject({
+    title: "Team collaboration",
+    content: "Team invitations are not available yet.",
+  });
+  expect(result.documentationUrl).toBe(
+    "https://kortyx.io/docs/cloud/workspaces#feature-availability",
+  );
+  expect(JSON.stringify(result.steps)).not.toMatch(
+    /private-account|private-customer/,
+  );
+});
+
+it("uses authored setup help and rejects untrusted documentation destinations", () => {
+  for (const destination of [
+    "javascript:alert(1)",
+    "https://example.test/docs/cloud",
+    "https://kortyx.io.evil.test/docs/cloud",
+    "not a URL",
+  ]) {
+    const result = plan(
+      "/onboarding",
+      `<section data-page-help-topic="true" data-page-help-title="Set up your workspace" data-page-help-description="The key step is optional." data-page-help-documentation="${destination}"></section>`,
+    );
+    expect(result.steps.at(-1)?.content).toBe("The key step is optional.");
+    expect(result.documentationUrl).toBeUndefined();
+  }
+});

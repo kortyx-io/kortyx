@@ -14,6 +14,9 @@ export const SAMPLE_PROJECT = {
     followUp: "sample-support-follow-up",
     baseline: "sample-support-baseline",
   },
+  traceItemIds: {
+    failure: "sample-support-failure-event-3",
+  },
   sessions: {
     success: "sample-session-success",
     failure: "sample-session-failure",

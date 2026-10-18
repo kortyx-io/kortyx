@@ -515,7 +515,11 @@ function TraceInspector({
       ? source.runId
       : undefined;
   return (
-    <div className="min-w-0 p-5 md:p-6">
+    <div
+      data-trace-item-id={item.id}
+      data-trace-run-id={event.runId}
+      className="min-w-0 p-5 md:p-6"
+    >
       {!hideHeading && (
         <>
           <div className="flex flex-wrap items-center gap-2">
@@ -607,7 +611,10 @@ function TraceInspector({
         )}
         {typeof errorMessage === "string" && (
           <KeyValue label="Error message">
-            <span className="whitespace-pre-wrap break-words">
+            <span
+              data-guide-focus="trace-error"
+              className="whitespace-pre-wrap break-words"
+            >
               {errorMessage}
             </span>
           </KeyValue>

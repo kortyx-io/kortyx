@@ -104,7 +104,7 @@ export const CHAPTERS = [
         view: { surface: "run", run: "failure", focus: "trace" },
         title: "Find the failed step",
         content:
-          "Trace orders the recorded execution spans. After this guide, expand a step to inspect its timing and captured details. A failure does not imply that every earlier operation failed.",
+          "Trace opens the failed operation's details. Its error explains what went wrong; the timing and captured input help you investigate. A failure does not imply that every earlier operation failed.",
       },
       {
         id: "failure-model-io",
@@ -393,6 +393,11 @@ export function resolveView(view: LessonView): {
     case "run": {
       const root = runRoot(sample.runs[view.run]);
       const focus = view.focus ?? "header";
+      if (focus === "trace" && view.run === "failure")
+        return {
+          href: `/runs/${sample.runs.failure}?tab=trace&trace=${sample.traceItemIds.failure}`,
+          target: `[data-detail-inspector][data-state="open"] [data-trace-item-id="${sample.traceItemIds.failure}"][data-trace-run-id="${sample.runs.failure}"] [data-guide-focus="trace-error"]`,
+        };
       return {
         href: `/runs/${sample.runs[view.run]}${focus === "header" || focus === "error" ? "" : `?tab=${focus}`}`,
         target: `${root} ${focus === "header" ? '[data-responsive-surface="detail-header"]' : focus === "error" ? '[data-responsive-surface="run-error-summary"]' : focus === "model-io" ? '[data-guide-focus="model-failure"]' : `[data-detail-tab-content="${focus}"]`}`,

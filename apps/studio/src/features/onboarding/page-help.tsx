@@ -319,7 +319,8 @@ function PageHelpRuntime({
       value={{
         label: plan.title,
         onExit: exit,
-        documentationUrl: PAGE_DOCUMENTATION[plan.id].documentationUrl,
+        documentationUrl:
+          plan.documentationUrl ?? PAGE_DOCUMENTATION[plan.id].documentationUrl,
       }}
     >
       {Tour}
