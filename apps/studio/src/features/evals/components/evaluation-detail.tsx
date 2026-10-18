@@ -8,11 +8,7 @@ import {
 import { tablePassRate, tableQueueMs } from "@kortyx/telemetry-contracts";
 import { parseAsBoolean } from "nuqs";
 import { useCallback, useEffect, useState } from "react";
-import {
-  DataTable,
-  type DataTableColumn,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { valueColumn } from "@/components/data-table/value-column";
 import { DetailPage } from "@/components/detail/detail-page";
@@ -387,18 +383,17 @@ export function EvaluationDetail({
               </div>
             </EvalDetailHeader>
             <div className="min-h-0 flex-1">
-              <DataTableProvider columns={columns}>
-                <DataTable
-                  tableId="evaluation-suites"
-                  className="rounded-none border-0 shadow-none"
-                  data={run.suites}
-                  getRowKey={(suite) => suite.id}
-                  onRowClick={(suite) => navigate(evalRunHref(suite.id))}
-                  emptyState={
-                    <p className="p-6 text-xs">No suite results available.</p>
-                  }
-                />
-              </DataTableProvider>
+              <DataTable
+                columns={columns}
+                tableId="evaluation-suites"
+                className="rounded-none border-0 shadow-none"
+                data={run.suites}
+                getRowKey={(suite) => suite.id}
+                onRowClick={(suite) => navigate(evalRunHref(suite.id))}
+                emptyState={
+                  <p className="p-6 text-xs">No suite results available.</p>
+                }
+              />
             </div>
           </>
         ) : (

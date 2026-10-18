@@ -6,7 +6,10 @@ import {
   horizontalListSortingStrategy,
   SortableContext,
 } from "@dnd-kit/sortable";
-import type { StudioTableResource } from "@kortyx/telemetry-contracts";
+import {
+  EMPTY_TABLE_FILTERS,
+  type StudioTableResource,
+} from "@kortyx/telemetry-contracts";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ScrollArea as ScrollAreaPrimitive } from "radix-ui";
 import {
@@ -21,7 +24,10 @@ import {
   syncHorizontalScroll,
 } from "@/components/data-table/clamp-scroll-viewport";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { useDataTable } from "@/components/data-table/data-table-context";
+import {
+  DataTableProvider,
+  useDataTable,
+} from "@/components/data-table/data-table-context";
 import type { DataTablePagination } from "@/components/data-table/types";
 import { Button } from "@/components/ui/button";
 import { ScrollBar } from "@/components/ui/scroll-area";
@@ -34,41 +40,53 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DataTableFilterControls } from "./data-table-filters";
+import type { SavedTableView } from "./saved-table-views";
+import { sortTableRows } from "./table-rows";
 import { matchesTableSearch } from "./table-search";
 import type {
+  DataTableColumn,
   DataTableFilter,
-  DataTableFilterPanel,
+  DataTableLayout,
+  DataTableQueryConfig,
+  DataTableScopeFilter,
   DataTableSearch,
 } from "./types";
+import type { TableFilterCompatibility } from "./use-table-filters";
 import { useTableFilters } from "./use-table-filters";
-import { useTablePagination } from "./use-table-pagination";
+
+import { useTableQuery } from "./use-table-query";
+import { useTableScope } from "./use-table-scope";
 import { useTableSearch } from "./use-table-search";
 
-type DataTableProps<T, S extends string> = {
+export type DataTableProps<T, S extends string = string> = {
   tableId: string;
-  search?: DataTableSearch;
-  /** Selection and its batch actions sit to the left of the shared search. */
+  columns: DataTableColumn<T, S>[];
+  /** All tables persist layout automatically. Seeds can migrate older preferences. */
+  initialLayout?: Partial<DataTableLayout>;
+  query?: DataTableQueryConfig<S>;
+  totalCount?: number;
+  filters?: DataTableFilter<T>[];
+  scopeFilters?: readonly DataTableScopeFilter[];
+  compatibility?: TableFilterCompatibility;
+  legacyViews?: () => SavedTableView[];
+  search?: Pick<DataTableSearch, "label" | "placeholder">;
   toolbarStart?: ReactNode;
   filterResource?: StudioTableResource | "prompts" | "evaluations";
-  filterScope?: ReactNode;
-  filterPanel?: (context: DataTableFilterPanel<T>) => ReactNode;
-  onClearLegacyFilters?: () => void;
   data: T[];
   getRowKey: (item: T) => string;
   onRowClick?: (item: T, event: React.MouseEvent<HTMLTableRowElement>) => void;
   rowClassName?: (item: T) => string | undefined;
   rowTone?: (item: T) => "danger" | undefined;
-  sort?: S;
-  direction?: "asc" | "desc";
-  onSort?: (key: S) => void;
-  onSetSortDirection?: (key: S, direction: "asc" | "desc") => void;
-  onClearSort?: () => void;
-  emptyState?: ReactNode;
+  emptyState?:
+    | ReactNode
+    | ((actions: {
+        clearFilters: () => void;
+        hasFilters: boolean;
+      }) => ReactNode);
   /** Optional layout for empty content inside the table's scrolling area. */
   emptyStateClassName?: string;
-  pagination?: DataTablePagination;
   /** Toolbar/header region rendered above the grid (filters, search, etc.). */
-  header?: ReactNode | ((controls: ReactNode) => ReactNode);
+  header?: ReactNode;
   /** sessionStorage key for save/restore of scroll position across navigation. */
   scrollRestoreKey?: string;
   className?: string;
@@ -76,27 +94,40 @@ type DataTableProps<T, S extends string> = {
 
 const CELL_BASE = "max-w-0 overflow-hidden border-b px-3 py-3.5 align-middle";
 
-export function DataTable<T, S extends string>({
+export function DataTable<T, S extends string = string>(
+  props: DataTableProps<T, S>,
+) {
+  return (
+    <DataTableProvider
+      key={props.tableId}
+      columns={props.columns}
+      initialLayout={props.initialLayout}
+      persistKey={`kortyx.table.${props.tableId}.layout.v1`}
+    >
+      <DataTableContent {...props} />
+    </DataTableProvider>
+  );
+}
+
+function DataTableContent<T, S extends string>({
   tableId,
   search,
   toolbarStart,
   filterResource,
-  filterScope,
-  filterPanel,
-  onClearLegacyFilters,
+  columns,
+  query: queryConfig,
+  totalCount = 0,
+  filters: extraFilters = [],
+  scopeFilters = [],
+  compatibility,
+  legacyViews,
   data,
   getRowKey,
   onRowClick,
   rowClassName,
   rowTone,
-  sort,
-  direction,
-  onSort,
-  onSetSortDirection,
-  onClearSort,
   emptyState,
   emptyStateClassName,
-  pagination: providedPagination,
   header,
   scrollRestoreKey,
   className,
@@ -121,32 +152,64 @@ export function DataTable<T, S extends string>({
     headerScrollerRef,
   } = useDataTable<T, S>();
 
-  const fields = Object.values(columnsByKey)
-    .flatMap((column) =>
+  const fields = [
+    ...extraFilters,
+    ...Object.values(columnsByKey).flatMap((column) =>
       column.filter === false
         ? []
         : Array.isArray(column.filter)
           ? column.filter
           : [column.filter],
-    )
+    ),
+  ]
     .filter(
       (field, index, all): field is DataTableFilter<T> =>
         Boolean(field) &&
         all.findIndex((other) => other?.key === field?.key) === index,
-    );
+    )
+    .sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+  const query = useTableQuery(tableId, columns, queryConfig);
+  const remote = queryConfig?.mode === "remote";
+  const scope = useTableScope(scopeFilters, remote);
   const filtering = useTableFilters({
-    tableId,
     fields,
-    resource: filterResource,
-    cursorKey: providedPagination ? undefined : `tablePage.${tableId}`,
+    keys: query.keys,
+    server: remote,
+    compatibility,
   });
-  const searching = useTableSearch(tableId, search, Boolean(filterResource));
-  const pagination = useTablePagination(tableId, providedPagination);
-  const filteredData = data.filter(
-    (row) =>
-      (filterResource || filtering.matches(row)) &&
-      (searching.managed || matchesTableSearch(row, fields, searching.value)),
+  const searching = useTableSearch({
+    ...search,
+    value: query.q,
+    onChange: query.onSearch,
+  });
+  const pagination: DataTablePagination = {
+    cursor: query.cursor,
+    pageSize: query.pageSize,
+    pageSizes: query.pageSizes,
+    totalCount,
+    serverSide: remote,
+    onCursorChange: (cursor) => {
+      void query.change({ cursor });
+    },
+    onPageSizeChange: (pageSize) => {
+      void query.change({ pageSize });
+    },
+  };
+  const filteredData = sortTableRows(
+    data.filter(
+      (row) =>
+        (remote || filtering.matches(row)) &&
+        (remote || matchesTableSearch(row, fields, searching.value)),
+    ),
+    columns,
+    remote ? undefined : query.sort,
+    query.dir,
   );
+  const sort = query.sort,
+    direction = query.dir;
+  const onSort = query.onSort,
+    onSetSortDirection = query.setSortDirection,
+    onClearSort = query.clearSort;
   const [filterContainer, setFilterContainer] = useState<HTMLDivElement | null>(
     null,
   );
@@ -270,20 +333,27 @@ export function DataTable<T, S extends string>({
           className,
         )}
       >
-        {typeof header === "function" ? null : header}
+        {header}
         <DataTableFilterControls
           tableId={tableId}
           searching={searching}
           start={toolbarStart}
           panelContainer={filterContainer}
-          renderPanel={filterPanel}
-          renderControls={typeof header === "function" ? header : undefined}
           fields={fields}
           data={data}
           resource={filterResource}
           state={filtering}
-          extra={filterScope}
-          onClearLegacy={onClearLegacyFilters}
+          scopeFields={scopeFilters}
+          scopeState={scope}
+          legacyViews={legacyViews}
+          clearQuery={() => {
+            void query.change({
+              sort: null,
+              dir: null,
+              pageSize: null,
+              cursor: null,
+            });
+          }}
           pagination={pagination}
           sort={sort}
           direction={direction}
@@ -303,7 +373,7 @@ export function DataTable<T, S extends string>({
           >
             <div className="overflow-clip" style={tableStyle}>
               <DndContext
-                id="data-table-columns"
+                id={`data-table-columns-${tableId}`}
                 sensors={sensors}
                 modifiers={[restrictToHorizontalAxis]}
                 collisionDetection={collisionDetection}
@@ -434,7 +504,20 @@ export function DataTable<T, S extends string>({
                 <div
                   className={cn("sticky left-0 w-full", emptyStateClassName)}
                 >
-                  {emptyState}
+                  {typeof emptyState === "function"
+                    ? emptyState({
+                        hasFilters: Boolean(
+                          query.q ||
+                            filtering.filters.rules.length ||
+                            scope.hasActiveFilters,
+                        ),
+                        clearFilters: () => {
+                          filtering.apply(EMPTY_TABLE_FILTERS);
+                          scope.clear();
+                          query.onSearch("");
+                        },
+                      })
+                    : emptyState}
                 </div>
               )}
             </ScrollAreaPrimitive.Viewport>

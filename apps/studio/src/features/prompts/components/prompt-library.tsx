@@ -20,11 +20,7 @@ import {
 import { parseAsArrayOf, parseAsString, parseAsStringLiteral } from "nuqs";
 import { Collapsible } from "radix-ui";
 import { useRef, useState } from "react";
-import {
-  DataTable,
-  type DataTableColumn,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { valueColumn } from "@/components/data-table/value-column";
@@ -585,115 +581,94 @@ export function PromptLibraryView({
         </aside>
         <section aria-busy={loading} className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-hidden">
-            <DataTableProvider columns={columns}>
-              <DataTable
-                tableId="prompts"
-                search={{
-                  label: "Search prompts",
-                  placeholder: "Search prompts…",
-                  value: query.q,
-                  onChange: (q) => {
-                    void setQuery({ q: q || null, cursor: "0" });
-                  },
-                }}
-                toolbarStart={
-                  <>
-                    <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        aria-label="Select visible prompts"
-                        aria-checked={
-                          partiallySelected ? "mixed" : allVisibleSelected
-                        }
-                        ref={(input) => {
-                          if (input) input.indeterminate = partiallySelected;
-                        }}
-                        disabled={assets.length === 0}
-                        checked={allVisibleSelected}
-                        onChange={(event) =>
-                          setSelected((current) =>
-                            event.target.checked
-                              ? [
-                                  ...current,
-                                  ...assets.filter(
-                                    (asset) =>
-                                      !current.some(
-                                        (item) => item.id === asset.id,
-                                      ),
-                                  ),
-                                ].slice(0, 100)
-                              : current.filter(
-                                  (item) =>
-                                    !assets.some(
-                                      (asset) => asset.id === item.id,
+            <DataTable
+              query={{ mode: "remote" }}
+              totalCount={library?.totalCount ?? 0}
+              scopeFilters={[
+                {
+                  kind: "enum",
+                  key: "archived",
+                  label: "Prompt status",
+                  defaultValue: "false",
+                  options: [
+                    { value: "false", label: "Active prompts" },
+                    { value: "true", label: "Archived prompts" },
+                  ],
+                },
+              ]}
+              columns={columns}
+              tableId="prompts"
+              search={{
+                label: "Search prompts",
+                placeholder: "Search prompts…",
+              }}
+              toolbarStart={
+                <>
+                  <label className="flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      aria-label="Select visible prompts"
+                      aria-checked={
+                        partiallySelected ? "mixed" : allVisibleSelected
+                      }
+                      ref={(input) => {
+                        if (input) input.indeterminate = partiallySelected;
+                      }}
+                      disabled={assets.length === 0}
+                      checked={allVisibleSelected}
+                      onChange={(event) =>
+                        setSelected((current) =>
+                          event.target.checked
+                            ? [
+                                ...current,
+                                ...assets.filter(
+                                  (asset) =>
+                                    !current.some(
+                                      (item) => item.id === asset.id,
                                     ),
                                 ),
-                          )
-                        }
-                      />
-                      Select all
-                    </label>
-                    {selected.length > 0 && library && (
-                      <PromptBulkActions
-                        selected={selected}
-                        library={library}
-                        onDone={async () => {
-                          await refresh();
-                          setSelected([]);
-                        }}
-                      />
-                    )}
-                  </>
-                }
-                pagination={{
-                  serverSide: true,
-                  cursor: Math.max(0, Number(query.cursor) || 0),
-                  pageSize: ["10", "20", "50", "100"].includes(query.pageSize)
-                    ? Number(query.pageSize)
-                    : 20,
-                  pageSizes: [10, 20, 50, 100],
-                  totalCount: library?.totalCount ?? 0,
-                  onCursorChange: (cursor) => {
-                    void setQuery({ cursor: String(cursor) });
-                  },
-                  onPageSizeChange: (pageSize) => {
-                    void setQuery({ pageSize: String(pageSize), cursor: "0" });
-                  },
-                }}
-                filterResource="prompts"
-                filterScope={
-                  <EvalDropdown
-                    label="Prompt status"
-                    value={query.archived}
-                    options={[
-                      { value: "false", label: "Active prompts" },
-                      { value: "true", label: "Archived prompts" },
-                    ]}
-                    onChange={(value) =>
-                      void setQuery({ archived: value, cursor: "0" })
-                    }
-                  />
-                }
-                className="rounded-none border-0 shadow-none"
-                data={assets}
-                getRowKey={(asset) => asset.id}
-                emptyState={
-                  <div className="flex flex-col items-center gap-3 py-16 text-center">
-                    <FileText className="size-8 text-muted-foreground/50" />
-                    <p className="text-sm font-medium">
-                      {query.q
-                        ? "No matching prompts"
-                        : "Your prompt library starts here"}
-                    </p>
-                    <p className="max-w-xs px-4 text-xs text-muted-foreground">
-                      {query.q
-                        ? "Try a different name or key."
-                        : "Create a prompt, connect your application, and test a candidate before promoting it."}
-                    </p>
-                  </div>
-                }
-              />
-            </DataTableProvider>
+                              ].slice(0, 100)
+                            : current.filter(
+                                (item) =>
+                                  !assets.some((asset) => asset.id === item.id),
+                              ),
+                        )
+                      }
+                    />
+                    Select all
+                  </label>
+                  {selected.length > 0 && library && (
+                    <PromptBulkActions
+                      selected={selected}
+                      library={library}
+                      onDone={async () => {
+                        await refresh();
+                        setSelected([]);
+                      }}
+                    />
+                  )}
+                </>
+              }
+              filterResource="prompts"
+              className="rounded-none border-0 shadow-none"
+              data={assets}
+              getRowKey={(asset) => asset.id}
+              emptyState={
+                <div className="flex flex-col items-center gap-3 py-16 text-center">
+                  <FileText className="size-8 text-muted-foreground/50" />
+                  <p className="text-sm font-medium">
+                    {query.q
+                      ? "No matching prompts"
+                      : "Your prompt library starts here"}
+                  </p>
+                  <p className="max-w-xs px-4 text-xs text-muted-foreground">
+                    {query.q
+                      ? "Try a different name or key."
+                      : "Create a prompt, connect your application, and test a candidate before promoting it."}
+                  </p>
+                </div>
+              }
+            />
           </div>
         </section>
       </div>
@@ -768,6 +743,7 @@ export function PromptLibraryView({
             event.preventDefault();
             if (!categoryAction) return;
             const category = categoryAction.category;
+            if (categoryAction.type !== "create" && !category) return;
             const action: PromptMutation =
               categoryAction.type === "create"
                 ? { action: "category-create", path: name }

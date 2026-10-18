@@ -1,4 +1,8 @@
-import type { DataTableColumn, DataTableLayout } from "./types";
+import {
+  DATA_TABLE_MIN_COLUMN_WIDTH,
+  type DataTableColumn,
+  type DataTableLayout,
+} from "./types";
 
 /** Retain known columns in their saved order and append newly introduced columns. */
 export function columnLayout<T, S extends string>(
@@ -18,5 +22,26 @@ export function columnLayout<T, S extends string>(
         : [],
     ),
   ];
-  return { order, hidden };
+  return {
+    order,
+    hidden: hidden.length === order.length ? hidden.slice(1) : hidden,
+  };
+}
+
+/** Only known, finite widths can enter layout state from browser/legacy storage. */
+export function columnWidths<T, S extends string>(
+  columns: DataTableColumn<T, S>[],
+  saved?: Record<string, number>,
+) {
+  return Object.fromEntries(
+    columns.map((column) => {
+      const value = saved?.[column.key];
+      return [
+        column.key,
+        typeof value === "number" && Number.isFinite(value)
+          ? Math.max(DATA_TABLE_MIN_COLUMN_WIDTH, value)
+          : column.defaultWidth,
+      ];
+    }),
+  );
 }

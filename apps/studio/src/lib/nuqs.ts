@@ -88,6 +88,8 @@ export function detailNavigationHref(
         "tableFilters.",
         "filterPanel.",
         "tableSearch.",
+        "tableSort.",
+        "tableDirection.",
         "tablePage.",
         "tablePageSize.",
       ].some((prefix) => key.startsWith(prefix))

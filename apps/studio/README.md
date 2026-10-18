@@ -280,6 +280,44 @@ Repository setup and release/recovery instructions are in the
 
 ## Table filters and views
 
+`DataTable` is the single entry point; callers do not wrap it in a provider or
+wire individual search/sort/pagination/layout callbacks:
+
+```tsx
+<DataTable
+  tableId="example-items"
+  columns={columns}
+  data={items}
+  getRowKey={(item) => item.id}
+  onRowClick={openItem}
+/>
+```
+
+Declare each column's `filter` (`key`, `label`, `kind`, `read`, optional `options`,
+`optionLabels`, `unit`, `group` and `order`), or explicitly use `filter: false` for
+actions/selection. Composite columns can declare several filters. Table-level
+`filters` add fields without a displayed column. `sortKey` enables sorting;
+`sortValue` overrides the default raw reader when needed. Keep feature formatting,
+row actions and API fetching in the feature.
+
+Local tables automatically search, filter, sort and page the supplied dataset.
+For API-backed tables, pass `query={{ mode: "remote", defaults: { sort: "started" } }}`
+and `totalCount`; the feature's server read interprets the shared URL query and
+returns the requested page. `query.keys` preserves existing/nested URL bindings,
+and `query.pageSizes` declares endpoint limits (operational lists retain 250 rows;
+other tables default to 10/20/50/100). Use stable table IDs to keep preferences
+isolated. No special-case table IDs belong in the shared components.
+
+`scopeFilters` describes independent request controls (`text`, `enum`, `boolean`,
+or `timeRange` with explicit bound keys); their rendering, reset and saved-view
+behavior are shared too. `filterResource` enables authorized API suggestions for
+supported resources. `compatibility` supplies legacy URL readers/aliases, and
+`legacyViews` supplies one-time migration data. These adapters live in features;
+the table does not know their cookie names or business rules. An `emptyState`
+render function receives `hasFilters` and `clearFilters` to reset search, conditions and scope
+through the same shared state owner.
+
+
 Every Studio data table provides **Filters**, **Columns**, and **Views**, in that
 order. Search remains in the toolbar; field filters, feedback, time range,
 environment and archived-prompt controls live in the Filters drawer. Selection
@@ -302,13 +340,14 @@ reset paging. Prompt-library pagination uses the API's bounded `limit` parameter
 the left of the toolbar; Select all shows empty, partial or checked page selection
 and toggles that page without a separate Clear selection action.
 
-The existing inline side drawer lists the available filters directly. Choose
-values without adding conditions: statuses use checkboxes, text uses autocomplete,
+Every table uses the same inline filter drawer, generated from its field definitions.
+Choose values without adding conditions: enums use checkboxes, text uses autocomplete,
 and numeric/date fields show minimum/maximum inputs. Changes apply automatically
-(text and ranges wait 350 ms after typing); the drawer stays open. Runs retains
-its existing sections, inputs and Select all controls; the other table drawers
-also offer a filter search to find less common columns. Per-field options expose negative/missing-value
-matches without adding setup to ordinary filtering.
+(text and ranges wait 350 ms after typing); the drawer stays open. Every drawer
+provides filter search, optional definition-owned groups, and Select all for enums.
+Per-field options expose negative/missing-value matches. Clear filters resets field
+conditions and configured scope fields while preserving search; Standard view also
+resets search, sorting, page size and column layout.
 
 Choose **Match all · AND** or **Match any · OR** for the populated fields. Multiple
 values within one condition match any of those values. Project, authorized
@@ -353,7 +392,18 @@ and cover scrolled content. Return `"danger"` from the `rowTone` callback for
 failure tinting rather than setting separate pinned-cell backgrounds.
 
 All columns are visible by default, and Reset layout shows every column again.
-Saved layouts retain known column order/visibility and append new visible columns.
+Saved layouts retain known column order/visibility and append new visible columns. The Columns chooser uses the same effective
+order as the headers, with hidden columns retained at their configured positions.
+Both headers and chooser rows support dragging; the chooser also has keyboard
+sorting and one-step move buttons. Pinning groups columns left/center/right.
+Dropping into a different group adopts its pin state, including when the dragged
+column is the sole pin. Layout, sort and page-size preferences persist automatically
+by table ID in this browser. Saved views capture search, filters, configured scope,
+sort, page size and the unstretched column widths. Old operational preference
+cookies remain readable as initial seeds; existing saved-view storage keys and
+legacy URL aliases are retained. Newer browser layout preferences win over seeds.
+Browser-only preferences hydrate after the server-rendered defaults; they are not
+synchronized to a user profile. Storage failure leaves in-memory controls usable.
 Scrollbars overlay the table using the shared ScrollBar UI, without reserving a
 gutter or adding header spacing. Header/body scrolling stays synchronized during
 a held column drag. Dragged

@@ -1,25 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DataTable, DataTableProvider } from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { RunsEmptyState } from "@/features/runs/components/runs-empty-state";
 import { RunsToolbar } from "@/features/runs/components/runs-toolbar";
 import { useRunsQuery } from "@/features/runs/hooks/use-runs-query";
-import { useRunsTablePreferences } from "@/features/runs/hooks/use-runs-table-preferences";
-import { PAGE_SIZES } from "@/features/runs/lib/constants";
-import {
-  RUNS_TABLE_PREFERENCES_COOKIE,
-  type RunsTablePreferences,
-} from "@/features/runs/lib/table-preferences";
+import type { RunsTablePreferences } from "@/features/runs/lib/table-preferences";
 import type { Run } from "@/features/runs/schema";
-import { OperationalFilterScope } from "@/features/telemetry/components/operational-filter-scope";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
+import { readLegacyRunsViews } from "@/features/telemetry/lib/legacy-table-views";
+import {
+  runsScopeFilters,
+  studioFilterCompatibility,
+} from "@/features/telemetry/lib/table-configuration";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioDetailHref } from "@/lib/studio-routes";
-import { RunsFilterPanel } from "./runs-filter-panel";
 
 type RunsPageClientProps = {
   runs: Run[];
@@ -38,21 +36,7 @@ export default function RunsPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Single owner of all persistable table state (layout + sort + dir +
-  // pageSize + saved views). Written to a cookie so the server renders the
-  // right preferences on refresh; wire `onPersist` to a server action to also
-  // write the user's profile in the DB.
-  const prefs = useRunsTablePreferences({
-    cookieName: RUNS_TABLE_PREFERENCES_COOKIE,
-    initial: preferences,
-    // onPersist: saveRunsTablePreferences,
-  });
-
-  const runsQuery = useRunsQuery(initialRuns, {
-    sort: prefs.value.sort,
-    dir: prefs.value.dir,
-    pageSize: prefs.value.pageSize,
-  });
+  const runsQuery = useRunsQuery(initialRuns, preferences);
   const [now, setNow] = useState(initialNow);
   const { live } = runsQuery;
   const liveRefresh = useLiveRefresh({ enabled: live, resource: "runs" });
@@ -79,16 +63,6 @@ export default function RunsPageClient({
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, [live, hasActiveRuns]);
-
-  // Persist sort/dir/pageSize alongside the column layout. No-ops on mount
-  // since the values equal the hydrated preferences.
-  useEffect(() => {
-    prefs.save({
-      sort: runsQuery.sort,
-      dir: runsQuery.direction,
-      pageSize: runsQuery.pageSize,
-    });
-  }, [runsQuery.sort, runsQuery.direction, runsQuery.pageSize, prefs.save]);
 
   function copy(text: string) {
     navigator.clipboard.writeText(text).catch(() => undefined);
@@ -125,66 +99,48 @@ export default function RunsPageClient({
   });
 
   return (
-    <DataTableProvider
-      columns={columns}
-      initialLayout={prefs.value.layout}
-      onLayoutChange={(layout) => prefs.save({ layout })}
-    >
-      <div className="flex h-full min-h-0">
-        <DataTable
-          tableId="runs"
-          search={{
-            label: "Search runs",
-            placeholder: "Search runs, sessions, workflows, errors…",
-            value: runsQuery.query,
-            onChange: (value) => {
-              void runsQuery.setParams({ q: value || null, cursor: 0 });
-            },
-          }}
-          filterResource="runs"
-          filterPanel={(panel) => (
-            <RunsFilterPanel
-              query={runsQuery}
-              panel={panel}
-              open={panel.open}
-              onClose={panel.onClose}
-            />
-          )}
-          onClearLegacyFilters={runsQuery.clearFilters}
-          filterScope={<OperationalFilterScope query={runsQuery} />}
-          className="min-w-0 flex-1"
-          data={runsQuery.filteredRuns}
-          getRowKey={(run) => run.id}
-          onRowClick={openRun}
-          rowTone={(run) => (run.status === "failed" ? "danger" : undefined)}
-          sort={runsQuery.sort}
-          direction={runsQuery.direction}
-          onSort={runsQuery.handleSort}
-          onSetSortDirection={runsQuery.setSortDirection}
-          onClearSort={runsQuery.clearSort}
-          header={
-            <RunsToolbar
-              live={live}
-              liveStatus={liveRefresh.status}
-              refreshing={liveRefresh.refreshing}
-              onToggleLive={() => runsQuery.setLive(!live)}
-              onRefresh={liveRefresh.refreshNow}
-            />
-          }
-          emptyState={<RunsEmptyState onClear={runsQuery.clearFilters} />}
-          scrollRestoreKey="runs-table-scroll-position"
-          pagination={{
-            cursor: runsQuery.cursor,
-            pageSize: runsQuery.pageSize,
-            pageSizes: PAGE_SIZES,
-            totalCount,
-            serverSide: true,
-            onCursorChange: (next) => runsQuery.setParams({ cursor: next }),
-            onPageSizeChange: (next) =>
-              runsQuery.setParams({ cursor: null, pageSize: next }),
-          }}
-        />
-      </div>
-    </DataTableProvider>
+    <div className="flex h-full min-h-0">
+      <DataTable
+        query={{
+          mode: "remote",
+          pageSizes: [10, 20, 50, 100, 250],
+          defaults: {
+            sort: preferences?.sort ?? "started",
+            dir: preferences?.dir ?? "desc",
+            pageSize: preferences?.pageSize ?? 20,
+          },
+        }}
+        totalCount={totalCount}
+        scopeFilters={runsScopeFilters}
+        compatibility={studioFilterCompatibility("runs")}
+        legacyViews={readLegacyRunsViews}
+        columns={columns}
+        initialLayout={preferences?.layout}
+        tableId="runs"
+        search={{
+          label: "Search runs",
+          placeholder: "Search runs, sessions, workflows, errors…",
+        }}
+        filterResource="runs"
+        className="min-w-0 flex-1"
+        data={runsQuery.filteredRuns}
+        getRowKey={(run) => run.id}
+        onRowClick={openRun}
+        rowTone={(run) => (run.status === "failed" ? "danger" : undefined)}
+        header={
+          <RunsToolbar
+            live={live}
+            liveStatus={liveRefresh.status}
+            refreshing={liveRefresh.refreshing}
+            onToggleLive={() => runsQuery.setLive(!live)}
+            onRefresh={liveRefresh.refreshNow}
+          />
+        }
+        emptyState={({ clearFilters }) => (
+          <RunsEmptyState onClear={clearFilters} />
+        )}
+        scrollRestoreKey="runs-table-scroll-position"
+      />
+    </div>
   );
 }

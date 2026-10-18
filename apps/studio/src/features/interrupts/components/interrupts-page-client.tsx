@@ -1,23 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DataTable, DataTableProvider } from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
 import { createInterruptColumns } from "@/features/interrupts/components/interrupt-table-columns";
 import { InterruptsEmptyState } from "@/features/interrupts/components/interrupts-empty-state";
 import {
   type InterruptsViewQuery,
   useInterruptsQuery,
 } from "@/features/interrupts/hooks/use-interrupts-query";
-import {
-  DEFAULT_INTERRUPTS_TABLE_PREFERENCES,
-  INTERRUPTS_TABLE_PREFERENCES_COOKIE,
-} from "@/features/interrupts/lib/table-preferences";
 import type { Interrupt, InterruptSortKey } from "@/features/interrupts/schema";
-import { PAGE_SIZES } from "@/features/runs/lib/constants";
 import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
-import { OperationalFilterScope } from "@/features/telemetry/components/operational-filter-scope";
-import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
+import { readLegacyInterruptsViews } from "@/features/telemetry/lib/legacy-table-views";
+import {
+  operationalScopeFilters,
+  studioFilterCompatibility,
+} from "@/features/telemetry/lib/table-configuration";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
@@ -38,16 +36,7 @@ export default function InterruptsPageClient({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefs = useListTablePreferences({
-    cookieName: INTERRUPTS_TABLE_PREFERENCES_COOKIE,
-    defaults: DEFAULT_INTERRUPTS_TABLE_PREFERENCES,
-    initial: preferences,
-  });
-  const query = useInterruptsQuery(interrupts, {
-    sort: prefs.value.sort,
-    dir: prefs.value.dir,
-    pageSize: prefs.value.pageSize,
-  });
+  const query = useInterruptsQuery(interrupts, preferences);
   const liveRefresh = useLiveRefresh({
     enabled: query.live,
     resource: "interrupts",
@@ -81,83 +70,68 @@ export default function InterruptsPageClient({
     onCopy: (value) =>
       navigator.clipboard.writeText(value).catch(() => undefined),
   });
-  useEffect(() => {
-    prefs.save({ sort: query.sort, dir: query.dir, pageSize: query.pageSize });
-  }, [prefs, query.dir, query.pageSize, query.sort]);
   return (
-    <DataTableProvider
-      columns={columns}
-      initialLayout={prefs.value.layout}
-      onLayoutChange={(layout) => prefs.save({ layout })}
-    >
-      <div className="flex h-full min-h-0">
-        <DataTable
-          tableId="interrupts"
-          search={{
-            label: "Search interrupts",
-            placeholder: "Search requests, sessions, workflows, responses…",
-            value: query.q,
-            onChange: (value) => {
-              void query.setParams({ q: value || null, cursor: 0 });
-            },
-          }}
-          filterResource="interrupts"
-          onClearLegacyFilters={query.clearFilters}
-          filterScope={<OperationalFilterScope query={query} />}
-          className="min-w-0 flex-1"
-          data={query.filteredInterrupts}
-          getRowKey={(interrupt) => interrupt.id}
-          onRowClick={(interrupt, event) => {
-            const href = detailNavigationHref(
-              studioDetailHref("interrupts", interrupt.id),
-              searchParams,
-            );
-            if (event.metaKey || event.ctrlKey)
-              window.open(href, "_blank", "noopener");
-            else if (query.filtersOpen) {
-              void query.setFiltersOpen(false).then(() => router.push(href));
-            } else {
-              router.push(href);
-            }
-          }}
-          rowTone={(interrupt) =>
-            interrupt.status === "failed" ? "danger" : undefined
+    <div className="flex h-full min-h-0">
+      <DataTable
+        query={{
+          mode: "remote",
+          pageSizes: [10, 20, 50, 100, 250],
+          defaults: {
+            sort: preferences?.sort ?? "priority",
+            dir: preferences?.dir ?? "asc",
+            pageSize: preferences?.pageSize ?? 20,
+          },
+        }}
+        totalCount={totalCount}
+        scopeFilters={operationalScopeFilters}
+        compatibility={studioFilterCompatibility("interrupts")}
+        legacyViews={readLegacyInterruptsViews}
+        columns={columns}
+        initialLayout={preferences?.layout}
+        tableId="interrupts"
+        search={{
+          label: "Search interrupts",
+          placeholder: "Search requests, sessions, workflows, responses…",
+        }}
+        filterResource="interrupts"
+        className="min-w-0 flex-1"
+        data={query.filteredInterrupts}
+        getRowKey={(interrupt) => interrupt.id}
+        onRowClick={(interrupt, event) => {
+          const href = detailNavigationHref(
+            studioDetailHref("interrupts", interrupt.id),
+            searchParams,
+          );
+          if (event.metaKey || event.ctrlKey)
+            window.open(href, "_blank", "noopener");
+          else if (query.filtersOpen) {
+            void query.setFiltersOpen(false).then(() => router.push(href));
+          } else {
+            router.push(href);
           }
-          sort={query.sort}
-          direction={query.dir}
-          onSort={query.handleSort}
-          onSetSortDirection={query.setSortDirection}
-          onClearSort={query.clearSort}
-          header={
-            <ListToolbar
-              title="Interrupts"
-              subtitle="Operational inbox for every human request"
-              refreshing={liveRefresh.refreshing}
-              live={query.live}
-              liveStatus={liveRefresh.status}
-              onToggleLive={() => query.setLive(!query.live)}
-              onRefresh={liveRefresh.refreshNow}
-            />
-          }
-          emptyState={
-            <InterruptsEmptyState
-              hasFilters={query.hasActiveFilters}
-              onClear={query.clearFilters}
-            />
-          }
-          scrollRestoreKey="interrupts-table-scroll-position"
-          pagination={{
-            cursor: query.cursor,
-            pageSize: query.pageSize,
-            pageSizes: PAGE_SIZES,
-            totalCount,
-            serverSide: true,
-            onCursorChange: (cursor) => query.setParams({ cursor }),
-            onPageSizeChange: (pageSize) =>
-              query.setParams({ cursor: null, pageSize }),
-          }}
-        />
-      </div>
-    </DataTableProvider>
+        }}
+        rowTone={(interrupt) =>
+          interrupt.status === "failed" ? "danger" : undefined
+        }
+        header={
+          <ListToolbar
+            title="Interrupts"
+            subtitle="Operational inbox for every human request"
+            refreshing={liveRefresh.refreshing}
+            live={query.live}
+            liveStatus={liveRefresh.status}
+            onToggleLive={() => query.setLive(!query.live)}
+            onRefresh={liveRefresh.refreshNow}
+          />
+        }
+        emptyState={({ clearFilters, hasFilters }) => (
+          <InterruptsEmptyState
+            hasFilters={hasFilters}
+            onClear={clearFilters}
+          />
+        )}
+        scrollRestoreKey="interrupts-table-scroll-position"
+      />
+    </div>
   );
 }

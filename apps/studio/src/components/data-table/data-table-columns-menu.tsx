@@ -1,123 +1,123 @@
 "use client";
 
-import { Columns3 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { useDataTable } from "@/components/data-table/data-table-context";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { ArrowDown, ArrowUp, Columns3, GripVertical, Pin } from "lucide-react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
-type DataTableColumnsMenuProps = {
-  label?: string;
-  placeholder?: string;
-};
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
+import { useDataTable } from "./data-table-context";
 
 export function DataTableColumnsMenu({
   label = "Columns",
   placeholder = "Find a column…",
-}: DataTableColumnsMenuProps) {
+}: {
+  label?: string;
+  placeholder?: string;
+}) {
   const {
-    columns,
-    defaultOrder,
+    columnsByKey,
+    orderedColumnKeys,
     hidden,
-    toggleColumnVisibility,
+    moveColumn,
     showAllColumns,
     resetLayout,
   } = useDataTable();
-  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  const total = columns.length;
-  const visibleCount = total - hidden.length;
-  const orderedColumns = defaultOrder.map(
-    (key) => columns.find((column) => column.key === key) ?? columns[0],
+  const titleId = useId();
+  const dndId = useId();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
-
-  useEffect(() => {
-    if (!open) return;
-    const frame = requestAnimationFrame(() => {
-      searchInputRef.current?.focus();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [open]);
-
+  const filtered = orderedColumnKeys.filter((key) =>
+    columnsByKey[key].label.toLowerCase().includes(search.toLowerCase()),
+  );
   return (
-    <DropdownMenu
-      open={open}
-      onOpenChange={(nextOpen) => {
-        setOpen(nextOpen);
-        if (!nextOpen) setSearch("");
-      }}
-    >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon-sm"
-              aria-label={label}
-              className="relative"
-            >
-              <Columns3 />
-              {hidden.length > 0 && (
-                <span className="absolute -top-1.5 -right-2 rounded-full bg-foreground px-1 text-[10px] leading-4 text-background">
-                  {visibleCount}/{total}
-                </span>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={8}>
-          {label}
-        </TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent align="end" className="w-60 p-2">
-        <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
-        <div
-          role="presentation"
-          className="px-1 py-1"
-          onPointerDown={(event) => event.stopPropagation()}
+    <Popover onOpenChange={() => setSearch("")}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="secondary"
+          size="icon-sm"
+          aria-label={label}
+          title={label}
+          className="relative"
         >
-          <input
-            ref={searchInputRef}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => event.stopPropagation()}
-            placeholder={placeholder}
-            className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-ring/50"
-          />
-        </div>
-        <ScrollArea className="max-h-64" viewportClassName="max-h-64">
-          {orderedColumns
-            .filter((column) =>
-              column.label.toLowerCase().includes(search.toLowerCase()),
-            )
-            .map((column) => (
-              <DropdownMenuCheckboxItem
-                key={column.key}
-                checked={!hidden.includes(column.key)}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={() => toggleColumnVisibility(column.key)}
-              >
-                {column.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-        </ScrollArea>
-        <DropdownMenuSeparator />
-        <div className="flex items-center justify-between gap-2 px-1 pt-1">
+          <Columns3 />
+          {hidden.length > 0 && (
+            <span className="absolute -right-2 -top-1.5 rounded-full bg-foreground px-1 text-[10px] leading-4 text-background">
+              {orderedColumnKeys.length - hidden.length}/
+              {orderedColumnKeys.length}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        className="w-72 p-2"
+        aria-labelledby={titleId}
+      >
+        <h2 id={titleId} className="px-2 py-2 text-sm font-medium">
+          Visible columns
+        </h2>
+        <Input
+          aria-label="Find a column"
+          placeholder={placeholder}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="mb-2 h-8"
+        />
+        <DndContext
+          id={dndId}
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          modifiers={[restrictToVerticalAxis]}
+          onDragEnd={({ active, over }) => {
+            if (over) moveColumn(String(active.id), String(over.id));
+          }}
+        >
+          <SortableContext
+            items={filtered}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul
+              className="max-h-72 overflow-y-auto overscroll-contain"
+              aria-label="Column order"
+            >
+              {filtered.map((key) => (
+                <ColumnRow key={key} columnKey={key} />
+              ))}
+              {filtered.length === 0 && (
+                <li className="p-2 text-sm text-muted-foreground">
+                  No matching columns.
+                </li>
+              )}
+            </ul>
+          </SortableContext>
+        </DndContext>
+        <Separator className="my-2" />
+        <div className="flex justify-between gap-2">
           <Button variant="ghost" size="xs" onClick={showAllColumns}>
             Show all
           </Button>
@@ -125,7 +125,94 @@ export function DataTableColumnsMenu({
             Reset layout
           </Button>
         </div>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ColumnRow({ columnKey }: { columnKey: string }) {
+  const {
+    columnsByKey,
+    orderedColumnKeys,
+    hidden,
+    pinned,
+    toggleColumnVisibility,
+    moveColumn,
+  } = useDataTable();
+  const column = columnsByKey[columnKey];
+  const index = orderedColumnKeys.indexOf(columnKey);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: columnKey });
+  return (
+    <li
+      ref={setNodeRef}
+      data-column-option={columnKey}
+      style={{
+        transform: transform
+          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+          : undefined,
+        transition,
+        position: "relative",
+        zIndex: isDragging ? 1 : undefined,
+      }}
+      className="group flex items-center gap-1 rounded-md bg-popover px-1 py-1"
+    >
+      <Button
+        ref={setActivatorNodeRef}
+        variant="ghost"
+        size="icon-xs"
+        className="touch-none cursor-grab"
+        {...attributes}
+        {...listeners}
+        aria-label={`Drag ${column.label} column`}
+      >
+        <GripVertical />
+      </Button>
+      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={!hidden.includes(columnKey)}
+          onChange={() => toggleColumnVisibility(columnKey)}
+          disabled={
+            !hidden.includes(columnKey) &&
+            hidden.length === orderedColumnKeys.length - 1
+          }
+        />
+        <span className="truncate">{column.label}</span>
+      </label>
+      {pinned[columnKey] && (
+        <span title={`Pinned ${pinned[columnKey]}`}>
+          <Pin
+            className="size-3 text-muted-foreground"
+            aria-label={`Pinned ${pinned[columnKey]}`}
+          />
+        </span>
+      )}
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={`Move ${column.label} left`}
+        disabled={index === 0}
+        onClick={() => moveColumn(columnKey, orderedColumnKeys[index - 1])}
+      >
+        <ArrowUp />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        aria-label={`Move ${column.label} right`}
+        disabled={index === orderedColumnKeys.length - 1}
+        onClick={() => moveColumn(columnKey, orderedColumnKeys[index + 1])}
+      >
+        <ArrowDown />
+      </Button>
+    </li>
   );
 }

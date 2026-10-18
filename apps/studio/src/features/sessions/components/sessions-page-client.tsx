@@ -1,24 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DataTable, DataTableProvider } from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
 import { effectiveInterruptStatus } from "@/features/interrupts/lib/interrupt-presentation";
-import { PAGE_SIZES } from "@/features/runs/lib/constants";
 import { createSessionColumns } from "@/features/sessions/components/session-table-columns";
 import { SessionsEmptyState } from "@/features/sessions/components/sessions-empty-state";
 import {
   type SessionsViewQuery,
   useSessionsQuery,
 } from "@/features/sessions/hooks/use-sessions-query";
-import {
-  DEFAULT_SESSIONS_TABLE_PREFERENCES,
-  SESSIONS_TABLE_PREFERENCES_COOKIE,
-} from "@/features/sessions/lib/table-preferences";
 import type { Session, SessionSortKey } from "@/features/sessions/schema";
 import { ListToolbar } from "@/features/telemetry/components/list-toolbar";
-import { OperationalFilterScope } from "@/features/telemetry/components/operational-filter-scope";
-import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
+import { readLegacySessionsViews } from "@/features/telemetry/lib/legacy-table-views";
+import {
+  operationalScopeFilters,
+  studioFilterCompatibility,
+} from "@/features/telemetry/lib/table-configuration";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { detailNavigationHref } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
@@ -39,16 +37,7 @@ export default function SessionsPageClient({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefs = useListTablePreferences({
-    cookieName: SESSIONS_TABLE_PREFERENCES_COOKIE,
-    defaults: DEFAULT_SESSIONS_TABLE_PREFERENCES,
-    initial: preferences,
-  });
-  const query = useSessionsQuery(sessions, {
-    sort: prefs.value.sort,
-    dir: prefs.value.dir,
-    pageSize: prefs.value.pageSize,
-  });
+  const query = useSessionsQuery(sessions, preferences);
   const liveRefresh = useLiveRefresh({
     enabled: query.live,
     resource: "sessions",
@@ -79,83 +68,65 @@ export default function SessionsPageClient({
     onCopy: (value) =>
       navigator.clipboard.writeText(value).catch(() => undefined),
   });
-  useEffect(() => {
-    prefs.save({ sort: query.sort, dir: query.dir, pageSize: query.pageSize });
-  }, [prefs, query.dir, query.pageSize, query.sort]);
   return (
-    <DataTableProvider
-      columns={columns}
-      initialLayout={prefs.value.layout}
-      onLayoutChange={(layout) => prefs.save({ layout })}
-    >
-      <div className="flex h-full min-h-0">
-        <DataTable
-          tableId="sessions"
-          search={{
-            label: "Search sessions",
-            placeholder: "Search sessions, users, workflows, errors…",
-            value: query.q,
-            onChange: (value) => {
-              void query.setParams({ q: value || null, cursor: 0 });
-            },
-          }}
-          filterResource="sessions"
-          onClearLegacyFilters={query.clearFilters}
-          filterScope={<OperationalFilterScope query={query} />}
-          className="min-w-0 flex-1"
-          data={query.filteredSessions}
-          getRowKey={(session) => session.id}
-          onRowClick={(session, event) => {
-            const href = detailNavigationHref(
-              studioDetailHref("sessions", session.id),
-              searchParams,
-            );
-            if (event.metaKey || event.ctrlKey)
-              window.open(href, "_blank", "noopener");
-            else if (query.filtersOpen) {
-              void query.setFiltersOpen(false).then(() => router.push(href));
-            } else {
-              router.push(href);
-            }
-          }}
-          rowTone={(session) =>
-            session.status === "failed" ? "danger" : undefined
+    <div className="flex h-full min-h-0">
+      <DataTable
+        query={{
+          mode: "remote",
+          pageSizes: [10, 20, 50, 100, 250],
+          defaults: {
+            sort: preferences?.sort ?? "activity",
+            dir: preferences?.dir ?? "desc",
+            pageSize: preferences?.pageSize ?? 20,
+          },
+        }}
+        totalCount={totalCount}
+        scopeFilters={operationalScopeFilters}
+        compatibility={studioFilterCompatibility("sessions")}
+        legacyViews={readLegacySessionsViews}
+        columns={columns}
+        initialLayout={preferences?.layout}
+        tableId="sessions"
+        search={{
+          label: "Search sessions",
+          placeholder: "Search sessions, users, workflows, errors…",
+        }}
+        filterResource="sessions"
+        className="min-w-0 flex-1"
+        data={query.filteredSessions}
+        getRowKey={(session) => session.id}
+        onRowClick={(session, event) => {
+          const href = detailNavigationHref(
+            studioDetailHref("sessions", session.id),
+            searchParams,
+          );
+          if (event.metaKey || event.ctrlKey)
+            window.open(href, "_blank", "noopener");
+          else if (query.filtersOpen) {
+            void query.setFiltersOpen(false).then(() => router.push(href));
+          } else {
+            router.push(href);
           }
-          sort={query.sort}
-          direction={query.dir}
-          onSort={query.handleSort}
-          onSetSortDirection={query.setSortDirection}
-          onClearSort={query.clearSort}
-          header={
-            <ListToolbar
-              title="Sessions"
-              subtitle="Operational inbox for every session"
-              refreshing={liveRefresh.refreshing}
-              live={query.live}
-              liveStatus={liveRefresh.status}
-              onToggleLive={() => query.setLive(!query.live)}
-              onRefresh={liveRefresh.refreshNow}
-            />
-          }
-          emptyState={
-            <SessionsEmptyState
-              hasFilters={query.hasActiveFilters}
-              onClear={query.clearFilters}
-            />
-          }
-          scrollRestoreKey="sessions-table-scroll-position"
-          pagination={{
-            cursor: query.cursor,
-            pageSize: query.pageSize,
-            pageSizes: PAGE_SIZES,
-            totalCount,
-            serverSide: true,
-            onCursorChange: (cursor) => query.setParams({ cursor }),
-            onPageSizeChange: (pageSize) =>
-              query.setParams({ cursor: null, pageSize }),
-          }}
-        />
-      </div>
-    </DataTableProvider>
+        }}
+        rowTone={(session) =>
+          session.status === "failed" ? "danger" : undefined
+        }
+        header={
+          <ListToolbar
+            title="Sessions"
+            subtitle="Operational inbox for every session"
+            refreshing={liveRefresh.refreshing}
+            live={query.live}
+            liveStatus={liveRefresh.status}
+            onToggleLive={() => query.setLive(!query.live)}
+            onRefresh={liveRefresh.refreshNow}
+          />
+        }
+        emptyState={({ clearFilters, hasFilters }) => (
+          <SessionsEmptyState hasFilters={hasFilters} onClear={clearFilters} />
+        )}
+        scrollRestoreKey="sessions-table-scroll-position"
+      />
+    </div>
   );
 }

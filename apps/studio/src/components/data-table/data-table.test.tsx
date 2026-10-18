@@ -3,7 +3,6 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DataTable } from "./data-table";
-import { DataTableProvider } from "./data-table-context";
 
 vi.mock("./data-table-filters", () => ({
   DataTableFilterControls: () => null,
@@ -15,13 +14,32 @@ vi.mock("./use-table-filters", () => ({
 vi.mock("./use-table-search", () => ({
   useTableSearch: () => ({ value: "", managed: false }),
 }));
-vi.mock("./use-table-pagination", () => ({
-  useTablePagination: () => ({
+
+vi.mock("./use-table-scope", () => ({
+  useTableScope: () => ({
+    values: {},
+    keys: [],
+    empty: {},
+    change: vi.fn(),
+    clear: vi.fn(),
+  }),
+}));
+
+vi.mock("./use-table-query", () => ({
+  TABLE_PAGE_SIZES: [10, 20, 50, 100],
+  useTableQuery: () => ({
+    q: "",
+    sort: undefined,
+    dir: "desc",
     cursor: 0,
     pageSize: 20,
     pageSizes: [10, 20, 50, 100],
-    onCursorChange: vi.fn(),
-    onPageSizeChange: vi.fn(),
+    keys: {},
+    change: vi.fn(),
+    onSearch: vi.fn(),
+    onSort: vi.fn(),
+    setSortDirection: vi.fn(),
+    clearSort: vi.fn(),
   }),
 }));
 
@@ -47,7 +65,11 @@ beforeEach(async () => {
   root = createRoot(container);
   await act(() =>
     root.render(
-      <DataTableProvider
+      <DataTable
+        tableId="row-click-test"
+        data={[{ id: "evaluation" }]}
+        getRowKey={(row) => row.id}
+        onRowClick={openRow}
         columns={[
           {
             key: "name",
@@ -74,14 +96,7 @@ beforeEach(async () => {
             ),
           },
         ]}
-      >
-        <DataTable
-          tableId="row-click-test"
-          data={[{ id: "evaluation" }]}
-          getRowKey={(row) => row.id}
-          onRowClick={openRow}
-        />
-      </DataTableProvider>,
+      />,
     ),
   );
 });

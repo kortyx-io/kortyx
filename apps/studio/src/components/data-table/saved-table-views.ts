@@ -11,16 +11,8 @@ const SavedTableViewSchema = z.object({
     pinned: z.record(z.string(), z.enum(["left", "right"]).optional()),
   }),
   scope: z
-    .object({
-      q: z.string().optional(),
-      env: z.string().optional(),
-      range: z.string().optional(),
-      startedAfter: z.string().optional(),
-      startedBefore: z.string().optional(),
-      includeChildren: z.string().optional(),
-      archived: z.string().optional(),
-    })
-    .strict(),
+    .record(z.string().min(1).max(80), z.string().max(512))
+    .refine((scope) => Object.keys(scope).length <= 32),
   sort: z.string().max(80).optional(),
   direction: z.enum(["asc", "desc"]).optional(),
   pageSize: z.number().int().min(1).max(250).optional(),

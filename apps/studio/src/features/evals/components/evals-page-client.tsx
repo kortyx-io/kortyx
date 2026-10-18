@@ -11,11 +11,7 @@ import {
   parseAsStringLiteral,
 } from "nuqs";
 import { useState } from "react";
-import {
-  DataTable,
-  type DataTableColumn,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { valueColumn } from "@/components/data-table/value-column";
@@ -24,7 +20,6 @@ import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
 import { evalDurationMs } from "@/features/evals/lib/duration";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
-import { useListTablePreferences } from "@/features/telemetry/hooks/use-list-table-preferences";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import type { ListTablePreferences } from "@/features/telemetry/lib/table-preferences";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
@@ -117,11 +112,6 @@ export function EvalsPageClient({
   };
   const navigate = (href: string) =>
     router.push(evalNavigationHref(href, searchParams));
-  const prefs = useListTablePreferences({
-    cookieName: "kortyx_evals_table_prefs",
-    defaults,
-    initial: preferences,
-  });
   const update = (values: Partial<typeof query>) => {
     void setQuery(values);
   };
@@ -179,42 +169,6 @@ export function EvalsPageClient({
           (run) => run.targetId === target.id && run.suiteId === suite.id,
         ),
       })) ?? [],
-  );
-  const _applications = new Map([
-    ...targets.targets.map((t) => [t.id, t.name] as const),
-    ...history.runs.map((r) => [r.targetId, r.targetName] as const),
-  ]);
-  const needle = query.q.toLowerCase();
-  const runs = history.runs.filter(
-    (r) =>
-      (query.env === "All environments" || query.env === r.environment) &&
-      (query.application === "all" || query.application === r.targetId) &&
-      (query.status === "all" || query.status === r.status) &&
-      `${r.suiteName ?? ""} ${r.suiteId} ${r.targetName} ${r.environment} ${r.id}`
-        .toLowerCase()
-        .includes(needle),
-  );
-  const suites = suiteRows.filter(
-    (r) =>
-      (query.env === "All environments" ||
-        query.env === r.target.environment) &&
-      (query.application === "all" || query.application === r.target.id) &&
-      `${r.suite.name ?? ""} ${r.suite.id} ${r.target.name}`
-        .toLowerCase()
-        .includes(needle),
-  );
-  const direction = query.dir === "asc" ? 1 : -1;
-  runs.sort(
-    (a, b) =>
-      direction *
-      (query.sort === "name"
-        ? (a.suiteName ?? a.suiteId).localeCompare(b.suiteName ?? b.suiteId)
-        : query.sort === "status"
-          ? a.status.localeCompare(b.status)
-          : a.createdAt.localeCompare(b.createdAt)),
-  );
-  suites.sort((a, b) =>
-    (a.suite.name ?? a.suite.id).localeCompare(b.suite.name ?? b.suite.id),
   );
   const clearFilters = () =>
     update({
@@ -387,7 +341,7 @@ export function EvalsPageClient({
       ),
     },
   ];
-  const suiteColumns: DataTableColumn<SuiteRow>[] = [
+  const suiteColumns: DataTableColumn<SuiteRow, "suite">[] = [
     {
       key: "suite",
       filter: [
@@ -400,6 +354,7 @@ export function EvalsPageClient({
         columnFilter("suiteId", "Suite ID", "text", (r) => r.suite.id),
       ],
       label: "Suite",
+      sortKey: "suite",
       defaultWidth: 310,
       render: (r) => (
         <div>
@@ -628,23 +583,6 @@ export function EvalsPageClient({
       ) : null}
     </div>
   );
-  const pageSize = [10, 20, 50, 100].includes(query.pageSize)
-    ? query.pageSize
-    : 20;
-  const totalCount = view === "runs" ? runs.length : suites.length;
-  const lastPageOffset =
-    Math.max(0, Math.ceil(totalCount / pageSize) - 1) * pageSize;
-  const pagination = {
-    cursor: Math.min(Math.max(0, query.cursor), lastPageOffset),
-    pageSize,
-    pageSizes: [10, 20, 50, 100],
-    totalCount,
-    onCursorChange: (cursor: number) => update({ cursor }),
-    onPageSizeChange: (pageSize: number) => {
-      prefs.save({ pageSize });
-      update({ pageSize, cursor: 0 });
-    },
-  };
   if (
     !error &&
     !filtered &&
@@ -667,69 +605,86 @@ export function EvalsPageClient({
       ) : null}
       <div className="min-h-0 flex-1">
         {view === "runs" ? (
-          <DataTableProvider
+          <DataTable
+            query={{
+              keys: {
+                q: "q",
+                sort: "sort",
+                dir: "dir",
+                cursor: "cursor",
+                pageSize: "pageSize",
+              },
+              defaults: {
+                sort: preferences?.sort ?? "created",
+                dir: preferences?.dir ?? "desc",
+                pageSize: preferences?.pageSize ?? 20,
+              },
+            }}
+            compatibility={{
+              aliases: {
+                status: "status",
+                application: "applicationId",
+                env: "environment",
+              },
+              ignoreValues: ["all", "All environments"],
+            }}
             columns={runColumns}
-            initialLayout={prefs.value.layout}
-            onLayoutChange={(layout) => prefs.save({ layout })}
-          >
-            <DataTable
-              tableId="legacy-eval-runs"
-              search={{
-                label: "Search evals",
-                placeholder:
-                  view === "runs"
-                    ? "Search suite, application, or run ID…"
-                    : "Search suites…",
-                value: query.q,
-                onChange: (q) => update({ q, cursor: 0 }),
-              }}
-              data={runs}
-              getRowKey={(r) => r.id}
-              onRowClick={(r) => chooseRun(r.id)}
-              rowTone={(r) =>
-                r.status === "failed" || r.status === "error"
-                  ? "danger"
-                  : undefined
-              }
-              sort={query.sort}
-              direction={query.dir}
-              onSort={(key) =>
-                update({
-                  sort: key,
-                  dir:
-                    query.sort === key && query.dir === "desc" ? "asc" : "desc",
-                  cursor: 0,
-                })
-              }
-              onSetSortDirection={(key, dir) =>
-                update({ sort: key, dir, cursor: 0 })
-              }
-              onClearSort={() =>
-                update({ sort: "created", dir: "desc", cursor: 0 })
-              }
-              header={header}
-              emptyState={empty}
-              pagination={pagination}
-            />
-          </DataTableProvider>
+            initialLayout={preferences?.layout}
+            tableId="legacy-eval-runs"
+            search={{
+              label: "Search evals",
+              placeholder:
+                view === "runs"
+                  ? "Search suite, application, or run ID…"
+                  : "Search suites…",
+            }}
+            data={history.runs}
+            getRowKey={(r) => r.id}
+            onRowClick={(r) => chooseRun(r.id)}
+            rowTone={(r) =>
+              r.status === "failed" || r.status === "error"
+                ? "danger"
+                : undefined
+            }
+            header={header}
+            emptyState={empty}
+          />
         ) : (
-          <DataTableProvider columns={suiteColumns}>
-            <DataTable
-              tableId="eval-suites"
-              search={{
-                label: "Search evals",
-                placeholder: "Search suites…",
-                value: query.q,
-                onChange: (q) => update({ q, cursor: 0 }),
-              }}
-              data={suites}
-              getRowKey={(r) => r.id}
-              onRowClick={(r) => chooseSuite(r)}
-              header={header}
-              emptyState={empty}
-              pagination={pagination}
-            />
-          </DataTableProvider>
+          <DataTable
+            query={{
+              keys: {
+                q: "q",
+                sort: "sort",
+                dir: "dir",
+                cursor: "cursor",
+                pageSize: "pageSize",
+              },
+              defaults: {
+                sort: "suite",
+                dir: preferences?.dir ?? "desc",
+                pageSize: preferences?.pageSize ?? 20,
+              },
+            }}
+            compatibility={{
+              aliases: {
+                status: "status",
+                application: "applicationId",
+                env: "environment",
+              },
+              ignoreValues: ["all", "All environments"],
+            }}
+            columns={suiteColumns}
+            tableId="eval-suites"
+            search={{
+              label: "Search evals",
+              placeholder: "Search suites…",
+            }}
+            data={suiteRows}
+            getRowKey={(r) => r.id}
+            onRowClick={(r) => chooseSuite(r)}
+            header={header}
+            emptyState={empty}
+          />
         )}
       </div>
       <EvalRunSetup targets={targets} matchPath={`/evals/${view}`} />
