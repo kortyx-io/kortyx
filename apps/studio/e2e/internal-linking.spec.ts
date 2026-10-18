@@ -5,6 +5,9 @@ import {
 } from "./support/navigation-fixture";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 
+// Every intercepted destination can compile on first access in a dev shard.
+const navigationTimeout = 15_000;
+
 const path = (resource: string, id: string) =>
   `/${resource}/${encodeURIComponent(id)}`;
 const surface = (page: Page, href: string) =>
@@ -26,7 +29,7 @@ async function openRow(page: Page, resource: string, id: string) {
     .click({ position: { x: 8, y: 8 } });
   // A fresh dev server compiles the first intercepted destination on demand.
   await expect(page).toHaveURL((url) => url.pathname === path(resource, id), {
-    timeout: 15_000,
+    timeout: navigationTimeout,
   });
   await expect(surface(page, path(resource, id))).toHaveAttribute(
     "data-state",
@@ -304,7 +307,9 @@ test.describe("Studio cyclic drawer history", () => {
   const href = (resource: Resource) => path(resource, ids[resource]);
 
   async function expectCurrent(page: Page, resource: Resource) {
-    await expect(page).toHaveURL((url) => url.pathname === href(resource));
+    await expect(page).toHaveURL((url) => url.pathname === href(resource), {
+      timeout: navigationTimeout,
+    });
     const drawer = surface(page, href(resource));
     await expect(drawer).toHaveCount(1);
     await expect(drawer).toHaveAttribute("data-state", "open");
