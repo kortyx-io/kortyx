@@ -51,7 +51,7 @@ it("keeps tour focus and does not dismiss the comparison when its controls recei
   expect(document.activeElement).toBe(controls);
   expect(
     document.querySelector(
-      '[data-slot="dialog-content"] [data-prompt-comparison]',
+      '[data-slot="dialog-content"][data-prompt-comparison="sample:1:2"] [data-guide-focus="prompt-diff"]',
     ),
   ).not.toBeNull();
   await act(() => {

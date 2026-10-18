@@ -1,5 +1,7 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 
+import type { DetailTabCopy } from "@/lib/detail-tab-contract";
+
 type PageKind =
   | "list"
   | "detail"
@@ -23,7 +25,7 @@ export const PAGE_GUIDES = {
     overview:
       "Runs is the inbox for workflow executions. Each row has its own outcome, timing, usage, and session. A failed run and a failed evaluation are different outcomes.",
     content:
-      "Open a run to inspect its execution, trace, model requests, and recorded events. Session links connect related turns; child executions show delegated work.",
+      "After the guide, open a run to inspect its execution, trace, model requests, and recorded events. Session links connect related turns; child executions show delegated work.",
     example: "/runs",
   },
   run: {
@@ -41,7 +43,7 @@ export const PAGE_GUIDES = {
     overview:
       "Sessions group related workflow runs, such as multiple turns in a conversation. Totals describe the session history; each run still has its own outcome.",
     content:
-      "Open a session to follow its activity and individual runs. Use a stable session ID in your application to connect related turns.",
+      "After the guide, open a session to follow its activity and individual runs. Use a stable session ID in your application to connect related turns.",
     example: "/sessions",
   },
   session: {
@@ -50,7 +52,7 @@ export const PAGE_GUIDES = {
     overview:
       "This session groups the recorded activity for related turns. Its totals aggregate multiple runs and do not replace each run's individual result.",
     content:
-      "Activity follows the conversation over time. Runs lists individual execution IDs, outcomes, durations, and paths. Open a run for its detailed evidence.",
+      "Activity follows the conversation over time. Runs lists individual execution IDs, outcomes, durations, and paths. After the guide, open a run for its detailed evidence.",
     example: `/sessions/${sample.sessions.success}`,
   },
   workflows: {
@@ -59,7 +61,7 @@ export const PAGE_GUIDES = {
     overview:
       "Workflows combines declared workflow structure with observed activity. The catalog lists available workflows; the map shows nodes, transitions, and calls between workflows.",
     content:
-      "Select a workflow, node, or connection to inspect it. Health and timing reflect the selected period. A declared branch is not proof it ran; inspect an execution's trace for that evidence.",
+      "After the guide, select a workflow, node, or connection to inspect it. Health and timing reflect the selected period. A declared branch is not proof it ran; inspect an execution's trace for that evidence.",
     example: "/workflows",
   },
   interrupts: {
@@ -68,7 +70,7 @@ export const PAGE_GUIDES = {
     overview:
       "Interrupts are recorded pauses for decisions or input. Pending, resolved, expired, cancelled, and failed requests describe different stages of that lifecycle.",
     content:
-      "Open a request to inspect what was asked, the recorded response, and its timeline. A response and a resumed execution are separate facts.",
+      "After the guide, open a request to inspect what was asked, the recorded response, and its timeline. A response and a resumed execution are separate facts.",
     example: "/interrupts",
   },
   interrupt: {
@@ -86,7 +88,7 @@ export const PAGE_GUIDES = {
     overview:
       "The prompt library organizes prompt assets and their saved versions. Categories organize the library; tags point to versions used in an environment.",
     content:
-      "Open a prompt to read its saved content, compare versions, and inspect linked evaluations, executions, reviews, and activity. A draft and a promoted version are different states.",
+      "After the guide, open a prompt to read its saved content, compare versions, and inspect linked evaluations, executions, reviews, and activity. A draft and a promoted version are different states.",
     example: "/prompts",
   },
   prompt: {
@@ -99,15 +101,15 @@ export const PAGE_GUIDES = {
     example: `/prompts/${sample.promptId}`,
   },
   "prompt-groups": {
-    title: "Prompt groups",
+    title: "Test groups",
     kind: "list",
     overview:
-      "Prompt groups collect candidate prompt versions for testing together. A group is a selection of versions, not a production deployment or a passing evaluation.",
+      "Test groups collect candidate prompt versions for testing together. A group is a selection of versions, not a production deployment or a passing evaluation.",
     content:
-      "Open a group to inspect its prompt-version bindings and evaluation evidence. Check version identities before attributing a change in results to a prompt.",
+      "After the guide, open a group to inspect its prompt-version bindings and evaluation evidence. Check version identities before attributing a change in results to a prompt.",
   },
   "prompt-group": {
-    title: "Prompt group details",
+    title: "Test group details",
     kind: "detail",
     overview:
       "This group binds prompt assets to candidate versions. Review those bindings to understand exactly what would be tested together.",
@@ -120,7 +122,7 @@ export const PAGE_GUIDES = {
     overview:
       "Evaluation runs execute conversation suites against an application target. Progress counts recorded outcomes; a running evaluation can already contain completed, failed, and ungraded attempts.",
     content:
-      "Open an evaluation to inspect suite progress, then a suite and conversation for criteria and evidence. Pass rate summarizes graded outcomes, not proof of production reliability.",
+      "After the guide, open an evaluation to inspect suite progress, then a suite and conversation for criteria and evidence. Pass rate summarizes graded outcomes, not proof of production reliability.",
     example: "/evals/runs",
   },
   "eval-suites": {
@@ -129,7 +131,7 @@ export const PAGE_GUIDES = {
     overview:
       "Suites define conversations and expectations exposed by an application target. A definition describes what to test; it is not itself a recorded test result.",
     content:
-      "Open a suite to inspect inputs, steps, and criteria. Check the target and revision when comparing results from different points in time.",
+      "After the guide, open a suite to inspect inputs, steps, and criteria. Check the target and revision when comparing results from different points in time.",
     example: "/evals/suites",
   },
   "eval-suite": {
@@ -147,7 +149,7 @@ export const PAGE_GUIDES = {
     overview:
       "This evaluation groups suite executions for one target. Finished suites and recorded case outcomes are separate progress counts; unfinished grading has no final verdict yet.",
     content:
-      "Open a suite to inspect individual conversations. Check errors, cancellations, pending grading, costs, and recorded context before interpreting the overall outcome.",
+      "After the guide, open a suite to inspect individual conversations. Check errors, cancellations, pending grading, costs, and recorded context before interpreting the overall outcome.",
     example: `/evals/evaluations/${sample.evaluationId}`,
   },
   "eval-run": {
@@ -156,7 +158,7 @@ export const PAGE_GUIDES = {
     overview:
       "This is one execution of a conversation suite. Counts summarize attempts; a case's criterion results and recorded observations explain the evidence behind its outcome.",
     content:
-      "Open a conversation for its step evidence and workflow links. Configuration and Suite definition show the context that produced these results. Compare uses a saved baseline when one is available.",
+      "After the guide, open a conversation for its step evidence and workflow links. Configuration and Suite definition show the context that produced these results. Compare uses a saved baseline when one is available.",
     example: `/evals/runs/${sample.evalRunId}`,
   },
   "eval-case": {
@@ -259,15 +261,15 @@ export function pageGuide(id: PageGuideId): PageGuide {
   return PAGE_GUIDES[id];
 }
 
-export const RUN_TAB_HELP: Record<string, string> = {
+export const RUN_TAB_HELP = {
   overview:
     "Overview summarizes timing, calls, and activity for this run. Quiet periods mean no telemetry was captured during that interval; they are not automatically model latency.",
-  execution:
-    "Execution follows workflow calls and returned results. Expand a child call to inspect delegated work and distinguish it from the parent continuation.",
+  calls:
+    "Execution follows workflow calls and returned results. After the guide, expand a child call to inspect delegated work and distinguish it from the parent continuation.",
   trace:
-    "Trace orders recorded spans and their timings. Expand a step for details. Incomplete spans indicate missing completion evidence, not an inferred success.",
+    "Trace orders recorded spans and their timings. After the guide, expand a step for details. Incomplete spans indicate missing completion evidence, not an inferred success.",
   topology:
-    "Topology relates workflow structure to this execution. Declared branches may not have run; confirm the observed path in Trace.",
+    "Run topology shows the observed workflows, nodes, and calls for this execution. Trace provides their recorded timing and order.",
   "model-io":
     "Model I/O connects captured model inputs to responses or failures. Privacy settings determine what is retained. Missing content is not an empty provider response.",
   summary:
@@ -280,19 +282,19 @@ export const RUN_TAB_HELP: Record<string, string> = {
 
 export const SETTINGS_HELP: Record<string, string> = {
   appearance:
-    "Choose your theme, display, and appearance preferences. Changes affect how Studio looks rather than your application's execution behavior.",
+    "This is your selected theme. After the guide, choose Light, Dark, or System preference. Changes affect how Studio looks rather than your application's execution behavior.",
   "sample-project":
     "Hide or restore the read-only sample project in the selector. Visibility is independent of your saved walkthrough progress.",
   connection:
     "Inspect the server connection used to read your application's telemetry. Credentials belong on the server; an unavailable connection prevents Studio from loading records.",
   "api-keys":
-    "Manage the credentials your application uses for this project. Review scopes and expiry, and store secrets in your server environment.",
+    "Review the credential instructions and actions available for this installation. Keep application credentials in your server environment.",
   evaluations:
-    "Configure the application targets that expose conversation suites. Running an evaluation uses the selected target and its registered configuration.",
+    "These defaults apply to evaluation launches from Studio and the CLI. Run overrides take precedence, while application limits still apply. Review a value after closing the guide before saving changes.",
   providers:
     "Configure the model providers available to this installation. Keep provider secrets on the server and check which actions your permissions allow.",
   privacy:
-    "Review telemetry and usage privacy controls. Captured execution content and maintainer product-usage telemetry are separate settings.",
+    "Content capture is configured by the producing SDK. Structural telemetry can be retained without prompts or responses. Studio cannot enable producer content capture. This is separate from maintainer product-usage telemetry.",
   general:
     "Review the current workspace identity and configuration. Check the selected project or organization before changing a shared setting.",
   members:
@@ -300,14 +302,12 @@ export const SETTINGS_HELP: Record<string, string> = {
   projects:
     "Review the projects in this organization and their configuration. Project scope determines which executions and resources are visible.",
   about:
-    "Inspect the installed Studio version and available update information. Version details help diagnose compatibility and deployment issues.",
+    "This card identifies the installed Studio version and source information. These details help diagnose compatibility and deployment issues.",
   access:
     "Inspect your current access and available workspace capabilities. Permissions determine which configuration actions you can perform.",
 };
 
-export const DETAIL_TAB_HELP: Partial<
-  Record<PageGuideId, Record<string, string>>
-> = {
+export const DETAIL_TAB_HELP = {
   run: RUN_TAB_HELP,
   prompt: {
     content:
@@ -324,20 +324,33 @@ export const DETAIL_TAB_HELP: Partial<
     activity:
       "Activity orders the recorded conversation turns and execution events in this session. Follow a turn's execution link to inspect its individual trace and result.",
     runs: "Each row is one execution in this session, with its own ID, outcome, path, and duration. Session totals aggregate these runs; open a row for its individual evidence.",
+    state:
+      "State shows captured session state and checkpoints. Missing state means no snapshot was retained; it does not imply an empty application state.",
+    metadata:
+      "Metadata shows captured session identity, attributes, and correlation information. These describe the session rather than a single execution trace.",
   },
   interrupt: {
     decision:
-      "Inspect the requested input and any recorded response. Pending requests have no decision yet. Studio displays the evidence; your application owns the approval and resume behavior.",
+      "Response shows the recorded decision or its current availability. Pending requests have no decision yet. Studio displays the evidence; your application owns the approval and resume behavior.",
     timeline:
-      "Timeline separates request creation, responses, and resolution. Follow the execution link to verify what continued afterwards; resolution alone does not prove successful completion.",
+      "The timeline includes captured execution events, including interrupt creation and resolution when available. After this guide, follow the execution link to verify what continued; resolution alone does not prove successful completion.",
+    payload:
+      "Payload shows the captured interrupt event data. Resume capability tokens are masked. Missing content reflects capture policy, rather than an inferred decision.",
   },
   "eval-run": {
     cases:
-      "Each conversation attempt has step outcomes, criteria, and evidence. Awaiting grading is unfinished work. Open a case to inspect why it passed, failed, or could not be evaluated.",
+      "Each conversation attempt has step outcomes, criteria, and evidence. Awaiting grading is unfinished work. After the guide, open a case to inspect why it passed, failed, or could not be evaluated.",
     context:
       "Configuration records the target, grading setup, selected cases, and execution settings used for this suite run. These facts matter when reproducing or comparing results.",
     definition:
       "The saved suite definition records conversation inputs and expectations used by this run. Check the revision before comparing it with results from another definition.",
+  },
+  "eval-case-comparison": {
+    both: "Both runs shows baseline and candidate evidence for the same conversation. Compare the criterion and assessment on each side; a score change alone does not identify its cause.",
+    candidate:
+      "Candidate shows the selected run's conversation evidence. The baseline is hidden in this view. After this guide, choose Both runs for a comparison.",
+    baseline:
+      "Baseline shows the saved reference run's conversation evidence. The candidate is hidden in this view. After this guide, choose Both runs for a comparison.",
   },
   diagnostic: {
     exception:
@@ -347,4 +360,4 @@ export const DETAIL_TAB_HELP: Partial<
     context:
       "Context correlates the diagnostic with its run, session, workflow, and trace when recorded. Follow those links to inspect execution order and the surrounding evidence.",
   },
-};
+} satisfies DetailTabCopy;

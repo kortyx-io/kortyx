@@ -288,6 +288,7 @@ export function EvalRunDetail({
       </EvalDetailHeader>
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="eval-run"
           queryKey="evalTab"
           tabs={[
             {

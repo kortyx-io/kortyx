@@ -112,6 +112,7 @@ export function DiagnosticDetails({
       <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-h-0 min-w-0">
           <DetailTabs
+            family="diagnostic"
             tabs={[
               {
                 id: "exception",
@@ -161,6 +162,7 @@ export function DiagnosticDetails({
                 content: (
                   <div className="space-y-5 p-4 @lg:p-6">
                     <section
+                      data-guide-focus="diagnostic-capture"
                       aria-live="polite"
                       className="rounded-lg border p-4"
                     >
@@ -260,6 +262,7 @@ function DiagnosticContext({
             <ContextField
               key={key}
               label={correlationLabels[key] ?? key}
+              guideFocus={key === "runId" ? "diagnostic-run" : undefined}
               value={
                 key === "runId" && runHref ? (
                   <Link className="hover:underline" href={runHref}>
@@ -325,16 +328,18 @@ function DiagnosticContext({
 }
 
 function ContextField({
+  guideFocus,
   label,
   value,
   mono = false,
 }: {
+  guideFocus?: string;
   label: string;
   value: ReactNode;
   mono?: boolean;
 }) {
   return (
-    <div className="min-w-0">
+    <div data-guide-focus={guideFocus} className="min-w-0">
       <dt className="text-[10px] text-muted-foreground">{label}</dt>
       <dd
         className={`mt-1 text-xs leading-4 [overflow-wrap:anywhere] ${mono ? "font-mono text-[11px]" : ""}`}

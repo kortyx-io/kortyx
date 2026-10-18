@@ -4,6 +4,7 @@ import { parseAsString } from "nuqs";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
+import type { DetailTabFamily, DetailTabId } from "@/lib/detail-tab-contract";
 import { useStudioQueryState } from "@/lib/nuqs";
 import { cn } from "@/lib/utils";
 import { studioFeature, usageSurface } from "@/usage/client";
@@ -14,11 +15,14 @@ export type DetailTab = {
   content: ReactNode;
 };
 
-export function DetailTabs({
+export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
   tabs,
   queryKey = "tab",
 }: {
-  tabs: DetailTab[];
+  family?: F;
+  tabs: (Omit<DetailTab, "id"> & {
+    id: NoInfer<F extends DetailTabFamily ? DetailTabId<F> : string>;
+  })[];
   queryKey?: string;
 }) {
   const pathname = usePathname();

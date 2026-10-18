@@ -97,3 +97,20 @@ and page-help plans that preserve scope and omit generic detail controls. Manual
 browser checks and command results are recorded in
 [the QA log](../qa/studio-sample-project/README.md). Local E2E tests are excluded
 at the user's request. No real-user comprehension study has been performed.
+
+## Visual follow-up
+
+The October 18 visual audit exposed targeting and evidence problems that copy
+alone could not repair: rows scrolling under headers, prompt popovers covering
+instructions, a diff-header spotlight, and lifecycle/answer evidence below the fold.
+The fixes use clipping-aware nested scrolling, viewport-based placement, compact
+semantic evidence targets, existing expanded/disclosure URL state, and exhaustive
+actual-tab copy. Simple settings help is one step; empty/error views explain their
+current state. Both runs help separates baseline and candidate assessments so
+neither is hidden by the explanation. No additional chapter was needed.
+
+All 29 chapter steps and 112 current-page steps across 56 desktop contexts were
+recaptured and visually reviewed, with 18 representative mobile captures. See the
+[QA log and representative screenshots](../qa/studio-sample-project/README.md#visual-review-fixes--october-18-2026).
+These checks establish that the explanations match visible evidence; they do not
+replace the qualitative comprehension evaluation described above.

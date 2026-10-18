@@ -158,11 +158,12 @@ export function RunDetail({ detail }: { detail: StudioRunDetailResponse }) {
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="run"
           tabs={[
             ...(events.some((event) => event.type.startsWith("workflow.call."))
               ? [
                   {
-                    id: "calls",
+                    id: "calls" as const,
                     label: "Execution",
                     content: <WorkflowCalls detail={detail} />,
                   },

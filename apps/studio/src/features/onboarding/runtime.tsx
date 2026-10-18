@@ -19,7 +19,11 @@ import {
   type TourMode,
 } from "./registry";
 import { findLessonTarget, lessonTargetReady } from "./targets";
-import { GuideTooltip, LearningArrow } from "./tour-presentation";
+import {
+  GUIDE_FLOATING_OPTIONS,
+  GuideTooltip,
+  LearningArrow,
+} from "./tour-presentation";
 import { waitForTourTarget } from "./wait-for-target";
 
 export interface RuntimeProps {
@@ -97,6 +101,7 @@ export function LearningRuntime(props: RuntimeProps) {
           content: step.content,
           target: () => findLessonTarget(target),
           placement: "bottom-start",
+          skipScroll: true,
           before: async () => {
             const controller = new AbortController();
             pending.current.add(controller);
@@ -138,7 +143,7 @@ export function LearningRuntime(props: RuntimeProps) {
     scrollToFirstStep: true,
     tooltipComponent: LearningTooltip,
     arrowComponent: LearningArrow,
-    floatingOptions: { shiftOptions: { crossAxis: true } },
+    floatingOptions: GUIDE_FLOATING_OPTIONS,
     locale: {
       last: "Done",
       skip: mode === "full" ? "Skip chapter" : "Skip",

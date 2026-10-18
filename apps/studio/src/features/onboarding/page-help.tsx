@@ -31,8 +31,12 @@ import {
   type PageHelpStepId,
 } from "./page-help-plan";
 import type { PageGuideId } from "./page-help-registry";
-import { isLessonTargetReady } from "./targets";
-import { GuideTooltip, LearningArrow } from "./tour-presentation";
+import { prepareLessonTarget } from "./targets";
+import {
+  GUIDE_FLOATING_OPTIONS,
+  GuideTooltip,
+  LearningArrow,
+} from "./tour-presentation";
 import { waitForTourTarget } from "./wait-for-target";
 
 export interface PageHelpProps {
@@ -215,6 +219,7 @@ function PageHelpRuntime({
         content: step.content,
         target: () => (step.target.isConnected ? step.target : null),
         placement: "bottom-start",
+        skipScroll: true,
         before: async () => {
           const controller = new AbortController();
           pending.current.add(controller);
@@ -223,7 +228,7 @@ function PageHelpRuntime({
               () =>
                 window.location.href === plan.url &&
                 step.target.isConnected &&
-                isLessonTargetReady(step.target),
+                prepareLessonTarget(step.target),
               controller.signal,
             );
           } finally {
@@ -240,7 +245,7 @@ function PageHelpRuntime({
     scrollToFirstStep: true,
     tooltipComponent: PageTooltip,
     arrowComponent: LearningArrow,
-    floatingOptions: { shiftOptions: { crossAxis: true } },
+    floatingOptions: GUIDE_FLOATING_OPTIONS,
     locale: { last: "Done", skip: "Skip" },
     options: {
       skipBeacon: true,

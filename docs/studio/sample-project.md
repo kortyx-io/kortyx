@@ -241,6 +241,17 @@ its own.
   new feature. Use the stable manifest IDs and `data-tour-id` anchors rather
   than matching generated IDs or fragile CSS selectors.
 
+When extending guided help, add built-in tab IDs to
+`apps/studio/src/lib/detail-tab-contract.ts` and their exhaustive copy to
+`features/onboarding/page-help-registry.ts`. Use the matching `DetailTabs` family;
+edition-defined tabs can keep the generic component. Prefer compact semantic
+`data-guide-focus` regions that expose the fact being explained. Record help uses
+`data-column` identities rather than column positions. Target preparation handles
+nested scrolling and verifies clipping before the tooltip appears; do not add a
+second automatic scroll. Keep read-only narration explicit about actions that are
+available after the guide closes. Check desktop/mobile screenshots when adding or
+changing a target, especially drawers, comparisons, and stacked settings controls.
+
 The sample dataset is bundled with Studio and versioned with its release.
 It requires no migration or backfill. Rolling back Studio restores the previous
 bundled dataset. It never writes execution telemetry, customer projections,

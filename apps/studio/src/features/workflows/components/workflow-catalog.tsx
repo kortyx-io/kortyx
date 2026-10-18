@@ -135,6 +135,7 @@ export function WorkflowCatalog({
                 <button
                   type="button"
                   key={workflow.id}
+                  data-guide-focus="workflow-catalog-entry"
                   aria-pressed={selectedWorkflowId === workflow.id}
                   title={workflow.name}
                   onClick={() => onSelectWorkflow(workflow.id)}

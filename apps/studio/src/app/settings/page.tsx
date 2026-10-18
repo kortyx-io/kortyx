@@ -184,7 +184,7 @@ export default async function SettingsPage({
             <SettingsCard
               icon={Database}
               title="Sample project"
-              description="Explore fictional data without changing your projects."
+              description="Explore Studio using shared, read-only sample data."
             >
               <SampleProjectVisibility
                 visible={samplePreference.visible}

@@ -147,7 +147,11 @@ it("gets to selected evidence without teaching generic table or tab controls aga
     `<div data-session-detail-id="current"><div data-responsive-surface="detail-header"></div><div data-page-help="tabs"></div><div data-detail-tab-content="runs" aria-hidden="false"><div data-table-controls="runs"></div><table><tr data-row-key="private"><td>Private</td></tr></table></div></div>`,
   );
   expect(result.steps.map((step) => step.id)).toEqual(["overview", "content"]);
-  expect(result.steps[1]?.target.dataset.detailTabContent).toBe("runs");
+  expect(
+    result.steps[1]?.target
+      .closest("[data-detail-tab-content]")
+      ?.getAttribute("data-detail-tab-content"),
+  ).toBe("runs");
 });
 
 it("retains domain help for related records on detail pages without tab panels", () => {
@@ -156,6 +160,56 @@ it("retains domain help for related records on detail pages without tab panels",
     `<header data-tour-surface="eval-summary"></header><div data-table-controls="evaluation-suites"></div><table><tr data-row-key="private-suite"><td>Private suite</td></tr></table>`,
   );
   expect(result.steps.map((step) => step.id)).toEqual(["overview", "content"]);
-  expect(result.steps[1]?.content).toContain("Open a suite");
+  expect(result.steps[1]?.content).toContain("open a suite");
   expect(result.steps[1]?.target.tagName).toBe("TD");
+});
+
+it("highlights record identity instead of selection, regardless of column order", () => {
+  for (const cells of [
+    '<td data-column="selection"><input type="checkbox" /></td><td data-column="name">private name</td>',
+    '<td data-column="updated">date</td><td data-column="name">private name</td><td data-column="selection"><input type="checkbox" /></td>',
+  ]) {
+    const result = plan(
+      "/sample/prompts",
+      `<header data-page-help="header"></header><table><tr data-row-key="private">${cells}</tr></table>`,
+    );
+    expect(
+      result.steps.find((step) => step.id === "records")?.target.dataset.column,
+    ).toBe("name");
+  }
+});
+it("starts directly at an error and keeps simple settings help to one step", () => {
+  expect(
+    plan(
+      "/runs",
+      '<div data-page-help-state="error"><p>private connection error</p></div>',
+    ).steps.map((s) => s.id),
+  ).toEqual(["state"]);
+  expect(
+    plan(
+      "/settings/appearance",
+      '<section data-settings-section="appearance"><section data-settings-card><div>Appearance</div><button>Dark</button></section></section>',
+    ).steps.map((s) => s.id),
+  ).toEqual(["content"]);
+});
+it("explains the actual selected tab and missing prompt evidence without reading customer text", () => {
+  for (const [route, tab, expected] of [
+    ["runs/id", "calls", "Execution follows"],
+    ["sessions/id", "state", "State shows"],
+    ["sessions/id", "metadata", "Metadata shows"],
+    ["interrupts/id", "payload", "Payload shows"],
+    ["evals/cases/run/case/compare", "candidate", "baseline is hidden"],
+  ]) {
+    const result = plan(
+      `/sample/${route}`,
+      `<header data-page-help="header"></header><div data-detail-tab-content="${tab}" aria-hidden="false">private</div>`,
+    );
+    expect(result.steps.at(-1)?.content).toContain(expected);
+    expect(result.steps.at(-1)?.title).not.toBe("Read the selected view");
+  }
+  const empty = plan(
+    "/sample/prompts/id?tab=reviews",
+    '<div data-prompt-detail-id="id"><div data-prompt-header></div><div data-page-help="prompt-content" data-guide-empty="true"></div></div>',
+  );
+  expect(empty.steps.at(-1)?.content).toContain("no recorded entries");
 });

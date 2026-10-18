@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { findLessonTarget, lessonTargetReady } from "./targets";
+import {
+  findLessonTarget,
+  isLessonTargetReady,
+  lessonTargetReady,
+  prepareLessonTarget,
+} from "./targets";
 
 const destination = () => new URL(window.location.href);
 function target(parent = document.body) {
@@ -115,4 +120,39 @@ it("selects the foreground copy after a detail reload and intercepted navigation
   expect(lessonTargetReady("[data-test-target]", destination())).toBe(true);
   drawer.dataset.state = "closed";
   expect(findLessonTarget("[data-test-target]")).toBe(background);
+});
+
+it("rejects a row clipped behind a table header and scrolls within its own viewport", () => {
+  const viewport = document.createElement("div");
+  viewport.style.overflowY = "auto";
+  viewport.style.overflowX = "auto";
+  document.body.append(viewport);
+  vi.spyOn(viewport, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(10, 200, 600, 400),
+  );
+  viewport.scrollTop = 188;
+  const row = target(viewport);
+  vi.mocked(row.getBoundingClientRect).mockImplementation(
+    () => new DOMRect(20, 268 - viewport.scrollTop, 300, 40),
+  );
+  expect(isLessonTargetReady(row)).toBe(false);
+  expect(prepareLessonTarget(row)).toBe(true);
+  expect(viewport.scrollTop).toBe(56);
+  expect(row.getBoundingClientRect().top).toBe(212);
+});
+it("brings a horizontally scrolled identity cell into the table viewport", () => {
+  const viewport = document.createElement("div");
+  viewport.style.overflowY = "auto";
+  viewport.style.overflowX = "auto";
+  document.body.append(viewport);
+  vi.spyOn(viewport, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(10, 200, 600, 400),
+  );
+  const cell = target(viewport);
+  vi.mocked(cell.getBoundingClientRect).mockImplementation(
+    () => new DOMRect(700 - viewport.scrollLeft, 240, 300, 40),
+  );
+  expect(isLessonTargetReady(cell)).toBe(false);
+  expect(prepareLessonTarget(cell)).toBe(true);
+  expect(cell.getBoundingClientRect().left).toBe(10);
 });

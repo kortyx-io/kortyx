@@ -1,7 +1,11 @@
 "use client";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
-import type { ArrowRenderProps, TooltipRenderProps } from "react-joyride";
+import type {
+  ArrowRenderProps,
+  FloatingOptions,
+  TooltipRenderProps,
+} from "react-joyride";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
@@ -117,3 +121,19 @@ export function GuideTooltip({
     </div>
   );
 }
+
+/** Position against the viewport, including when evidence is inside a narrow drawer. */
+export const GUIDE_FLOATING_OPTIONS: FloatingOptions = {
+  flipOptions: {
+    boundary: [],
+    rootBoundary: "viewport",
+    fallbackPlacements: ["top-start", "right-start", "left-start"],
+    padding: 16,
+  },
+  shiftOptions: {
+    boundary: [],
+    rootBoundary: "viewport",
+    padding: 16,
+    crossAxis: true,
+  },
+};

@@ -140,6 +140,7 @@ export function InterruptDetail({
       />
       <div className="min-h-0 flex-1">
         <DetailTabs
+          family="interrupt"
           queryKey="interruptTab"
           tabs={[
             {
@@ -213,7 +214,7 @@ function Decision({ detail }: { detail: StudioInterruptDetailResponse }) {
               </div>
             )}
           </div>
-          <div className="mt-6">
+          <div data-guide-focus="interrupt-response" className="mt-6">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Response
             </p>
@@ -406,7 +407,11 @@ function InterruptTimeline({
                 ? Clock3
                 : CircleAlert;
         return (
-          <div key={event.id} className="relative flex gap-4 pb-6 last:pb-0">
+          <div
+            key={event.id}
+            data-interrupt-event={event.type}
+            className="relative flex gap-4 pb-6 last:pb-0"
+          >
             {index < detail.events.length - 1 && (
               <span className="absolute left-[15px] top-8 h-[calc(100%-1rem)] border-l" />
             )}

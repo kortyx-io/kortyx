@@ -50,6 +50,7 @@ import { EvalDropdown } from "@/features/evals/components/eval-dropdown";
 import { EvalRunSetup } from "@/features/evals/components/eval-run-setup";
 import { useEvalSetup } from "@/features/evals/hooks/use-eval-setup";
 import type { EvalTargets } from "@/features/evals/schema";
+import { DETAIL_TAB_IDS } from "@/lib/detail-tab-contract";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { promptRequest } from "../api/client";
@@ -107,13 +108,7 @@ export function PromptDetailView({
   const [working, setWorking] = useState(false);
   const [query, setQuery] = useStudioQueryStates(
     {
-      tab: parseAsStringLiteral([
-        "content",
-        "evals",
-        "runs",
-        "reviews",
-        "activity",
-      ]).withDefault("content"),
+      tab: parseAsStringLiteral(DETAIL_TAB_IDS.prompt).withDefault("content"),
       v: parseAsInteger,
       compareWith: parseAsInteger,
       edit: parseAsBoolean.withDefault(false),
@@ -887,7 +882,7 @@ export function PromptDetailView({
             className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto @sm/prompt-detail:gap-3"
             aria-label="Prompt detail tabs"
           >
-            {["content", "evals", "runs", "reviews", "activity"].map((tab) => (
+            {DETAIL_TAB_IDS.prompt.map((tab) => (
               <button
                 type="button"
                 key={tab}
@@ -1151,6 +1146,13 @@ export function PromptDetailView({
             >
               <div
                 data-page-help="prompt-content"
+                data-guide-empty={
+                  query.tab === "reviews"
+                    ? selectedReviews.length === 0
+                    : query.tab === "activity"
+                      ? detail.activity.length === 0
+                      : undefined
+                }
                 data-prompt-content-version={
                   !query.edit && query.tab === "content"
                     ? selected.version

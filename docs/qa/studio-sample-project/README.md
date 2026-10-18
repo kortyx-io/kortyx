@@ -363,3 +363,81 @@ No local E2E tests ran, per the user's memory constraint. This pass did not reru
 the whole Studio unit suite or production/selected-auth/container builds. Hosted
 CI and private Cloud validation remain pending before merge. Research findings
 are not a real-user study or evidence of improved activation/comprehension.
+
+## Visual review fixes — October 18, 2026
+
+Acceptance: each explanation points to readable, relevant evidence; its tooltip
+stays in the viewport; current-page help preserves scope/tab/filter state; settings
+and empty/error views avoid irrelevant steps; stable lesson IDs/progress and sample
+read-only boundaries remain intact.
+
+Resolved the visual audit's shared causes and individual lesson issues:
+
+- Nested scrolling now measures viewport and ancestor clipping before showing a
+  step. Joyride's second scroll is disabled because the shared target preparation
+  performs the required horizontal/vertical scrolling. Table record targets use
+  semantic columns, including prompt names rather than selection checkboxes.
+- Placement uses the viewport instead of the narrow drawer's clipping boundary.
+  Prompt lessons use the existing expanded detail view and highlight the saved
+  message or changed diff hunk. Diagnostic/approval/model-failure targets expose
+  the cause, capture integrity, linked run, recorded response, resolution event,
+  and request/response capture availability.
+- Evaluation guidance focuses on the criterion/assessment, saved baseline answer,
+  pending case status, and expanded recorded conversation. Both runs page help
+  explains baseline and candidate assessments in separate steps. Run topology
+  describes observed activity; workflow guidance points to a readable catalog entry
+  and the connection legend.
+- Shared finite tab IDs require exhaustive help copy for actual Execution/calls,
+  State, Metadata, Payload, and comparison tabs. The generic tab component still
+  accepts edition-defined tabs when no built-in family is selected.
+- Settings help is one section-specific step; selected appearance focuses its
+  current option so stacked mobile cards remain readable. Credential/privacy/defaults
+  copy matches the installed UI; errors lead directly to recovery. Empty prompt
+  views acknowledge missing entries. Read-only narration distinguishes Next from
+  actions to take after closing the guide. Removed remaining user-facing
+  “fictional” settings wording; visible Test groups naming is consistent.
+
+Manual CUA browser review captured **159 step screenshots**: all **29 chapter
+steps**, **112 page-help steps across 56 desktop contexts**, and **18 mobile
+steps**. The desktop contexts cover lists, detail tabs, workflows/health, prompts,
+comparisons, diagnostics, local settings, setup, empty filters, and unavailable
+real data. Mobile checks cover Runs, prompt content/version/diff, appearance,
+approvals, diagnostics, and both comparison assessments. Screenshots were visually
+reviewed, revised where needed, and recaptured. Tooltip rectangles also passed a
+viewport-bound check. Existing six core chapters / 21 steps and all lesson IDs
+remain unchanged.
+
+Back from the prompt comparison returned to saved version two. Reload kept the
+overlay closed; explicit Resume restored step two, and finishing restored chapter
+completion. Current-page explanations preserved their URLs. The unconfigured real
+Runs page offered the sample choice; local explanation stayed on its error.
+Browser errors were empty during the final resume check. One dev server and one
+active browser tab were used; no connected customer data or private Cloud instance
+was available.
+
+Representative captures (the complete local gallery is an external review artifact):
+
+| Record target | Actual prompt diff |
+| --- | --- |
+| ![Run record remains below the sticky table header](visual-review-page-runs-03.jpg) | ![Prompt comparison highlights the changed instruction](visual-review-chapter-prompt-versions-03.jpg) |
+
+| Mobile prompt evidence | Candidate assessment |
+| --- | --- |
+| ![Mobile instruction stays readable above its explanation](visual-review-mobile-prompt-content-02.jpg) | ![Comparison explains the candidate criterion and assessment](visual-review-page-eval-case-comparison-03.jpg) |
+
+Final verification:
+
+- `pnpm -C apps/studio exec vitest run --maxWorkers=1`: **453 tests passed in 89 files**.
+- `pnpm -C apps/studio type-check`: passed.
+- Changed-source Biome: no errors; 13 existing warnings and one informational
+  diagnostic in touched files. Relative links and `git diff --check` passed.
+- Final touched guide UI reviewed against the repository's Web Interface
+  Guidelines skill: labeled native buttons, focus, readable/clipped evidence,
+  semantic content, URL state, and missing-data behavior checked. This is not a
+  full Studio accessibility audit.
+
+**No E2E tests ran**, per the user's memory constraint. Production/auth/container
+builds, final-head CI, and private Cloud integration remain pending before merge.
+Prompt-group detail has no sample fixture; generic extension pages and private
+Cloud settings were not visually verified. Coverage is representative mobile in
+dark mode, not every viewport/theme combination or a user-comprehension study.

@@ -44,7 +44,7 @@ export function ErrorDetails({
         </section>
       )}
       {data?.cause !== undefined && (
-        <section>
+        <section data-guide-focus="diagnostic-cause">
           <h3 className="mb-2 text-xs font-semibold">Caused by</h3>
           <PayloadViewer value={data.cause} defaultClean={false} />
         </section>

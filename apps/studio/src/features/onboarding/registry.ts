@@ -57,7 +57,7 @@ export const CHAPTERS = [
         view: { surface: "selector" },
         title: "Explore a sample project",
         content:
-          "Choose a project here. Each project keeps its runs, sessions, workflows, prompts, and evaluations together.",
+          "After this guide, choose a project here. Each project keeps its runs, sessions, workflows, prompts, and evaluations together.",
       },
       {
         id: "sample-run",
@@ -90,7 +90,7 @@ export const CHAPTERS = [
         view: { surface: "runs", failed: true },
         title: "Narrow the investigation",
         content:
-          "The run list is filtered to failed executions. Use search, filters, or saved views to narrow your own investigations. Next opens this timeout so you can follow the evidence.",
+          "The run list is filtered to failed executions. After this guide, use search, filters, or saved views to narrow your own investigations. Next opens this timeout so you can follow the evidence.",
       },
       {
         id: "failure-summary",
@@ -104,14 +104,14 @@ export const CHAPTERS = [
         view: { surface: "run", run: "failure", focus: "trace" },
         title: "Find the failed step",
         content:
-          "Trace orders the recorded execution spans. Expand a step to inspect its timing and captured details. A failure does not imply that every earlier operation failed.",
+          "Trace orders the recorded execution spans. After this guide, expand a step to inspect its timing and captured details. A failure does not imply that every earlier operation failed.",
       },
       {
         id: "failure-model-io",
         view: { surface: "run", run: "failure", focus: "model-io" },
         title: "Inspect the model operation",
         content:
-          "Model I/O connects a request with its response or failure. This request timed out before a response was returned. Captured content follows your application's privacy settings.",
+          "Model I/O connects a request with its response or failure. This operation is marked Failed, and no response content was captured. Captured content follows your application's privacy settings.",
       },
     ],
   },
@@ -130,7 +130,7 @@ export const CHAPTERS = [
         view: { surface: "session", session: "success", tab: "activity" },
         title: "A session spans several turns",
         content:
-          "This customer asked about an order, then asked a follow-up question. The activity timeline groups the two runs under one session rather than treating them as unrelated requests.",
+          "Two executions belong to this session. The activity timeline groups their outcomes and timing so you can follow related turns together. Next shows the individual runs.",
       },
       {
         id: "session-runs",
@@ -142,16 +142,16 @@ export const CHAPTERS = [
       {
         id: "workflow-topology",
         view: { surface: "run", run: "success", focus: "topology" },
-        title: "Compare structure with execution",
+        title: "Follow the observed calls",
         content:
-          "Topology shows the workflow structure behind this run. A declared branch may not have executed: use Trace to confirm which path actually ran.",
+          "Run topology shows the workflows, nodes, and calls observed in this execution. Trace adds their timing and order. Next shows how workflow calls are represented in the system map.",
       },
       {
         id: "workflow-system",
         view: { surface: "workflows" },
-        title: "See the wider workflow",
+        title: "Read workflow connections",
         content:
-          "Workflows combines the published structure with observed activity. The coordinator calls order research and resolution review, then receives their results. Select a workflow or call to inspect its role and evidence.",
+          "The map distinguishes child calls from handoffs. A child call returns control to its caller; a handoff transfers control. After the guide, select a workflow or connection to inspect its evidence.",
       },
     ],
   },
@@ -168,16 +168,16 @@ export const CHAPTERS = [
       {
         id: "approval-decision",
         view: { surface: "interrupt", tab: "decision" },
-        title: "Read the requested decision",
+        title: "Read the recorded decision",
         content:
-          "The support assistant asked a human to approve a $24 credit. The recorded response is shown beside the request. The request is resolved; follow the timeline to see how execution continued.",
+          "This recorded response approved a $24 credit. The resolver and resolution time identify the decision. Next shows the resolution event; the following step checks the related run.",
       },
       {
         id: "approval-timeline",
         view: { surface: "interrupt", tab: "timeline" },
         title: "Follow the approval lifecycle",
         content:
-          "The timeline separates creation from resolution. A response and a resumed execution are different facts; inspect both when diagnosing a real approval.",
+          "The interrupt.resolved event records the response and its timing. Resolution and successful execution are different facts. Next opens the related run to check its outcome.",
       },
       {
         id: "approval-result",
@@ -250,14 +250,14 @@ export const CHAPTERS = [
         view: { surface: "eval-case" },
         title: "Inspect the grading evidence",
         content:
-          "The case connects the input, recorded answer, criterion, and grading reason. Check the evidence behind a pass instead of relying only on a green status.",
+          "This criterion states the expected delivery information. Its assessment explains why the recorded answer passed. After the guide, expand Conversation and debugging to inspect the input and answer.",
       },
       {
         id: "saved-comparison",
         view: { surface: "eval-comparison" },
         title: "Compare with a baseline",
         content:
-          "The earlier answer omitted the delivery status and failed the same criterion. Compare the saved baseline with the passing candidate to understand the improvement.",
+          "The baseline answer omitted the delivery status and failed the criterion. The candidate passed the same criterion. After the guide, choose Both runs to compare their saved evidence side by side.",
       },
     ],
   },
@@ -277,21 +277,21 @@ export const CHAPTERS = [
         view: { surface: "diagnostic", tab: "exception" },
         title: "Follow the cause",
         content:
-          "This execution reached its tool-call limit. The exception connects ExecutionLimitReached to ToolBudgetExceeded. Inspect causes and captured fields to distinguish the underlying limit from the outer failure.",
+          "The captured cause is ToolBudgetExceeded: a tool call exceeded its allowance. The outer exception is ExecutionLimitReached. After this guide, inspect the stack and captured fields to follow the failure chain.",
       },
       {
         id: "diagnostic-capture",
         view: { surface: "diagnostic", tab: "capture" },
         title: "Check the evidence is complete",
         content:
-          "Available describes delivery; complete describes capture. Check received parts, omissions, and credential redactions before interpreting missing evidence. Neither status means the execution succeeded.",
+          "Available means all parts were delivered; Complete describes capture integrity. Neither means the execution succeeded. After the guide, review Omitted data and Credential redactions before interpreting missing evidence.",
       },
       {
         id: "diagnostic-context",
         view: { surface: "diagnostic", tab: "context" },
         title: "Connect the error to its execution",
         content:
-          "Run, workflow, and trace identifiers tie this diagnostic to the operation that failed. View run returns to its execution evidence. After the guide, follow that link to inspect the events around the limit.",
+          "This Run identifier links the diagnostic to the execution that failed. After the guide, follow it to inspect the events around the limit. Other captured identifiers in this view correlate workflow and trace context.",
       },
     ],
   },
@@ -325,7 +325,7 @@ export const CHAPTERS = [
         view: { surface: "pending-eval-case" },
         title: "Inspect what is known so far",
         content:
-          "The recorded conversation is available, but the grading verdict and reasons are not yet available. Inspect the execution evidence while leaving the outcome undecided. After the guide, compare this with a completed case.",
+          "The user message and recorded answer are available while grading is pending. A completed answer does not establish a pass. The criterion verdict and reasons remain undecided.",
       },
     ],
   },
@@ -344,7 +344,7 @@ export const CHAPTERS = [
         view: { surface: "settings", section: "appearance" },
         title: "Choose your appearance",
         content:
-          "Appearance controls how Studio looks. The tour only points out this setting; you choose whether to change it.",
+          "This is your selected appearance. After the guide, choose Light, Dark, or System preference. Appearance changes how Studio looks; it does not change execution behavior.",
       },
       {
         id: "sample-visibility",
@@ -386,14 +386,16 @@ export function resolveView(view: LessonView): {
         href: view.failed
           ? "/runs?status=failed"
           : `/runs?q=${encodeURIComponent(sample.runs.success)}`,
-        target: `[data-row-key="${view.failed ? sample.runs.failure : sample.runs.success}"] > td:first-child`,
+        target: view.failed
+          ? "[data-table-controls]"
+          : `[data-row-key="${sample.runs.success}"] [data-column="workflow"]`,
       };
     case "run": {
       const root = runRoot(sample.runs[view.run]);
       const focus = view.focus ?? "header";
       return {
         href: `/runs/${sample.runs[view.run]}${focus === "header" || focus === "error" ? "" : `?tab=${focus}`}`,
-        target: `${root} ${focus === "header" ? '[data-responsive-surface="detail-header"]' : focus === "error" ? '[data-responsive-surface="run-error-summary"]' : `[data-detail-tab-content="${focus}"]`}`,
+        target: `${root} ${focus === "header" ? '[data-responsive-surface="detail-header"]' : focus === "error" ? '[data-responsive-surface="run-error-summary"]' : focus === "model-io" ? '[data-guide-focus="model-failure"]' : `[data-detail-tab-content="${focus}"]`}`,
       };
     }
     case "session":
@@ -405,19 +407,19 @@ export function resolveView(view: LessonView): {
       return {
         href: "/workflows",
         target:
-          '[data-workflows-ready="true"] [data-tour-surface="workflow-toolbar"]',
+          '[data-workflows-ready="true"] [aria-label="Workflow connection legend"]',
       };
     case "interrupt":
       return {
         href: `/interrupts/${sample.interruptId}${view.tab === "timeline" ? "?interruptTab=timeline" : ""}`,
-        target: `[data-interrupt-detail-id="${sample.interruptId}"] [data-detail-tab-content="${view.tab}"]`,
+        target: `[data-interrupt-detail-id="${sample.interruptId}"] ${view.tab === "decision" ? '[data-guide-focus="interrupt-response"]' : '[data-interrupt-event="interrupt.resolved"]'}`,
       };
     case "prompt":
       return {
-        href: `/prompts/${sample.promptId}?v=${view.version}${view.compareWith ? `&compareWith=${view.compareWith}` : ""}`,
+        href: `/prompts/${sample.promptId}?detailView=expanded&v=${view.version}${view.compareWith ? `&compareWith=${view.compareWith}` : ""}`,
         target: view.compareWith
-          ? `[data-prompt-comparison="${sample.promptId}:${view.compareWith}:${view.version}"]`
-          : `[data-prompt-detail-id="${sample.promptId}"] [data-prompt-content-version="${view.version}"]`,
+          ? `[data-prompt-comparison="${sample.promptId}:${view.compareWith}:${view.version}"] [data-guide-focus="prompt-diff"]`
+          : `[data-prompt-detail-id="${sample.promptId}"] [data-prompt-content-version="${view.version}"] [data-guide-focus="prompt-message"]`,
       };
     case "suite":
       return {
@@ -432,18 +434,19 @@ export function resolveView(view: LessonView): {
     case "eval-case":
       return {
         href: `/evals/cases/${sample.evalRunId}/${sample.caseId}/1`,
-        target: '[data-tour-surface="eval-case-evidence"]',
+        target:
+          '[data-tour-surface="eval-case-evidence"] [data-guide-focus="eval-criterion"]',
       };
     case "eval-comparison":
       return {
-        href: `/evals/runs/${sample.evalRunId}/compare?baseline=${sample.baselineEvalRunId}`,
+        href: `/evals/cases/${sample.evalRunId}/${sample.caseId}/compare?baseline=${sample.baselineEvalRunId}&comparisonTab=baseline&expand.baseline-${sample.caseId}:1-0-debug=true`,
         target:
-          '[data-tour-surface="eval-comparison"][data-comparison-ready="true"] [data-tour-surface="eval-summary"]',
+          '[data-detail-tab-content="baseline"] [data-guide-focus="eval-conversation"]',
       };
     case "diagnostic":
       return {
         href: `/diagnostics/${sample.diagnosticIds.budgetLimit}?env=sample&tab=${view.tab}`,
-        target: `[data-diagnostic-id="${sample.diagnosticIds.budgetLimit}"] [data-detail-tab-content="${view.tab}"]`,
+        target: `[data-diagnostic-id="${sample.diagnosticIds.budgetLimit}"] [data-detail-tab-content="${view.tab}"] [data-guide-focus="${view.tab === "exception" ? "diagnostic-cause" : view.tab === "capture" ? "diagnostic-capture" : "diagnostic-run"}"]`,
       };
     case "evaluation-progress":
       return {
@@ -453,17 +456,18 @@ export function resolveView(view: LessonView): {
     case "grading-progress":
       return {
         href: `/evals/runs/${sample.candidateEvalRunId}`,
-        target: `[data-eval-run-id="${sample.candidateEvalRunId}"] [data-detail-tab-content="cases"]`,
+        target: `[data-eval-run-id="${sample.candidateEvalRunId}"] [data-row-key="${sample.gradingCaseId}:1"] [data-column="status"]`,
       };
     case "pending-eval-case":
       return {
-        href: `/evals/cases/${sample.candidateEvalRunId}/${sample.gradingCaseId}/1`,
-        target: '[data-tour-surface="eval-case-evidence"]',
+        href: `/evals/cases/${sample.candidateEvalRunId}/${sample.gradingCaseId}/1?expand.${sample.gradingCaseId}:1-debug=true`,
+        target:
+          '[data-tour-surface="eval-case-evidence"] [data-guide-focus="eval-conversation"]',
       };
     case "settings":
       return {
         href: `/settings/${view.section}`,
-        target: `[data-settings-section="${view.section}"] [data-settings-card="true"]`,
+        target: `[data-settings-section="${view.section}"] ${view.section === "appearance" ? '[data-guide-focus="appearance-option"]' : '[data-settings-card="true"]'}`,
       };
   }
 }

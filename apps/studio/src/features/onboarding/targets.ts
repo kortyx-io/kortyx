@@ -8,7 +8,10 @@ export function lessonTargetReady(target: string, destination: URL): boolean {
     JSON.stringify(params(current)) !== JSON.stringify(params(destination))
   )
     return false;
-  return findLessonTarget(target) !== null;
+  const element = [...document.querySelectorAll<HTMLElement>(target)].find(
+    isLessonTargetAvailable,
+  );
+  return Boolean(element && prepareLessonTarget(element));
 }
 
 /** Intercepted routes can retain another copy underneath the active drawer. */
@@ -23,14 +26,75 @@ export function findLessonTarget(target: string): HTMLElement | null {
 export function isLessonTargetReady(element: HTMLElement): boolean {
   if (!isLessonTargetAvailable(element)) return false;
   const rect = element.getBoundingClientRect();
+  const bounds = visibleBounds(element);
   const drawer = element.closest("[data-detail-drawer]");
   return (
-    rect.left >= 0 &&
-    rect.right <= window.innerWidth + 1 &&
+    rect.left >= bounds.left - 1 &&
+    rect.right <= bounds.right + 1 &&
+    rect.top >= bounds.top - 1 &&
+    Math.min(rect.bottom, bounds.bottom) - rect.top >=
+      Math.min(rect.height, 160) - 1 &&
     !drawer
-      ?.getAnimations()
+      ?.getAnimations?.()
       .some((animation) => animation.playState === "running")
   );
+}
+
+/** Include clipping ancestors: a cell behind a table header is not on screen. */
+function visibleBounds(element: HTMLElement) {
+  const bounds = {
+    top: 0,
+    left: 0,
+    right: window.innerWidth,
+    bottom: window.innerHeight,
+  };
+  for (
+    let parent = element.parentElement;
+    parent && parent !== document.body;
+    parent = parent.parentElement
+  ) {
+    const style = window.getComputedStyle(parent);
+    const rect = parent.getBoundingClientRect();
+    if (/(auto|scroll|hidden|clip)/.test(style.overflowY || style.overflow)) {
+      bounds.top = Math.max(bounds.top, rect.top);
+      bounds.bottom = Math.min(bounds.bottom, rect.bottom);
+    }
+    if (/(auto|scroll|hidden|clip)/.test(style.overflowX || style.overflow)) {
+      bounds.left = Math.max(bounds.left, rect.left);
+      bounds.right = Math.min(bounds.right, rect.right);
+    }
+  }
+  return bounds;
+}
+
+/** Own nested scrolling, then measure again. Joyride must not scroll it a second time. */
+export function prepareLessonTarget(element: HTMLElement): boolean {
+  if (!isLessonTargetAvailable(element)) return false;
+  for (
+    let parent = element.parentElement;
+    parent && parent !== document.body;
+    parent = parent.parentElement
+  ) {
+    const style = window.getComputedStyle(parent);
+    if (/(auto|scroll)/.test(style.overflowX || style.overflow)) {
+      const rect = element.getBoundingClientRect();
+      const box = parent.getBoundingClientRect();
+      const left = Math.max(0, box.left);
+      const right = Math.min(window.innerWidth, box.right);
+      if (rect.left < left || rect.right > right)
+        parent.scrollLeft += rect.left - left;
+    }
+    if (!/(auto|scroll)/.test(style.overflowY || style.overflow)) continue;
+    const rect = element.getBoundingClientRect();
+    const box = parent.getBoundingClientRect();
+    const top = Math.max(8, box.top + 12);
+    const bottom = Math.min(window.innerHeight - 8, box.bottom - 12);
+    if (rect.top < top || rect.bottom > bottom) {
+      // Keep the evidence near the top, leaving room below for the explanation.
+      parent.scrollTop += rect.top - top;
+    }
+  }
+  return isLessonTargetReady(element);
 }
 
 /** A visible foreground target can be planned before its entry animation settles. */
