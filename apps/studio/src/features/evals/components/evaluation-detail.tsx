@@ -24,6 +24,7 @@ import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
+import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import { isActive } from "../lib/presentation";
 import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
@@ -42,6 +43,7 @@ export function EvaluationDetail({
   canRun: boolean;
 }) {
   const [run, setRun] = useState(initial);
+  const referenceTime = useEvalReferenceTime();
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const router = useRouter();
@@ -207,7 +209,7 @@ export function EvaluationDetail({
     {
       key: "duration",
       filter: columnFilter("duration", "Duration (ms)", "number", (r) =>
-        evalDurationMs(r, Date.now()),
+        evalDurationMs(r, referenceTime ?? Date.now()),
       ),
       label: "Duration",
       defaultWidth: 110,

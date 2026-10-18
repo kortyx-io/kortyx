@@ -201,3 +201,45 @@ Verification for this replacement:
 - No local Playwright E2E suite, full tour controller walkthrough, production/auth
   build, container build, deployment, or private Cloud check was run for this
   replacement. Existing PR-level release verification remains outstanding.
+
+## Dataset v4 tour and active-evaluation review
+
+Acceptance: every guide must resolve against the expanded fixtures, saved progress
+must resume, and one evaluation must show completed results alongside unfinished
+grading without future verdicts or live jobs.
+
+- Manually completed all six walkthrough chapters (6 completed, 0 skipped) and the
+  optional Personalize Studio chapter at `http://127.0.0.1:6327`. Checked the
+  selector, run detail, failed error/trace/model request, two-turn session, child
+  workflow topology, approval lifecycle, prompt revisions/diff, suite definition,
+  completed result, case evidence, baseline comparison, and both settings targets.
+- Verified Back between approval tabs, full-tour checkpoint recovery after reload,
+  and exit/reload/resume at Quick orientation step 2 followed by successful detail
+  navigation. Kept all chapter and step IDs unchanged.
+- The orientation run is now searched by its stable ID, so saved sorting and a
+  ten-row page cannot hide it. A regression checks the actual sample dispatcher.
+- Reloading Workflows uncovered an injected `general-chat` filter that emptied
+  the sample catalog. Removed the hard-coded workflow default and verified all
+  three workflows remain visible after reload; explicit deep links still work.
+- Candidate evaluation: 1/2 suites finished, 5/6 recorded outcomes, 4 passed,
+  1 failed, 1 awaiting grading. Its quality suite shows two passed conversations
+  and one running conversation. Opened that case and verified captured execution
+  links, awaiting-evaluation steps, and zero judge cost with no future verdict.
+  The completed latest evaluation and baseline used by the guide remain intact.
+- Sample evaluation duration rendering and numeric filtering use the fixed sample
+  clock; real projects retain live timers. No provider or database is invoked.
+  Restored natural error/tool wording after the data replacement reintroduced
+  “fictional” into the UI.
+- Studio: `pnpm exec vitest run --maxWorkers=1`: **412 passed, 83 files**.
+  `pnpm type-check` passed. `pnpm lint` passed with 142 existing warnings and
+  one informational diagnostic. `git diff --check` passed.
+- telemetry-contracts: `pnpm exec vitest run --maxWorkers=1`: **47 passed**.
+  telemetry-db: `pnpm exec vitest run test/sample-project.test.ts --maxWorkers=1`:
+  **2 passed**. Both dependency builds passed. Existing write-denial, no-network,
+  scoped routing, clone isolation, tour targets, and usage allowlist regressions
+  passed in the Studio suite.
+- Browser logs contained one development Fast Refresh warning and no errors.
+  Local E2E tests were intentionally not run at the user's request. Production/
+  auth builds, container builds, deployment, private Cloud, and final-head CI were
+  not verified here. No new SDK API, analytics event, persisted status, or migration
+  was introduced; existing release boundaries remain unchanged.

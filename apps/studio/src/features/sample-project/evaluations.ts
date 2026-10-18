@@ -3,6 +3,7 @@ import {
   type EvalCaseResult,
   type EvalObservation,
   EvalObservationSchema,
+  type EvalProgress,
   EvalRunResultSchema,
   EvalSuiteSchema,
   StudioEvalDetailSchema,
@@ -486,8 +487,63 @@ export function createSampleEvaluations(
             entry.runtimeExecutions?.map((execution) => execution.runId) ?? [],
         ),
       );
-      const { costs, caseCosts } = costReader(cases);
-      const counts = countsFor(cases);
+      // Preserve an intermediate snapshot: execution is captured, but the final
+      // conversation has not been graded. Never expose its eventual verdict.
+      const awaitingGrading =
+        phase === "candidate" && suite.id === suites.quality.id;
+      const completedCases = awaitingGrading ? cases.slice(0, -1) : cases;
+      const pendingCase: EvalCaseResult | undefined = awaitingGrading
+        ? {
+            ...required(cases.at(-1)),
+            status: "ungraded",
+            steps: required(cases.at(-1)).steps.map((step) => ({
+              ...step,
+              status: "ungraded",
+              criteria: [],
+              judgeCalls: 0,
+              judgeUsage: [],
+            })),
+            errors: [],
+          }
+        : undefined;
+      const { costs, caseCosts } = costReader([
+        ...completedCases,
+        ...(pendingCase ? [pendingCase] : []),
+      ]);
+      const counts = countsFor(completedCases);
+      const events: EvalProgress[] = [
+        {
+          type: "run-started",
+          caseIds: suite.cases.map((entry) => entry.id),
+          repetitions: 1,
+          concurrency: 1,
+        },
+        ...completedCases.map(
+          (result): EvalProgress => ({ type: "case-completed", result }),
+        ),
+      ];
+      if (pendingCase) {
+        events.push({
+          type: "case-started",
+          caseId: pendingCase.caseId,
+          repetition: pendingCase.repetition,
+          sessionId: pendingCase.sessionId,
+        });
+        for (const step of pendingCase.steps)
+          events.push({
+            type: "step-completed",
+            caseId: pendingCase.caseId,
+            repetition: pendingCase.repetition,
+            step,
+          });
+        events.push({
+          type: "case-progress",
+          caseId: pendingCase.caseId,
+          repetition: pendingCase.repetition,
+          phase: "grading",
+          stepIndex: pendingCase.steps.at(-1)?.index,
+        });
+      }
       const id =
         suiteIndex === 0
           ? phase === "baseline"
@@ -497,19 +553,21 @@ export function createSampleEvaluations(
               : sample.evalRunId
           : uuid(100 + phaseIndex * 10 + suiteIndex);
       const suiteRevision = getEvalSuiteRevision(suite);
-      const result = EvalRunResultSchema.parse({
-        id,
-        suiteId: suite.id,
-        suiteRevision,
-        suite,
-        judge,
-        startedAt: window.startedAt,
-        durationMs: window.durationMs,
-        status: counts.failed || counts.error ? "failed" : "passed",
-        counts,
-        cases,
-        errors: [],
-      });
+      const result = awaitingGrading
+        ? null
+        : EvalRunResultSchema.parse({
+            id,
+            suiteId: suite.id,
+            suiteRevision,
+            suite,
+            judge,
+            startedAt: window.startedAt,
+            durationMs: window.durationMs,
+            status: counts.failed || counts.error ? "failed" : "passed",
+            counts,
+            cases,
+            errors: [],
+          });
       const promptSnapshot = {
         schemaVersion: 1,
         environment: "sample",
@@ -543,22 +601,23 @@ export function createSampleEvaluations(
           suiteId: suite.id,
           suiteName: suite.name,
           suiteRevision,
-          status: result.status,
+          status: result?.status ?? "running",
           createdAt: times[phaseIndex],
           startedAt: window.startedAt,
-          endedAt: window.endedAt,
+          endedAt: awaitingGrading ? null : window.endedAt,
+          ...(awaitingGrading ? { phase: "grading" } : {}),
           error: null,
           cancelRequestedAt: null,
           counts,
           costs,
           caseCosts,
           totalAttempts: cases.length,
-          completedAttempts: cases.length,
+          completedAttempts: completedCases.length,
           suite,
           result,
-          events: cases.map((entry, index) => ({
+          events: events.map((event, index) => ({
             id: index + 1,
-            event: { type: "case-completed", result: entry },
+            event,
           })),
           request: {
             repetitions: 1,
@@ -572,16 +631,23 @@ export function createSampleEvaluations(
       runs.push(detail);
       return detail.run;
     });
-    const counts = countsFor(
-      suiteRuns.flatMap((run) => run.result?.cases ?? []),
+    const counts = suiteRuns.reduce(
+      (total, run) => ({
+        passed: total.passed + (run.counts?.passed ?? 0),
+        failed: total.failed + (run.counts?.failed ?? 0),
+        error: total.error + (run.counts?.error ?? 0),
+        cancelled: total.cancelled + (run.counts?.cancelled ?? 0),
+      }),
+      countsFor([]),
     );
+    const active = suiteRuns.some((run) => run.status === "running");
     const run = {
       id: sample.evaluationIds[phase],
       name:
         phase === "latest"
           ? "Support quality — recorded sample"
           : phase === "candidate"
-            ? "Support quality — review and evidence improvements"
+            ? "Support quality — grading in progress"
             : "Support quality — initial baseline",
       targetId: sample.targetId,
       targetName,
@@ -589,15 +655,43 @@ export function createSampleEvaluations(
       selection: "all",
       metadata: { source: "manual" },
       judge,
-      status: counts.failed || counts.error ? "failed" : "passed",
+      status: active
+        ? "running"
+        : counts.failed || counts.error
+          ? "failed"
+          : "passed",
       createdAt: times[phaseIndex],
       startedAt: times[phaseIndex],
-      endedAt: ends[phaseIndex],
+      endedAt: active ? null : ends[phaseIndex],
       cancelRequestedAt: null,
       suiteCount: suiteRuns.length,
-      completedSuites: suiteRuns.length,
-      totalAttempts: Object.values(counts).reduce((a, b) => a + b, 0),
-      completedAttempts: Object.values(counts).reduce((a, b) => a + b, 0),
+      completedSuites: suiteRuns.filter(
+        (run) => run.status !== "running" && run.status !== "queued",
+      ).length,
+      totalAttempts: suiteRuns.reduce(
+        (total, run) => total + (run.totalAttempts ?? 0),
+        0,
+      ),
+      completedAttempts: suiteRuns.reduce(
+        (total, run) => total + (run.completedAttempts ?? 0),
+        0,
+      ),
+      ...(active
+        ? {
+            pendingAttempts: {
+              notStarted: 0,
+              executing: 0,
+              awaitingGrading: suiteRuns.reduce(
+                (total, run) =>
+                  total +
+                  (run.phase === "grading"
+                    ? (run.totalAttempts ?? 0) - (run.completedAttempts ?? 0)
+                    : 0),
+                0,
+              ),
+            },
+          }
+        : {}),
       counts,
       costs: sumSampleEvaluationCosts(
         suiteRuns.flatMap((run) => (run.costs ? [run.costs] : [])),

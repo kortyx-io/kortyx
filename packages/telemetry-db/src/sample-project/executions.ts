@@ -20,7 +20,7 @@ const tools = {
     {
       name: "readParcel",
       description:
-        "Find a fictional order by its receipt reference and return shipment facts.",
+        "Find an order by its receipt reference and return shipment facts.",
     },
     {
       name: "readDeliveryNote",
@@ -32,7 +32,7 @@ const tools = {
     {
       name: "checkReturnWindow",
       description:
-        "Read the recorded return options for a verified fictional order; does not create a credit.",
+        "Read the recorded return options for a verified order; does not create a credit.",
     },
     {
       name: "prepareCredit",
@@ -528,8 +528,8 @@ function scenario(
             : "CarrierResponseInvalid",
         message:
           turn.behavior === "retry"
-            ? "The fictional carrier is temporarily unavailable."
-            : "The fictional carrier response did not match the shipment schema.",
+            ? "The carrier is temporarily unavailable."
+            : "The carrier response did not match the shipment schema.",
       };
       emit(
         "tool.failed",

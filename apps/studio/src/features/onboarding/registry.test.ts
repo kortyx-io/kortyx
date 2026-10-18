@@ -84,6 +84,18 @@ it("conversation steps have multiple actual turns and failed model evidence is r
   expect(failure[0]?.status).toBe("failed");
   expect(failure[0]?.outputCaptured).toBe(false);
 });
+it("finds the orientation run independently of saved sort order and page size", async () => {
+  const { href } = resolveView({ surface: "runs" });
+  const query = new URL(href, "https://studio.example").searchParams;
+  expect(query.get("q")).toBe(sample.runs.success);
+  query.set("pageSize", "10");
+  query.set("dir", "asc");
+  const response = sampleResponse(`/v1/studio/runs?${query}`);
+  expect(response.status).toBe(200);
+  expect(
+    (await response.json()).runs.map((run: { id: string }) => run.id),
+  ).toEqual([sample.runs.success]);
+});
 it("the saved comparison is genuinely comparable and every execution link resolves", () => {
   const data = readSampleDataset();
   const comparison = compareRuns(

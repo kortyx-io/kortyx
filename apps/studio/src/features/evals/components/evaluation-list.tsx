@@ -22,6 +22,7 @@ import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { evalRequest } from "../api/client";
+import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import type { EvalTargets } from "../schema";
@@ -107,7 +108,8 @@ export function EvaluationList({
       ),
     );
   const filtered = runs;
-  const columns = createEvaluationColumns(navigate);
+  const referenceTime = useEvalReferenceTime();
+  const columns = createEvaluationColumns(navigate, referenceTime);
   const header = (
     <TablePageHeader
       title="Evals"

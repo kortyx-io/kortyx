@@ -311,7 +311,9 @@ export function resolveView(view: LessonView): {
       };
     case "runs":
       return {
-        href: view.failed ? "/runs?status=failed" : "/runs",
+        href: view.failed
+          ? "/runs?status=failed"
+          : `/runs?q=${encodeURIComponent(sample.runs.success)}`,
         target: `[data-row-key="${view.failed ? sample.runs.failure : sample.runs.success}"] > td:first-child`,
       };
     case "run": {

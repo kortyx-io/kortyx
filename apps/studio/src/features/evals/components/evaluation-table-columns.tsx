@@ -12,6 +12,7 @@ import { EvalStatus } from "./eval-status";
 export type EvaluationSort = "name" | "created" | "status";
 export function createEvaluationColumns(
   onOpen: (run: StudioEvaluationSummary) => void,
+  referenceTime?: number,
 ): DataTableColumn<StudioEvaluationSummary, EvaluationSort>[] {
   return [
     {
@@ -202,7 +203,7 @@ export function createEvaluationColumns(
     {
       key: "duration",
       filter: columnFilter("duration", "Duration (ms)", "number", (r) =>
-        evalDurationMs(r, Date.now()),
+        evalDurationMs(r, referenceTime ?? Date.now()),
       ),
       label: "Duration",
       defaultWidth: 100,

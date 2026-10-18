@@ -2,7 +2,7 @@
 export const SAMPLE_PROJECT = {
   id: "kortyx-sample",
   name: "Sample project",
-  version: 3,
+  version: 4,
   recordedAt: "2026-10-01T12:00:00.000Z",
   referenceTime: "2026-10-01T12:10:00.000Z",
   workflowId: "sample-support-assistant",

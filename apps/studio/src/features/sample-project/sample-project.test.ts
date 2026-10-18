@@ -17,6 +17,7 @@ import {
   SAMPLE_PROJECT as sample,
 } from "@kortyx/telemetry-contracts";
 import { afterEach, expect, it, vi } from "vitest";
+import { caseRows, progressCounts } from "@/features/evals/lib/presentation";
 
 vi.mock("server-only", () => ({}));
 
@@ -181,63 +182,67 @@ it("isolates dataset snapshots between requests", () => {
   expect(readSampleDataset().prompts.library.permissions.edit).toBe(false);
 });
 
-it("records three complete evaluations with increasing pass rates and expanded coverage", async () => {
+it("records completed baseline and latest evaluations with improved results and coverage", async () => {
   const data = readSampleDataset();
   expect(data.evals.evaluations).toHaveLength(3);
   const totals = await Promise.all(
-    data.evals.evaluations.map(async ({ results }) => {
-      const evaluation = results.run;
-      expect(evaluation.suites).toHaveLength(evaluation.suiteCount);
-      expect(evaluation.completedSuites).toBe(evaluation.suiteCount);
-      expect(evaluation.completedAttempts).toBe(evaluation.totalAttempts);
-      const cases = evaluation.suites.flatMap((suite) => {
-        expect(suite.result?.cases.map((entry) => entry.caseId)).toEqual(
-          suite.suite.cases.map((entry) => entry.id),
-        );
-        expect(suite.result?.suiteRevision).toBe(suite.suiteRevision);
-        expect(suite.costs?.total.amount).toBeGreaterThan(0);
-        expect(Object.keys(suite.caseCosts ?? {})).toHaveLength(
-          suite.suite.cases.length,
-        );
-        expect(suite.request?.promptSnapshot?.revision).toMatch(
-          /^sample-prompts-[123]$/,
-        );
-        for (const entry of suite.result?.cases ?? []) {
-          expect(
-            data.sessions.some((session) => session.id === entry.sessionId),
-          ).toBe(true);
-          for (const step of entry.steps) {
-            const run = data.runs.find(
-              (run) => run.id === step.observation.runId,
-            );
-            expect(run?.sessionId).toBe(entry.sessionId);
-            expect(step.observation.events).toBeDefined();
+    data.evals.evaluations
+      .filter(({ results }) => results.run.status !== "running")
+      .map(async ({ results }) => {
+        const evaluation = results.run;
+        expect(evaluation.suites).toHaveLength(evaluation.suiteCount);
+        expect(evaluation.completedSuites).toBe(evaluation.suiteCount);
+        expect(evaluation.completedAttempts).toBe(evaluation.totalAttempts);
+        const cases = evaluation.suites.flatMap((suite) => {
+          expect(suite.result?.cases.map((entry) => entry.caseId)).toEqual(
+            suite.suite.cases.map((entry) => entry.id),
+          );
+          expect(suite.result?.suiteRevision).toBe(suite.suiteRevision);
+          expect(suite.costs?.total.amount).toBeGreaterThan(0);
+          expect(Object.keys(suite.caseCosts ?? {})).toHaveLength(
+            suite.suite.cases.length,
+          );
+          expect(suite.request?.promptSnapshot?.revision).toMatch(
+            /^sample-prompts-[123]$/,
+          );
+          for (const entry of suite.result?.cases ?? []) {
             expect(
-              step.criteria.every((criterion) => criterion.evidence.length > 0),
+              data.sessions.some((session) => session.id === entry.sessionId),
             ).toBe(true);
+            for (const step of entry.steps) {
+              const run = data.runs.find(
+                (run) => run.id === step.observation.runId,
+              );
+              expect(run?.sessionId).toBe(entry.sessionId);
+              expect(step.observation.events).toBeDefined();
+              expect(
+                step.criteria.every(
+                  (criterion) => criterion.evidence.length > 0,
+                ),
+              ).toBe(true);
+            }
           }
-        }
-        return suite.result?.cases ?? [];
-      });
-      expect(evaluation.counts).toEqual({
-        passed: cases.filter((entry) => entry.status === "passed").length,
-        failed: cases.filter((entry) => entry.status === "failed").length,
-        error: cases.filter((entry) => entry.status === "error").length,
-        cancelled: cases.filter((entry) => entry.status === "cancelled").length,
-      });
-      const response = sampleResponse(
-        `/v1/studio/evals/evaluations/${evaluation.id}/results`,
-      );
-      expect(response.status).toBe(200);
-      expect((await response.json()).run.suites).toHaveLength(
-        evaluation.suiteCount,
-      );
-      return [evaluation.suiteCount, evaluation.counts.passed, cases.length];
-    }),
+          return suite.result?.cases ?? [];
+        });
+        expect(evaluation.counts).toEqual({
+          passed: cases.filter((entry) => entry.status === "passed").length,
+          failed: cases.filter((entry) => entry.status === "failed").length,
+          error: cases.filter((entry) => entry.status === "error").length,
+          cancelled: cases.filter((entry) => entry.status === "cancelled")
+            .length,
+        });
+        const response = sampleResponse(
+          `/v1/studio/evals/evaluations/${evaluation.id}/results`,
+        );
+        expect(response.status).toBe(200);
+        expect((await response.json()).run.suites).toHaveLength(
+          evaluation.suiteCount,
+        );
+        return [evaluation.suiteCount, evaluation.counts.passed, cases.length];
+      }),
   );
   expect(totals).toEqual([
     [2, 3, 6],
-    [2, 4, 6],
     [3, 7, 8],
   ]);
   expect(data.evals.runs).toHaveLength(7);
@@ -246,6 +251,68 @@ it("records three complete evaluations with increasing pass rates and expanded c
       sampleResponse(`/v1/studio/evals/runs/${detail.run.id}`).status,
     ).toBe(200);
   }
+});
+it("keeps one evaluation partway through grading without exposing a future verdict", () => {
+  const data = readSampleDataset();
+  const evaluation = data.evals.evaluations.find(
+    ({ results }) => results.run.id === sample.evaluationIds.candidate,
+  )?.results.run;
+  expect(evaluation).toMatchObject({
+    status: "running",
+    endedAt: null,
+    suiteCount: 2,
+    completedSuites: 1,
+    totalAttempts: 6,
+    completedAttempts: 5,
+    counts: { passed: 4, failed: 1, error: 0, cancelled: 0 },
+    pendingAttempts: { notStarted: 0, executing: 0, awaitingGrading: 1 },
+  });
+  const run = data.evals.runs.find(
+    ({ run }) => run.id === sample.candidateEvalRunId,
+  )?.run;
+  expect(run).toBeDefined();
+  if (!run) throw new Error("Missing grading sample");
+  expect(run).toMatchObject({
+    status: "running",
+    phase: "grading",
+    result: null,
+    endedAt: null,
+    totalAttempts: 3,
+    completedAttempts: 2,
+  });
+  const rows = caseRows(run);
+  expect(progressCounts(rows)).toMatchObject({
+    total: 3,
+    completed: 2,
+    passed: 2,
+    failed: 0,
+  });
+  const pending = rows.find((row) => row.caseId === "delivery-note");
+  expect(pending?.status).toBe("running");
+  expect(pending?.steps).toHaveLength(2);
+  for (const step of pending?.steps ?? []) {
+    expect(step).toMatchObject({
+      status: "ungraded",
+      criteria: [],
+      judgeCalls: 0,
+      judgeUsage: [],
+    });
+    expect(data.runs.some((item) => item.id === step.observation.runId)).toBe(
+      true,
+    );
+  }
+  expect(
+    run.events.some(
+      ({ event }) =>
+        event.type === "case-completed" &&
+        event.result.caseId === "delivery-note",
+    ),
+  ).toBe(false);
+  expect(
+    readSampleDataset().evals.runs.find(
+      ({ run }) => run.id === sample.candidateEvalRunId,
+    ),
+  ).toEqual({ run });
 });
 it("keeps tool attempts, approvals, and replay evidence coherent", () => {
   const data = readSampleDataset();

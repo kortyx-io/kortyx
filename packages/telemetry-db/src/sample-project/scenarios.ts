@@ -182,7 +182,7 @@ export const SAMPLE_SUPPORT_CONVERSATIONS: SampleConversation[] = [
       turn(
         "sample-baseline-lookup-timeout",
         "Could it be under another reference?",
-        "The fictional model request timed out. Retry the request.",
+        "The model request timed out. Retry the request.",
         "timeout",
       ),
       turn(
@@ -489,7 +489,7 @@ export const SAMPLE_SUPPORT_CONVERSATIONS: SampleConversation[] = [
       turn(
         sample.runs.failure,
         "Try the same lookup once more.",
-        "The fictional model request timed out. Retry the request.",
+        "The model request timed out. Retry the request.",
         "timeout",
       ),
     ],

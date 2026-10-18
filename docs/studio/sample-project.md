@@ -119,7 +119,7 @@ public adapter verification.
 
 ## Sample conversations and evaluation history
 
-Dataset version 3 replaces the original small examples with **50 root runs across
+Dataset version 4 includes **50 root runs across
 20 sessions**. One coordinator calls two returning specialists: order research and
 resolution review. The child-execution toggle exposes 55 correlated specialist
 calls in addition to the 50 root runs.
@@ -133,15 +133,19 @@ when the bundled dataset is viewed later. All sample controls remain read-only.
 
 Three saved evaluations show iterative prompt changes:
 
-| Snapshot | Complete suites | Passed / total | Pass rate |
+| Snapshot | Suites | Recorded outcomes | Results |
 | --- | --- | --- | --- |
-| Initial baseline | Support quality; Resolution safety | 3 / 6 | 50% |
-| Review and evidence improvements | Same two suites | 4 / 6 | 66.7% |
-| Latest recorded sample | Same suites plus Recovery and review clarity | 7 / 8 | 87.5% |
+| Initial baseline | Support quality; Resolution safety | 6 / 6 | 3 passed, 2 failed, 1 error |
+| Grading in progress | Same two suites; one finished | 5 / 6 | 4 passed, 1 failed, 1 still grading |
+| Latest recorded sample | Same suites plus Recovery and review clarity | 8 / 8 | 7 passed, 1 failed |
 
 Each suite includes its full case definitions, recorded observations, criteria,
 grading reasons, execution links, and frozen prompt versions. Shared cases and the
 judge stay comparable across snapshots; the final evaluation expands coverage.
+The intermediate evaluation is a frozen grading snapshot: its Support quality
+suite has two passed conversations and one with captured execution still awaiting
+grading. It exposes no final verdict, grading criteria, or judge charge for the
+pending conversation. Active durations use the sample clock and do not keep growing.
 The latest pending review intentionally fails because its proposal omits the
 amount. These are authored outcomes, not measurements of a deployed agent.
 
@@ -160,6 +164,15 @@ records, or credentials are bundled. The generator has no network or database
 access; sample reads never contact the source environment.
 
 ## Extending the dataset
+
+The facts are fixed; presentation uses the normal Studio components. Run and
+workflow projections use the production telemetry projector. Evaluation summaries
+are assembled from typed, runtime-validated fixtures, and case views use the normal
+event reducer. A future display label derived from existing facts (for example,
+“Half Failed” from pass/fail counts) can apply to sample data through the shared UI.
+A new persisted status, contract field, or scenario requires updating the fixtures
+and their validation. The sample never runs real background jobs or progresses on
+its own.
 
 - Keep stable identities and tour anchors in the exported
   `SAMPLE_PROJECT` manifest in `@kortyx/telemetry-contracts`. Increment its dataset
