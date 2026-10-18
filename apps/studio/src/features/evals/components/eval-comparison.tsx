@@ -2,11 +2,7 @@
 
 import { Info } from "lucide-react";
 import { parseAsBoolean, parseAsString } from "nuqs";
-import {
-  DataTable,
-  type DataTableColumn,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
@@ -288,26 +284,26 @@ export function EvalComparison({
         </output>
       ) : (
         <div className="min-h-0 flex-1">
-          <DataTableProvider columns={columns}>
-            <DataTable
-              tableId="eval-comparison"
-              className="rounded-none border-0 shadow-none"
-              data={rows}
-              getRowKey={(r) => r.id}
-              onRowClick={(r) => {
-                const href = detailNavigationHref(caseHref(r.id), search);
-                prepareNavigation?.(href);
-                router.push(href, { scroll: false });
-              }}
-              emptyState={
-                <p className="p-12 text-center text-sm text-muted-foreground">
-                  {baseline
-                    ? "No cases match this filter."
-                    : "Choose a baseline to compare saved results."}
-                </p>
-              }
-            />
-          </DataTableProvider>
+          <DataTable
+            compatibility={{ aliases: { change: "change" } }}
+            columns={columns}
+            tableId="eval-comparison"
+            className="rounded-none border-0 shadow-none"
+            data={rows}
+            getRowKey={(r) => r.id}
+            onRowClick={(r) => {
+              const href = detailNavigationHref(caseHref(r.id), search);
+              prepareNavigation?.(href);
+              router.push(href, { scroll: false });
+            }}
+            emptyState={
+              <p className="p-12 text-center text-sm text-muted-foreground">
+                {baseline
+                  ? "No cases match this filter."
+                  : "Choose a baseline to compare saved results."}
+              </p>
+            }
+          />
         </div>
       )}
     </div>

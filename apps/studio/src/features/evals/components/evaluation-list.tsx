@@ -13,7 +13,7 @@ import {
 } from "nuqs";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { DataTable, DataTableProvider } from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
 import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { Button } from "@/components/ui/button";
 import { FirstObservation } from "@/features/telemetry/components/first-observation";
@@ -108,13 +108,6 @@ export function EvaluationList({
     );
   const filtered = runs;
   const columns = createEvaluationColumns(navigate);
-  const _applications = [
-    ...new Map([
-      ...targets.targets.map((item) => [item.id, item.name] as const),
-      ...runs.map((item) => [item.targetId, item.targetName] as const),
-    ]),
-  ];
-  const size = [10, 20, 50, 100].includes(query.pageSize) ? query.pageSize : 20;
   const header = (
     <TablePageHeader
       title="Evals"
@@ -176,63 +169,40 @@ export function EvaluationList({
         </p>
       ) : null}
       <div className="min-h-0 flex-1">
-        <DataTableProvider columns={columns}>
-          <DataTable
-            tableId="evaluations"
-            search={{
-              label: "Search evaluation runs",
-              placeholder: "Search runs, commits or environments…",
-              value: query.q,
-              onChange: (q) => {
-                void setQuery({ q: q || null, cursor: 0 });
-              },
-            }}
-            filterResource="evaluations"
-            data={filtered}
-            getRowKey={(run) => run.id}
-            onRowClick={navigate}
-            header={header}
-            sort={query.sort}
-            direction={query.dir}
-            onSort={(sort) => {
-              void setQuery({
-                sort,
-                dir:
-                  query.sort === sort && query.dir === "desc" ? "asc" : "desc",
-                cursor: 0,
-              });
-            }}
-            emptyState={
-              <div className="p-10 text-center">
-                <h2 className="text-sm font-medium">
-                  {runs.length
-                    ? "No evaluations match these filters"
-                    : "No evaluation runs yet"}
-                </h2>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Run all or selected suites to record one evaluation with its
-                  suite results.
-                </p>
-              </div>
-            }
-            pagination={{
-              cursor: Math.min(
-                Math.max(0, query.cursor),
-                Math.max(0, Math.ceil(totalCount / size) - 1) * size,
-              ),
-              pageSize: size,
-              pageSizes: [10, 20, 50, 100],
-              totalCount,
-              serverSide: true,
-              onCursorChange: (cursor) => {
-                void setQuery({ cursor });
-              },
-              onPageSizeChange: (pageSize) => {
-                void setQuery({ pageSize, cursor: 0 });
-              },
-            }}
-          />
-        </DataTableProvider>
+        <DataTable
+          query={{
+            mode: "remote",
+            defaults: { sort: "created" },
+          }}
+          totalCount={totalCount}
+          compatibility={{
+            aliases: { status: "status", application: "applicationId" },
+          }}
+          columns={columns}
+          tableId="evaluations"
+          search={{
+            label: "Search evaluation runs",
+            placeholder: "Search runs, commits or environments…",
+          }}
+          filterResource="evaluations"
+          data={filtered}
+          getRowKey={(run) => run.id}
+          onRowClick={navigate}
+          header={header}
+          emptyState={
+            <div className="p-10 text-center">
+              <h2 className="text-sm font-medium">
+                {runs.length
+                  ? "No evaluations match these filters"
+                  : "No evaluation runs yet"}
+              </h2>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Run all or selected suites to record one evaluation with its
+                suite results.
+              </p>
+            </div>
+          }
+        />
       </div>
       <EvalRunSetup targets={targets} matchPath="/evals/runs" />
     </div>

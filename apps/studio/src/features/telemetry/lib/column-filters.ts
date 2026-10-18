@@ -104,6 +104,61 @@ export function studioColumnFilters<T>(
           : key === "toolMode"
             ? { options: ["direct", "model"] }
             : {}),
+    ...(key === "status"
+      ? {
+          options:
+            resource === "interrupts"
+              ? ["pending", "resolved", "expired", "failed", "cancelled"]
+              : [
+                  "running",
+                  "completed",
+                  "interrupted",
+                  "incomplete",
+                  "failed",
+                  "cancelled",
+                ],
+        }
+      : {}),
+    ...(["status", "feedback", "execution"].includes(key)
+      ? {
+          optionLabels: Object.fromEntries(
+            [
+              "running",
+              "completed",
+              "interrupted",
+              "incomplete",
+              "failed",
+              "cancelled",
+              "pending",
+              "resolved",
+              "expired",
+              "positive",
+              "negative",
+              "unrated",
+              "root",
+              "child",
+            ].map((value) => [value, value[0].toUpperCase() + value.slice(1)]),
+          ),
+        }
+      : {}),
+    order:
+      key === "status"
+        ? 0
+        : key === "feedback"
+          ? 1
+          : key === "provider" || key === "providers"
+            ? 2
+            : key === "workflowIds" || key === "workflowId"
+              ? 3
+              : 100,
+    group:
+      key === "status"
+        ? "Status"
+        : ["hasTool", "toolName", "toolOutcome", "toolMode"].includes(key)
+          ? "Tools"
+          : ["durationMs", "tokens", "cost", "currency"].includes(key)
+            ? "Metrics"
+            : "Column values",
     read: (item: T): TableFilterValue | readonly TableFilterValue[] => {
       const row = item as Record<string, unknown>;
       const raw = row.filterValues as

@@ -53,7 +53,17 @@ export function createEvaluationColumns(
     },
     {
       key: "status",
-      filter: columnFilter("status", "Status", "enum", (r) => r.status),
+      filter: {
+        ...columnFilter("status", "Status", "enum", (r) => r.status),
+        options: [
+          "queued",
+          "running",
+          "passed",
+          "failed",
+          "error",
+          "cancelled",
+        ],
+      },
       label: "Status",
       sortKey: "status",
       defaultWidth: 125,

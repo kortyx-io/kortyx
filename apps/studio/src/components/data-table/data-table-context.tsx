@@ -37,7 +37,7 @@ import {
   type DataTableLayout,
 } from "@/components/data-table/types";
 import { studioFeature } from "@/usage/client";
-import { columnLayout } from "./column-layout";
+import { columnLayout, columnWidths } from "./column-layout";
 
 type LayoutSnapshot = Partial<DataTableLayout>;
 
@@ -59,6 +59,9 @@ export type DataTableContextValue<T = unknown, S extends string = string> = {
   columnsByKey: Record<string, DataTableColumn<T, S>>;
   defaultOrder: string[];
   widths: Record<string, number>;
+  storedWidths: Record<string, number>;
+  orderedColumnKeys: string[];
+  moveColumn: (active: string, over: string) => void;
   order: string[];
   hidden: string[];
   pinned: Partial<Record<string, ColumnPin>>;
@@ -111,8 +114,8 @@ type DataTableProviderProps<T, S extends string> = {
   columns: DataTableColumn<T, S>[];
   /**
    * Initial layout to hydrate from (e.g. loaded from a user-profile DB row).
-   * Read once on mount; invalid/unknown columns are ignored. Takes precedence
-   * over `persistKey`.
+   * Read once on mount; invalid/unknown columns are ignored. Used
+   * as a legacy seed when no newer browser layout exists.
    */
   initialLayout?: Partial<DataTableLayout>;
   /**
@@ -159,10 +162,9 @@ export function DataTableProvider<T, S extends string>({
     [columns],
   );
 
-  const [widths, setWidths] = useState<Record<string, number>>(() => ({
-    ...defaultWidths,
-    ...initialLayout?.widths,
-  }));
+  const [widths, setWidths] = useState<Record<string, number>>(() =>
+    columnWidths(columns, initialLayout?.widths),
+  );
   const [order, setOrder] = useState<string[]>(
     () => columnLayout(columns, initialLayout).order,
   );
@@ -194,7 +196,6 @@ export function DataTableProvider<T, S extends string>({
   const onLayoutChangeRef = useRef(onLayoutChange);
   onLayoutChangeRef.current = onLayoutChange;
   const hasSettledRef = useRef(false);
-  const hasInitialLayout = Boolean(initialLayout);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -205,17 +206,17 @@ export function DataTableProvider<T, S extends string>({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: hydrate once on mount, not on column changes.
   useEffect(() => {
-    // initialLayout (e.g. DB) wins and is applied via lazy state init above.
-    if (hasInitialLayout || !persistKey) {
+    // A legacy seed paints on the server; newer browser preferences hydrate here.
+    if (!persistKey) {
       setPreferencesLoaded(true);
       return;
     }
     try {
-      const saved = JSON.parse(
-        localStorage.getItem(persistKey) ?? "{}",
-      ) as LayoutSnapshot & Record<string, number>;
+      const raw = localStorage.getItem(persistKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as LayoutSnapshot & Record<string, number>;
       const savedWidths = saved.widths ?? saved;
-      setWidths((current) => ({ ...current, ...savedWidths }));
+      setWidths(columnWidths(columns, savedWidths));
       const migrated = columnLayout(columns, saved);
       setOrder(migrated.order);
       setHidden(migrated.hidden);
@@ -226,12 +227,18 @@ export function DataTableProvider<T, S extends string>({
     } finally {
       setPreferencesLoaded(true);
     }
-  }, [persistKey, hasInitialLayout]);
+  }, [persistKey]);
 
   useEffect(() => {
     if (!preferencesLoaded) return;
     const layout: DataTableLayout = { widths, order, hidden, pinned };
-    if (persistKey) localStorage.setItem(persistKey, JSON.stringify(layout));
+    if (persistKey) {
+      try {
+        localStorage.setItem(persistKey, JSON.stringify(layout));
+      } catch {
+        /* Storage can be unavailable; the table remains usable. */
+      }
+    }
     // Skip the initial settle so we only notify on real user changes.
     if (!hasSettledRef.current) {
       hasSettledRef.current = true;
@@ -240,17 +247,17 @@ export function DataTableProvider<T, S extends string>({
     onLayoutChangeRef.current?.(layout);
   }, [persistKey, preferencesLoaded, widths, order, hidden, pinned]);
 
-  const visibleColumns = useMemo(
-    () => order.filter((column) => !hidden.includes(column)),
-    [order, hidden],
+  const orderedColumnKeys = useMemo(
+    () => [
+      ...order.filter((key) => pinned[key] === "left"),
+      ...order.filter((key) => !pinned[key]),
+      ...order.filter((key) => pinned[key] === "right"),
+    ],
+    [order, pinned],
   );
   const visibleColumnOrder = useMemo(
-    () => [
-      ...visibleColumns.filter((column) => pinned[column] === "left"),
-      ...visibleColumns.filter((column) => !pinned[column]),
-      ...visibleColumns.filter((column) => pinned[column] === "right"),
-    ],
-    [visibleColumns, pinned],
+    () => orderedColumnKeys.filter((key) => !hidden.includes(key)),
+    [orderedColumnKeys, hidden],
   );
   // Fill wide viewports without writing responsive sizes into saved preferences.
   // The same widths drive cells, sticky offsets, dragging, and resize handles.
@@ -301,7 +308,7 @@ export function DataTableProvider<T, S extends string>({
 
   function applyLayout(layout: Partial<DataTableLayout>) {
     studioFeature("studio.table.layout", { layout_action: "apply" });
-    setWidths({ ...defaultWidths, ...layout.widths });
+    setWidths(columnWidths(columns, layout.widths));
     setOrder(columnLayout(columns, layout).order);
     setHidden(columnLayout(columns, layout).hidden);
     setPinned(validatePinned(layout.pinned, defaultOrder) ?? {});
@@ -406,10 +413,25 @@ export function DataTableProvider<T, S extends string>({
   }
 
   function isColumnDraggable(key: string) {
-    const pin = pinned[key];
-    return (
-      !pin ||
-      visibleColumnOrder.filter((item) => pinned[item] === pin).length > 1
+    return Boolean(columnsByKey[key]) && order.length > 1;
+  }
+
+  function moveColumn(active: string, over: string) {
+    if (active === over || !columnsByKey[active] || !columnsByKey[over]) return;
+    studioFeature("studio.table.layout", { layout_action: "reorder" });
+    // Dropping into another pin group adopts that group, so even a sole pin can move.
+    setPinned((current) => {
+      const next = { ...current };
+      if (current[over]) next[active] = current[over];
+      else delete next[active];
+      return next;
+    });
+    setOrder(
+      arrayMove(
+        orderedColumnKeys,
+        orderedColumnKeys.indexOf(active),
+        orderedColumnKeys.indexOf(over),
+      ),
     );
   }
 
@@ -461,12 +483,7 @@ export function DataTableProvider<T, S extends string>({
     };
   }
 
-  const collisionDetection = (args: Parameters<typeof closestCenter>[0]) => {
-    const activePin = pinned[args.active.id as string];
-    return closestCenter(args).filter(
-      (collision) => pinned[collision.id as string] === activePin,
-    );
-  };
+  const collisionDetection = closestCenter;
 
   function onDragStart(event: DragStartEvent) {
     const column = event.active.id as string;
@@ -512,13 +529,6 @@ export function DataTableProvider<T, S extends string>({
 
   function onDragOver(event: DragOverEvent) {
     const overColumn = event.over?.id as string | undefined;
-    if (
-      overColumn &&
-      draggedColumn &&
-      pinned[draggedColumn] !== pinned[overColumn]
-    ) {
-      return;
-    }
     setDragOverColumn(overColumn ?? null);
   }
 
@@ -548,15 +558,7 @@ export function DataTableProvider<T, S extends string>({
     if (!event.over || event.active.id === event.over.id) return;
     const activeColumn = event.active.id as string;
     const overColumn = event.over.id as string;
-    if (pinned[activeColumn] !== pinned[overColumn]) return;
-    studioFeature("studio.table.layout", { layout_action: "reorder" });
-    setOrder((current) =>
-      arrayMove(
-        current,
-        current.indexOf(activeColumn),
-        current.indexOf(overColumn),
-      ),
-    );
+    moveColumn(activeColumn, overColumn);
   }
 
   const value: DataTableContextValue<T, S> = {
@@ -564,6 +566,9 @@ export function DataTableProvider<T, S extends string>({
     columnsByKey,
     defaultOrder,
     widths: renderedWidths,
+    storedWidths: widths,
+    orderedColumnKeys,
+    moveColumn,
     order,
     hidden,
     pinned,

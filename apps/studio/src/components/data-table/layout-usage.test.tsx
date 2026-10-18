@@ -23,6 +23,7 @@ it("records layout actions once per explicit interaction, excluding column names
           table.pinColumn("private-column", "left");
           table.unpinColumn("private-column");
           table.resetColumnWidth("private-column");
+          table.moveColumn("private-column", "other");
           table.applyLayout({ hidden: ["private-column"] });
           table.resetLayout();
         }}
@@ -66,6 +67,7 @@ it("records layout actions once per explicit interaction, excluding column names
       "pin",
       "unpin",
       "reset_width",
+      "reorder",
       "apply",
       "reset",
     ]);

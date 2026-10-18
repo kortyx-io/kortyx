@@ -237,13 +237,13 @@ test("all columns start visible and Reset layout shows every column again", asyn
   await expect(page.locator("thead th")).toHaveCount(18);
   await page.getByRole("button", { name: "Columns", exact: true }).click();
   await page
-    .getByRole("menuitemcheckbox", { name: "Environment", exact: true })
+    .getByRole("checkbox", { name: "Environment", exact: true })
     .click();
   await expect(page.locator("thead th")).toHaveCount(17);
   await page.getByRole("button", { name: "Reset layout", exact: true }).click();
   await expect(page.locator("thead th")).toHaveCount(18);
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Environment", exact: true }),
+    page.getByRole("checkbox", { name: "Environment", exact: true }),
   ).toBeChecked();
   await page.screenshot({ path: "/tmp/kortyx-all-columns-reset.png" });
 });
@@ -295,7 +295,7 @@ test("root hover synchronizes pinned cells on clickable runs and exposes identit
   await page.getByRole("button", { name: "Columns", exact: true }).click();
   for (const label of ["Environment", "Run ID", "Ended", "Pricing status"])
     await expect(
-      page.getByRole("menuitemcheckbox", { name: label, exact: true }),
+      page.getByRole("checkbox", { name: label, exact: true }),
     ).toBeVisible();
 });
 
@@ -345,4 +345,124 @@ test("root hover also applies to prompt rows without a row click handler, includ
     await db`delete from prompt_assets where key=${key}`;
     await db.end();
   }
+});
+
+for (const [path, tableId] of [
+  ["/runs?range=All+time", "runs"],
+  ["/sessions?range=All+time", "sessions"],
+  ["/interrupts?range=All+time", "interrupts"],
+  ["/prompts", "prompts"],
+  ["/prompts/groups", "prompt-groups"],
+  ["/evals/runs", "evaluations"],
+  ["/evals/suites", "eval-suites"],
+] as const) {
+  test(`column chooser reorders, hides and restores the same layout on ${tableId}`, async ({
+    page,
+  }) => {
+    await page.goto(path);
+    const table = page
+      .locator(`[data-table-controls="${tableId}"]`)
+      .locator("..");
+    await expect(table.locator("thead th").first()).toBeVisible();
+    const before = await table
+      .locator("thead th")
+      .evaluateAll((cells) =>
+        cells.map((cell) => cell.getAttribute("data-column")),
+      );
+    await table.getByRole("button", { name: "Columns", exact: true }).click();
+    const options = page.locator("[data-column-option]");
+    const first = options.nth(0);
+    const label = await first.locator("label").innerText();
+    await first
+      .getByRole("button", { name: `Move ${label} right`, exact: true })
+      .click();
+    const expected = [before[1], before[0], ...before.slice(2)];
+    await expect
+      .poll(() =>
+        table
+          .locator("thead th")
+          .evaluateAll((cells) =>
+            cells.map((cell) => cell.getAttribute("data-column")),
+          ),
+      )
+      .toEqual(expected);
+    await expect
+      .poll(() =>
+        options.evaluateAll((rows) =>
+          rows.map((row) => row.getAttribute("data-column-option")),
+        ),
+      )
+      .toEqual(expected);
+    await options.nth(1).getByRole("checkbox").uncheck();
+    await expect(table.locator("thead th")).toHaveCount(before.length - 1);
+    await page.keyboard.press("Escape");
+    await page.reload();
+    await expect
+      .poll(() =>
+        table
+          .locator("thead th")
+          .evaluateAll((cells) =>
+            cells.map((cell) => cell.getAttribute("data-column")),
+          ),
+      )
+      .toEqual(expected.filter((key) => key !== before[0]));
+    await table.getByRole("button", { name: "Columns", exact: true }).click();
+    await page.getByRole("button", { name: "Show all", exact: true }).click();
+    await expect
+      .poll(() =>
+        table
+          .locator("thead th")
+          .evaluateAll((cells) =>
+            cells.map((cell) => cell.getAttribute("data-column")),
+          ),
+      )
+      .toEqual(expected);
+  });
+}
+
+test("a sole pinned header can drag into the unpinned group, and the chooser supports pointer and keyboard dragging", async ({
+  page,
+}) => {
+  await page.goto("/runs?range=All+time");
+  await pin(page, "Status", "left");
+  const status = page.locator('th[data-column="status"]');
+  const from = (await status.boundingBox())!;
+  const to = (await page.locator('th[data-column="started"]').boundingBox())!;
+  await page.mouse.move(from.x + 30, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+    steps: 12,
+  });
+  await expect(status).toHaveAttribute("data-column-dragging", "true");
+  await page.mouse.up();
+  await expect(status).not.toHaveClass(/sticky/);
+  await page.getByRole("button", { name: "Columns", exact: true }).click();
+  const chooser = page.locator('[aria-label="Column order"]');
+  const first = chooser.locator("[data-column-option]").nth(0);
+  const second = chooser.locator("[data-column-option]").nth(1);
+  const firstKey = await first.getAttribute("data-column-option");
+  const a = (await first
+    .getByRole("button", { name: /^Drag / })
+    .boundingBox())!;
+  const b = (await second.boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(a.x + a.width / 2, b.y + b.height / 2, { steps: 10 });
+  await page.mouse.up();
+  await expect(chooser.locator("[data-column-option]").nth(1)).toHaveAttribute(
+    "data-column-option",
+    firstKey!,
+  );
+  const handle = chooser
+    .locator("[data-column-option]")
+    .nth(1)
+    .getByRole("button", { name: /^Drag / });
+  await handle.focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Space");
+  await expect(chooser.locator("[data-column-option]").first()).toHaveAttribute(
+    "data-column-option",
+    firstKey!,
+  );
 });

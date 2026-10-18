@@ -40,38 +40,42 @@ for (const [path, id] of [
         name: "Filters",
         exact: true,
       });
-      for (const section of [
-        "Time range",
-        "Execution",
-        "Run status",
-        "Provider",
-        "Column values",
-        "Tools",
-        "Options",
-        "Numeric columns",
-      ])
-        await expect(
-          drawer.getByRole("heading", { name: section, exact: true }).first(),
-        ).toBeVisible();
       await expect(
-        drawer.getByRole("button", { name: "Select all", exact: true }).first(),
-      ).toBeAttached();
-      await drawer
+        drawer.getByRole("textbox", { name: "Find a filter", exact: true }),
+      ).toBeVisible();
+      await expect(
+        drawer.getByRole("combobox", { name: "Time range", exact: true }),
+      ).toBeVisible();
+      await expect(
+        drawer.getByRole("checkbox", {
+          name: "Include child workflows",
+          exact: true,
+        }),
+      ).toBeVisible();
+      const statuses = drawer.locator('[data-filter-field="status"]');
+      await statuses
         .getByRole("button", { name: "Select all", exact: true })
-        .first()
         .click();
       await expect(
-        drawer.getByRole("checkbox", { name: "Running", exact: true }),
+        statuses.getByRole("checkbox", {
+          name: "Status: running",
+          exact: true,
+        }),
       ).toBeChecked();
       await expect(
-        drawer.getByRole("checkbox", { name: "Cancelled", exact: true }),
+        statuses.getByRole("checkbox", {
+          name: "Status: cancelled",
+          exact: true,
+        }),
       ).toBeChecked();
-      await drawer
+      await statuses
         .getByRole("button", { name: "Deselect all", exact: true })
-        .first()
         .click();
       await expect(
-        drawer.getByRole("checkbox", { name: "Running", exact: true }),
+        statuses.getByRole("checkbox", {
+          name: "Status: running",
+          exact: true,
+        }),
       ).not.toBeChecked();
       await page.screenshot({
         path: "/tmp/kortyx-table-filters-preserved.png",
@@ -137,7 +141,9 @@ test("combines filters, restores a saved view, and keeps search outside Match an
   await expect(
     page.getByRole("listbox", { name: "Workflow suggestions", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("checkbox", { name: "Completed", exact: true }).check();
+  await page
+    .getByRole("checkbox", { name: "Status: completed", exact: true })
+    .check();
   await expect(row).toHaveCount(0);
   await page
     .getByRole("button", { name: "Match any · OR", exact: true })
@@ -476,14 +482,14 @@ test("listed ranges preserve zero, validate bounds, and clear missing-value filt
   await expect(row).toBeVisible();
   await page.getByRole("button", { name: "Filters", exact: true }).click();
 
-  await page.getByLabel("Minimum cost", { exact: true }).fill("1");
-  await page.getByLabel("Maximum cost", { exact: true }).fill("0");
+  await page.getByLabel("Cost minimum", { exact: true }).fill("1");
+  await page.getByLabel("Cost maximum", { exact: true }).fill("0");
   await expect(
     page
       .getByRole("complementary", { name: "Filters", exact: true })
       .getByRole("alert"),
   ).toContainText("minimum must not exceed maximum");
-  await page.getByLabel("Minimum cost", { exact: true }).fill("0");
+  await page.getByLabel("Cost minimum", { exact: true }).fill("0");
   await expect
     .poll(() => new URL(page.url()).searchParams.get("tableFilters"))
     .toContain('"values":[0,0]');

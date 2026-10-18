@@ -2,11 +2,7 @@
 
 import { GitCompareArrows, Square } from "lucide-react";
 import type { ReactNode } from "react";
-import {
-  DataTable,
-  type DataTableColumn,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
@@ -298,25 +294,25 @@ export function EvalRunDetail({
               id: "cases",
               label: "Case results",
               content: (
-                <DataTableProvider columns={columns}>
-                  <DataTable
-                    tableId="eval-cases"
-                    data={rows}
-                    getRowKey={(r) => r.key}
-                    onRowClick={(r) => onCaseChange(r.key)}
-                    rowTone={(r) =>
-                      r.status === "failed" || r.status === "error"
-                        ? "danger"
-                        : undefined
-                    }
-                    className="rounded-none border-0 shadow-none"
-                    emptyState={
-                      <p className="p-12 text-center text-sm text-muted-foreground">
-                        No attempts match this outcome.
-                      </p>
-                    }
-                  />
-                </DataTableProvider>
+                <DataTable
+                  compatibility={{ aliases: { outcome: "status" } }}
+                  columns={columns}
+                  tableId="eval-cases"
+                  data={rows}
+                  getRowKey={(r) => r.key}
+                  onRowClick={(r) => onCaseChange(r.key)}
+                  rowTone={(r) =>
+                    r.status === "failed" || r.status === "error"
+                      ? "danger"
+                      : undefined
+                  }
+                  className="rounded-none border-0 shadow-none"
+                  emptyState={
+                    <p className="p-12 text-center text-sm text-muted-foreground">
+                      No attempts match this outcome.
+                    </p>
+                  }
+                />
               ),
             },
             {

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { columnLayout } from "./column-layout";
+import { columnLayout, columnWidths } from "./column-layout";
 import type { DataTableColumn } from "./types";
 
 const columns: DataTableColumn<unknown>[] = [
@@ -29,4 +29,20 @@ it("retains saved visibility and removes retired keys", () => {
     }),
   ).toEqual({ order: ["new-detail", "name", "status"], hidden: [] });
   expect(columnLayout(columns).hidden).toEqual([]);
+});
+
+it("keeps at least one column visible when importing an all-hidden layout", () => {
+  expect(
+    columnLayout(columns, { hidden: ["name", "status", "new-detail"] }).hidden,
+  ).toEqual(["status", "new-detail"]);
+});
+it("rejects invalid widths and retired keys while preserving valid saved widths", () => {
+  expect(
+    columnWidths(columns, {
+      name: Number.NaN,
+      status: -50,
+      "new-detail": 240,
+      retired: 900,
+    }),
+  ).toEqual({ name: 100, status: 48, "new-detail": 240 });
 });

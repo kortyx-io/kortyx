@@ -10,11 +10,7 @@ import {
 import { Maximize2, MoreHorizontal, Play, Plus, Trash2, X } from "lucide-react";
 import { parseAsString, parseAsStringLiteral } from "nuqs";
 import { type ReactNode, useEffect, useState } from "react";
-import {
-  DataTable,
-  type DataTableColumn,
-  DataTableProvider,
-} from "@/components/data-table";
+import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { valueColumn } from "@/components/data-table/value-column";
@@ -342,7 +338,7 @@ export function PromptGroupsView({
               </p>
             </div>
           ) : (
-            <DataTableProvider
+            <DataTable
               columns={
                 [
                   {
@@ -411,23 +407,20 @@ export function PromptGroupsView({
                   },
                 ] satisfies DataTableColumn<PromptGroup>[]
               }
-            >
-              <DataTable
-                tableId="prompt-groups"
-                search={{
-                  label: "Search test groups",
-                  placeholder: "Search groups…",
-                }}
-                data={library.groups}
-                getRowKey={(group) => group.id}
-                className="rounded-none border-0 shadow-none"
-                emptyState={
-                  <p className="p-10 text-center text-xs text-muted-foreground">
-                    No test groups match these filters.
-                  </p>
-                }
-              />
-            </DataTableProvider>
+              tableId="prompt-groups"
+              search={{
+                label: "Search test groups",
+                placeholder: "Search groups…",
+              }}
+              data={library.groups}
+              getRowKey={(group) => group.id}
+              className="rounded-none border-0 shadow-none"
+              emptyState={
+                <p className="p-10 text-center text-xs text-muted-foreground">
+                  No test groups match these filters.
+                </p>
+              }
+            />
           )}
         </div>
       </PromptWorkspace>

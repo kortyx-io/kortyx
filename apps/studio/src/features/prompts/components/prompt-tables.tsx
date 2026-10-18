@@ -10,20 +10,17 @@ import {
   StudioRunSchema,
 } from "@kortyx/telemetry-contracts";
 import { RefreshCw } from "lucide-react";
-import { parseAsInteger, parseAsString, parseAsStringLiteral } from "nuqs";
+import { parseAsInteger, parseAsString } from "nuqs";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { DataTable, DataTableProvider } from "@/components/data-table";
+import { DataTable } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
-import {
-  createEvaluationColumns,
-  type EvaluationSort,
-} from "@/features/evals/components/evaluation-table-columns";
+import { createEvaluationColumns } from "@/features/evals/components/evaluation-table-columns";
 import { createRunColumns } from "@/features/runs/components/run-table-columns";
 import { mapStudioRun } from "@/features/runs/lib/map-studio-run";
-import type { Run, SortKey } from "@/features/runs/schema";
+import type { Run } from "@/features/runs/schema";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioDetailHref } from "@/lib/studio-routes";
@@ -63,28 +60,14 @@ export function PromptTables({
     {
       q: parseAsString.withDefault(""),
       status: parseAsString.withDefault("all"),
-      sort: parseAsStringLiteral([
-        "name",
-        "created",
-        "status",
-        "started",
-        "duration",
-        "tokens",
-        "cost",
-      ]).withDefault(kind === "runs" ? "started" : "created"),
-      dir: parseAsStringLiteral(["asc", "desc"]).withDefault("desc"),
       cursor: parseAsInteger.withDefault(0),
-      pageSize: parseAsInteger.withDefault(20),
     },
     {
       shallow: true,
       urlKeys: {
         q: `prompt${kind}Search`,
         status: `prompt${kind}Status`,
-        sort: `prompt${kind}Sort`,
-        dir: `prompt${kind}Dir`,
         cursor: `prompt${kind}Page`,
-        pageSize: `prompt${kind}PageSize`,
       },
     },
   );
@@ -152,74 +135,6 @@ export function PromptTables({
       prepare?.(destination);
       router.push(destination);
     }
-  };
-  const needle = query.q.toLowerCase();
-  const runs = rows.runs.filter((run) =>
-    `${run.id} ${run.workflow} ${run.session} ${run.model} ${run.result} ${run.environment}`
-      .toLowerCase()
-      .includes(needle),
-  );
-  const evaluations = rows.evaluations.filter((run) =>
-    `${run.name} ${run.id} ${run.targetName} ${run.environment} ${run.metadata.source} ${run.metadata.commit ?? ""}`
-      .toLowerCase()
-      .includes(needle),
-  );
-  const direction = query.dir === "asc" ? 1 : -1;
-  const runSort: SortKey = [
-    "started",
-    "duration",
-    "tokens",
-    "cost",
-    "status",
-  ].includes(query.sort)
-    ? (query.sort as SortKey)
-    : "started";
-  const evalSort: EvaluationSort = ["name", "created", "status"].includes(
-    query.sort,
-  )
-    ? (query.sort as EvaluationSort)
-    : "created";
-  runs.sort(
-    (a, b) =>
-      direction *
-      (runSort === "started"
-        ? a.startedAt.localeCompare(b.startedAt)
-        : runSort === "status"
-          ? a.status.localeCompare(b.status)
-          : (a[runSort] ?? 0) - (b[runSort] ?? 0)),
-  );
-  evaluations.sort(
-    (a, b) =>
-      direction *
-      (evalSort === "name"
-        ? a.name.localeCompare(b.name)
-        : evalSort === "status"
-          ? a.status.localeCompare(b.status)
-          : a.createdAt.localeCompare(b.createdAt)),
-  );
-  const size = [10, 20, 50, 100].includes(query.pageSize) ? query.pageSize : 20;
-  const total = kind === "runs" ? runs.length : evaluations.length;
-  const pagination = {
-    cursor: Math.min(
-      Math.max(0, query.cursor),
-      Math.max(0, Math.ceil(total / size) - 1) * size,
-    ),
-    pageSize: size,
-    pageSizes: [10, 20, 50, 100],
-    totalCount: total,
-    onCursorChange: (cursor: number) => {
-      void setQuery({ cursor });
-    },
-    onPageSizeChange: (pageSize: number) => {
-      void setQuery({ pageSize, cursor: 0 });
-    },
-  };
-  const sort = (sort: SortKey | EvaluationSort) => {
-    void setQuery({
-      sort,
-      dir: query.sort === sort && query.dir === "desc" ? "asc" : "desc",
-      cursor: 0,
-    });
   };
   const header = (
     <div className="shrink-0 space-y-3 border-b p-4">
@@ -396,80 +311,76 @@ export function PromptTables({
   return (
     <div data-prompt-table={kind} className="h-full min-h-0 min-w-0">
       {kind === "runs" ? (
-        <DataTableProvider columns={columns}>
-          <DataTable
-            tableId={`prompt-${kind}`}
-            search={{
-              label: `Search prompt ${kind}`,
-              placeholder:
-                kind === "runs"
-                  ? "Search workflow, model or run ID…"
-                  : "Search evaluation runs…",
-              queryKey: `prompt${kind}Search`,
-              value: query.q,
-              onChange: (q) => {
-                void setQuery({ q: q || null, cursor: 0 });
-              },
-            }}
-            className="rounded-none border-0 shadow-none"
-            data={runs}
-            getRowKey={(run) => run.id}
-            header={header}
-            emptyState={empty}
-            emptyStateClassName="h-full"
-            pagination={pagination}
-            sort={runSort}
-            direction={query.dir}
-            onSort={sort}
-            onRowClick={(run, event) => {
-              const href = studioDetailHref(
-                "runs",
-                run.parentRunId ?? run.id,
-                run.invocationId
-                  ? {
-                      tab: "calls",
-                      call: run.invocationId,
-                      ...(run.branchId ? { branch: run.branchId } : {}),
-                    }
-                  : undefined,
-              );
-              navigate(href, event);
-            }}
-          />
-        </DataTableProvider>
+        <DataTable
+          query={{
+            defaults: { sort: "started" },
+            keys: {
+              q: `prompt${kind}Search`,
+              cursor: `prompt${kind}Page`,
+            },
+          }}
+          compatibility={{ aliases: { [`prompt${kind}Status`]: "status" } }}
+          columns={columns}
+          tableId={`prompt-${kind}`}
+          search={{
+            label: `Search prompt ${kind}`,
+            placeholder:
+              kind === "runs"
+                ? "Search workflow, model or run ID…"
+                : "Search evaluation runs…",
+          }}
+          className="rounded-none border-0 shadow-none"
+          data={rows.runs}
+          getRowKey={(run) => run.id}
+          header={header}
+          emptyState={empty}
+          emptyStateClassName="h-full"
+          onRowClick={(run, event) => {
+            const href = studioDetailHref(
+              "runs",
+              run.parentRunId ?? run.id,
+              run.invocationId
+                ? {
+                    tab: "calls",
+                    call: run.invocationId,
+                    ...(run.branchId ? { branch: run.branchId } : {}),
+                  }
+                : undefined,
+            );
+            navigate(href, event);
+          }}
+        />
       ) : (
-        <DataTableProvider columns={evalColumns}>
-          <DataTable
-            tableId={`prompt-${kind}`}
-            search={{
-              label: `Search prompt ${kind}`,
-              placeholder: "Search evaluation runs…",
-              queryKey: `prompt${kind}Search`,
-              value: query.q,
-              onChange: (q) => {
-                void setQuery({ q: q || null, cursor: 0 });
-              },
-            }}
-            className="rounded-none border-0 shadow-none"
-            data={evaluations}
-            getRowKey={(run) => run.id}
-            header={header}
-            emptyState={empty}
-            emptyStateClassName="h-full"
-            pagination={pagination}
-            sort={evalSort}
-            direction={query.dir}
-            onSort={sort}
-            onRowClick={(run, event) =>
-              navigate(
-                run.legacy
-                  ? `/evals/runs/${run.id}`
-                  : `/evals/evaluations/${run.id}`,
-                event,
-              )
-            }
-          />
-        </DataTableProvider>
+        <DataTable
+          query={{
+            defaults: { sort: "created" },
+            keys: {
+              q: `prompt${kind}Search`,
+              cursor: `prompt${kind}Page`,
+            },
+          }}
+          compatibility={{ aliases: { [`prompt${kind}Status`]: "status" } }}
+          columns={evalColumns}
+          tableId={`prompt-${kind}`}
+          search={{
+            label: `Search prompt ${kind}`,
+            placeholder: "Search evaluation runs…",
+          }}
+          className="rounded-none border-0 shadow-none"
+          data={rows.evaluations}
+          getRowKey={(run) => run.id}
+          header={header}
+          emptyState={empty}
+          emptyStateClassName="h-full"
+          onRowClick={(run, event) =>
+            navigate(
+              run.legacy
+                ? `/evals/runs/${run.id}`
+                : `/evals/evaluations/${run.id}`,
+              event,
+            )
+          }
+        />
       )}
     </div>
   );

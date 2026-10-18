@@ -25,26 +25,6 @@ import { FilterAutocomplete } from "./filter-autocomplete";
 import type { DataTableFilter } from "./types";
 import { useFilterValues } from "./use-filter-values";
 
-const statusOptions: Record<string, string[]> = {
-  runs: [
-    "running",
-    "completed",
-    "interrupted",
-    "incomplete",
-    "failed",
-    "cancelled",
-  ],
-  sessions: [
-    "running",
-    "completed",
-    "interrupted",
-    "incomplete",
-    "failed",
-    "cancelled",
-  ],
-  interrupts: ["pending", "resolved", "expired", "failed", "cancelled"],
-  evaluations: ["queued", "running", "passed", "failed", "error", "cancelled"],
-};
 const labels: Record<string, string> = {
   is: "Is any of",
   isNot: "Is none of",
@@ -96,9 +76,6 @@ export function DataTableFilterField<T>({
   const options = [
     ...new Set([
       ...(field.options ?? []),
-      ...(field.key === "status" && resource
-        ? (statusOptions[resource] ?? [])
-        : []),
       ...(resource
         ? remote
         : data.flatMap((row) => {
@@ -341,9 +318,7 @@ export function DataTableFilterField<T>({
                   }
                 />
                 <span className="truncate">
-                  {["status", "feedback", "execution"].includes(field.key)
-                    ? value[0]?.toUpperCase() + value.slice(1)
-                    : value}
+                  {field.optionLabels?.[value] ?? value}
                 </span>
               </label>
             ))}

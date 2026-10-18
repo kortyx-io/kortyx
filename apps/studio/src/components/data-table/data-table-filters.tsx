@@ -1,7 +1,6 @@
 "use client";
 import {
   EMPTY_TABLE_FILTERS,
-  readStudioTableFilters,
   type StudioTableResource,
   type TableFilters,
   validateTableFilters,
@@ -14,7 +13,6 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { parseAsString } from "nuqs";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -25,19 +23,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { useStudioQueryStates } from "@/lib/nuqs";
-import { useSearchParams } from "@/lib/scoped-navigation";
 import { studioFeature } from "@/usage/client";
 import { DataTableColumnsMenu } from "./data-table-columns-menu";
 import { useDataTable } from "./data-table-context";
 import { DataTableFilterField } from "./data-table-filter-field";
+import { DataTableScope } from "./data-table-scope";
 import { type SavedTableView, validView } from "./saved-table-views";
-import type {
-  DataTableFilter,
-  DataTableFilterPanel,
-  DataTableLayout,
-} from "./types";
+import type { DataTableFilter, DataTableScopeFilter } from "./types";
 import type { useTableFilters } from "./use-table-filters";
+import type { useTableScope } from "./use-table-scope";
 import type { useTableSearch } from "./use-table-search";
 
 export function DataTableFilterControls<T>({
@@ -45,14 +39,14 @@ export function DataTableFilterControls<T>({
   searching,
   start,
   panelContainer,
-  renderPanel,
-  renderControls,
   fields,
   data,
   resource,
   state,
-  onClearLegacy,
-  extra,
+  scopeFields,
+  scopeState,
+  legacyViews,
+  clearQuery,
   pagination,
   sort,
   direction,
@@ -62,14 +56,14 @@ export function DataTableFilterControls<T>({
   searching: ReturnType<typeof useTableSearch>;
   start?: ReactNode;
   panelContainer: HTMLDivElement | null;
-  renderPanel?: (context: DataTableFilterPanel<T>) => ReactNode;
-  renderControls?: (controls: ReactNode) => ReactNode;
   fields: DataTableFilter<T>[];
   data: T[];
   resource?: StudioTableResource | "prompts" | "evaluations";
   state: ReturnType<typeof useTableFilters<T>>;
-  onClearLegacy?: () => void;
-  extra?: React.ReactNode;
+  scopeFields: readonly DataTableScopeFilter[];
+  scopeState: ReturnType<typeof useTableScope>;
+  legacyViews?: () => SavedTableView[];
+  clearQuery: () => void;
   pagination?: {
     pageSize: number;
     onPageSizeChange: (size: number) => void;
@@ -84,20 +78,16 @@ export function DataTableFilterControls<T>({
   const [error, setError] = useState("");
   const [views, setViews] = useState<SavedTableView[]>([]);
   const layout = useDataTable();
-  const search = useSearchParams();
-  const searchKey = searching.queryKey;
-  const [, setQuery] = useStudioQueryStates(
-    {
-      q: parseAsString,
-      env: parseAsString,
-      range: parseAsString,
-      startedAfter: parseAsString,
-      startedBefore: parseAsString,
-      includeChildren: parseAsString,
-      archived: parseAsString,
-    },
-    { shallow: !resource, urlKeys: { q: searchKey } },
-  );
+  const {
+    keys: scopeKeys,
+    values: scope,
+    empty: clearScope,
+    change: setScope,
+  } = scopeState;
+  const changeScope = (patch: Record<string, string | boolean | null>) => {
+    void setScope(patch);
+    pagination?.onCursorChange(0);
+  };
   const storageKey = `kortyx.table.${tableId}.views.v1`;
   useEffect(() => {
     try {
@@ -107,85 +97,16 @@ export function DataTableFilterControls<T>({
         setViews(
           Array.isArray(parsed) ? parsed.filter(validView).slice(0, 30) : [],
         );
-      } else {
-        const cookieNames: Record<string, string> = {
-          runs: "kortyx_runs_table_prefs",
-          sessions: "kortyx_sessions_table_prefs",
-          interrupts: "kortyx_interrupts_table_prefs",
-        };
-        const rawCookie = document.cookie
-          .split("; ")
-          .find((entry) => entry.startsWith(`${cookieNames[tableId]}=`))
-          ?.split("=")
-          .slice(1)
-          .join("=");
-        if (
-          resource &&
-          resource !== "prompts" &&
-          resource !== "evaluations" &&
-          rawCookie
-        ) {
-          const old = JSON.parse(decodeURIComponent(rawCookie)).views ?? [];
-          setViews(
-            old.flatMap(
-              (view: {
-                name: string;
-                query: Record<string, unknown>;
-                layout: DataTableLayout;
-              }) => {
-                try {
-                  const query = (view.query.filters ?? view.query) as Record<
-                    string,
-                    unknown
-                  >;
-                  const pairs = Object.fromEntries(
-                    Object.entries(query)
-                      .filter(
-                        ([, value]) => value !== null && value !== undefined,
-                      )
-                      .map(([key, value]) => [
-                        key,
-                        Array.isArray(value) ? value.join(",") : String(value),
-                      ]),
-                  );
-                  return [
-                    {
-                      name: view.name,
-                      filters: readStudioTableFilters(pairs, resource),
-                      layout: view.layout,
-                      ...(typeof view.query.sort === "string"
-                        ? { sort: view.query.sort }
-                        : {}),
-                      ...(view.query.dir === "asc" || view.query.dir === "desc"
-                        ? { direction: view.query.dir }
-                        : {}),
-                      scope: Object.fromEntries(
-                        Object.entries(pairs).filter(([key]) =>
-                          [
-                            "q",
-                            "env",
-                            "range",
-                            "startedAfter",
-                            "startedBefore",
-                            "includeChildren",
-                            "archived",
-                          ].includes(key),
-                        ),
-                      ),
-                    },
-                  ];
-                } catch {
-                  return [];
-                }
-              },
-            ),
-          );
-        }
+      } else if (legacyViews) {
+        const migrated = legacyViews().filter(validView).slice(0, 30);
+        setViews(migrated);
+        if (migrated.length)
+          localStorage.setItem(storageKey, JSON.stringify(migrated));
       }
     } catch {
       setViews([]);
     }
-  }, [storageKey, resource, tableId]);
+  }, [storageKey, legacyViews]);
   const saveViews = (next: SavedTableView[]) => {
     setViews(next);
     try {
@@ -207,6 +128,7 @@ export function DataTableFilterControls<T>({
   const [fieldSearch, setFieldSearch] = useState("");
   const serialized = JSON.stringify(filters);
   useEffect(() => {
+    if (pending.current) clearTimeout(pending.current);
     setDraft(JSON.parse(serialized));
   }, [serialized]);
   useEffect(
@@ -228,24 +150,23 @@ export function DataTableFilterControls<T>({
     if (immediate) state.apply(next);
     else pending.current = setTimeout(() => state.apply(next), 350);
   };
-  const priority = [
-    "status",
-    "feedback",
-    "workflowIds",
-    "workflowId",
-    "models",
-    "provider",
-    "providers",
-    "durationMs",
-    "duration",
-    "tokens",
-    "cost",
-  ];
-  const listedFields = [...fields].sort(
-    (a, b) =>
-      (priority.includes(a.key) ? priority.indexOf(a.key) : 100) -
-      (priority.includes(b.key) ? priority.indexOf(b.key) : 100),
+  const groups = Object.entries(
+    Object.groupBy(
+      fields.filter((field) =>
+        field.label.toLowerCase().includes(fieldSearch.toLowerCase()),
+      ),
+      (field) => field.group ?? "",
+    ),
   );
+  function cancelPending() {
+    if (pending.current) clearTimeout(pending.current);
+    pending.current = null;
+  }
+  function clearFilters() {
+    cancelPending();
+    change(EMPTY_TABLE_FILTERS, true);
+    changeScope(clearScope);
+  }
   const matchControl = (
     <div className="mb-4">
       <p className="mb-2 text-xs font-medium text-muted-foreground">
@@ -267,37 +188,9 @@ export function DataTableFilterControls<T>({
       </div>
     </div>
   );
-  const renderField = (key: string) => {
-    const field = fields.find((field) => field.key === key);
-    return field ? (
-      <DataTableFilterField
-        key={field.key}
-        field={field}
-        rules={draft.rules.filter((rule) => rule.field === key)}
-        data={data}
-        resource={resource}
-        onChange={(rules, immediate) =>
-          change(
-            {
-              ...draft,
-              rules: [
-                ...draft.rules.filter((rule) => rule.field !== key),
-                ...rules,
-              ],
-            },
-            immediate,
-          )
-        }
-      />
-    ) : null;
-  };
   const controls = (
     <div
-      className={
-        renderControls
-          ? "flex w-full min-w-0 flex-wrap items-center gap-2"
-          : "flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-5 py-2 pb-3"
-      }
+      className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-b bg-background px-5 py-2 pb-3"
       data-table-controls={tableId}
     >
       {start && <div className="flex shrink-0 items-center gap-2">{start}</div>}
@@ -314,7 +207,6 @@ export function DataTableFilterControls<T>({
           value={searching.value}
           onChange={(event) => {
             searching.onChange(event.target.value);
-            pagination?.onCursorChange(0);
           }}
         />
       </div>
@@ -353,17 +245,12 @@ export function DataTableFilterControls<T>({
         <DropdownMenuContent align="end" className="w-64 p-2">
           <DropdownMenuItem
             onSelect={() => {
+              cancelPending();
               state.apply(EMPTY_TABLE_FILTERS);
               layout.resetLayout();
-              void setQuery({
-                q: null,
-                env: null,
-                range: null,
-                startedAfter: null,
-                startedBefore: null,
-                includeChildren: null,
-                archived: null,
-              });
+              void setScope(clearScope);
+              searching.onChange("");
+              clearQuery();
             }}
           >
             Standard view
@@ -384,18 +271,26 @@ export function DataTableFilterControls<T>({
                     );
                     return;
                   }
+                  cancelPending();
                   state.apply(view.filters);
                   layout.applyLayout(view.layout);
-                  void setQuery({
-                    q: null,
-                    env: null,
-                    range: null,
-                    startedAfter: null,
-                    startedBefore: null,
-                    includeChildren: null,
-                    archived: null,
-                    ...view.scope,
+                  void setScope({
+                    ...clearScope,
+                    ...Object.fromEntries(
+                      Object.entries(view.scope)
+                        .filter(([key]) => scopeKeys.includes(key))
+                        .map(([key, value]) => [
+                          key,
+                          scopeFields.some(
+                            (field) =>
+                              field.key === key && field.kind === "boolean",
+                          )
+                            ? value === "true"
+                            : value,
+                        ]),
+                    ),
                   });
+                  searching.onChange(view.scope.q ?? "");
                   if (view.sort && onSetSortDirection)
                     onSetSortDirection(view.sort, view.direction ?? "desc");
                   if (view.pageSize)
@@ -442,37 +337,35 @@ export function DataTableFilterControls<T>({
                 setName("");
                 return;
               }
+              try {
+                validateTableFilters(draft, fields);
+              } catch {
+                setError("Check filter values before saving this view.");
+                return;
+              }
+              cancelPending();
+              if (JSON.stringify(draft) !== JSON.stringify(filters))
+                state.apply(draft);
               saveViews(
                 [
                   ...views,
                   {
                     name: name.trim().slice(0, 80),
-                    filters,
+                    filters: draft,
                     layout: {
-                      widths: layout.widths,
+                      widths: layout.storedWidths,
                       order: layout.order,
                       hidden: layout.hidden,
                       pinned: layout.pinned,
                     },
                     scope: {
                       ...Object.fromEntries(
-                        [...search.entries()]
-                          .filter(([key]) => key !== "q" || searchKey === "q")
-                          .map(([key, value]) => [
-                            key === searchKey ? "q" : key,
-                            value,
-                          ])
-                          .filter(([key]) =>
-                            [
-                              "q",
-                              "env",
-                              "range",
-                              "startedAfter",
-                              "startedBefore",
-                              "includeChildren",
-                              "archived",
-                            ].includes(key),
-                          ),
+                        Object.entries(scope)
+                          .filter(
+                            (entry): entry is [string, string | boolean] =>
+                              entry[1] !== null && entry[1] !== undefined,
+                          )
+                          .map(([key, value]) => [key, String(value)]),
                       ),
                       q: searching.value,
                     },
@@ -504,59 +397,63 @@ export function DataTableFilterControls<T>({
   );
   return (
     <>
-      {renderControls ? renderControls(controls) : controls}
+      {controls}
       {state.open &&
         panelContainer &&
         createPortal(
-          renderPanel ? (
-            renderPanel({
-              error,
-              invalid: state.invalid,
-              filters: draft,
-              fields,
-              open: state.open,
-              onClose: () => state.setOpen(false),
-              onClear: () => {
-                change(EMPTY_TABLE_FILTERS, true);
-                onClearLegacy?.();
-              },
-              onChange: change,
-              renderField,
-              matchControl,
-            })
-          ) : (
-            <aside
-              aria-label="Filters"
-              className="relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
-            >
-              <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-                <h2 className="font-semibold">Filters</h2>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Close filters"
-                  onClick={() => state.setOpen(false)}
-                >
-                  <X />
-                </Button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                {matchControl}
-                {extra && <div className="mb-4 border-b pb-4">{extra}</div>}
-                <Input
-                  aria-label="Find a filter"
-                  placeholder="Find a filter…"
-                  value={fieldSearch}
-                  onChange={(event) => setFieldSearch(event.target.value)}
-                  className="mb-2 h-8"
-                />
-                {listedFields
-                  .filter((field) =>
-                    field.label
-                      .toLowerCase()
-                      .includes(fieldSearch.toLowerCase()),
-                  )
-                  .map((field) => (
+          <aside
+            aria-label="Filters"
+            onKeyDown={(event) => {
+              if (event.key === "Escape" && !event.defaultPrevented) {
+                state.setOpen(false);
+              }
+            }}
+            className="relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
+          >
+            <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+              <h2 className="font-semibold">Filters</h2>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close filters"
+                onClick={() => state.setOpen(false)}
+              >
+                <X />
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {matchControl}
+              {scopeFields.length > 0 && (
+                <div className="mb-4 border-b pb-4">
+                  <DataTableScope
+                    fields={scopeFields}
+                    values={scope}
+                    onChange={changeScope}
+                  />
+                </div>
+              )}
+              <Input
+                aria-label="Find a filter"
+                placeholder="Find a filter…"
+                value={fieldSearch}
+                onChange={(event) => setFieldSearch(event.target.value)}
+                className="mb-2 h-8"
+              />
+              {groups.length === 0 && (
+                <p className="py-4 text-sm text-muted-foreground">
+                  No matching filters.
+                </p>
+              )}
+              {groups.map(([group, groupFields]) => (
+                <section key={group}>
+                  {group &&
+                    !(
+                      groupFields?.length === 1 &&
+                      groupFields[0].label === group
+                    ) && (
+                      <h3 className="pt-4 text-xs font-semibold">{group}</h3>
+                    )}
+                  {groupFields?.map((field) => (
                     <DataTableFilterField
                       key={field.key}
                       field={field}
@@ -581,27 +478,25 @@ export function DataTableFilterControls<T>({
                       }
                     />
                   ))}
-                {error && (
-                  <p role="alert" className="mt-3 text-xs text-destructive">
-                    {error}
-                  </p>
-                )}
-              </div>
-              <div className="shrink-0 border-t p-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => {
-                    change(EMPTY_TABLE_FILTERS, true);
-                    onClearLegacy?.();
-                  }}
-                >
-                  <X /> Clear filters
-                </Button>
-              </div>
-            </aside>
-          ),
+                </section>
+              ))}
+              {error && (
+                <p role="alert" className="mt-3 text-xs text-destructive">
+                  {error}
+                </p>
+              )}
+            </div>
+            <div className="shrink-0 border-t p-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                onClick={clearFilters}
+              >
+                <X /> Clear filters
+              </Button>
+            </div>
+          </aside>,
           panelContainer,
         )}
     </>
