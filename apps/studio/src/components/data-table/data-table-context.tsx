@@ -126,6 +126,7 @@ type DataTableProviderProps<T, S extends string> = {
   onLayoutChange?: (layout: DataTableLayout) => void;
   /** localStorage key for persisting layout. Convenience for client-only apps. */
   persistKey?: string;
+  preferenceLayout?: DataTableLayout;
   children: ReactNode;
 };
 
@@ -141,6 +142,7 @@ export function DataTableProvider<T, S extends string>({
   initialLayout,
   onLayoutChange,
   persistKey,
+  preferenceLayout,
   children,
 }: DataTableProviderProps<T, S>) {
   const defaultOrder = useMemo(
@@ -196,6 +198,36 @@ export function DataTableProvider<T, S extends string>({
   const onLayoutChangeRef = useRef(onLayoutChange);
   onLayoutChangeRef.current = onLayoutChange;
   const hasSettledRef = useRef(false);
+  const restoringLayout = useRef<string | null>(null);
+  const preferenceLayoutKey = JSON.stringify(preferenceLayout);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: apply external preferences only when their values change.
+  useEffect(() => {
+    if (!preferenceLayout) return;
+    const restoredWidths = columnWidths(columns, preferenceLayout.widths);
+    const restored = columnLayout(columns, preferenceLayout);
+    const restoredPinned =
+      validatePinned(preferenceLayout.pinned, defaultOrder) ?? {};
+    if (
+      JSON.stringify({ widths, order, hidden, pinned }) ===
+      JSON.stringify({
+        widths: restoredWidths,
+        order: restored.order,
+        hidden: restored.hidden,
+        pinned: restoredPinned,
+      })
+    )
+      return;
+    restoringLayout.current = JSON.stringify({
+      widths: restoredWidths,
+      order: restored.order,
+      hidden: restored.hidden,
+      pinned: restoredPinned,
+    });
+    setWidths(restoredWidths);
+    setOrder(restored.order);
+    setHidden(restored.hidden);
+    setPinned(restoredPinned);
+  }, [preferenceLayoutKey]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -238,6 +270,14 @@ export function DataTableProvider<T, S extends string>({
       } catch {
         /* Storage can be unavailable; the table remains usable. */
       }
+    }
+    // An external restore can schedule state after this render's effects. Keep
+    // suppressing writes until the restored layout itself has settled.
+    if (restoringLayout.current) {
+      if (JSON.stringify(layout) === restoringLayout.current)
+        restoringLayout.current = null;
+      hasSettledRef.current = true;
+      return;
     }
     // Skip the initial settle so we only notify on real user changes.
     if (!hasSettledRef.current) {

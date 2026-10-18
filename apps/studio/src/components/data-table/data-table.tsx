@@ -40,8 +40,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { columnLayout, columnWidths } from "./column-layout";
 import { DataTableFilterControls } from "./data-table-filters";
 import type { SavedTableView } from "./saved-table-views";
+import {
+  CurrentTablePreference,
+  useTablePreferenceEntry,
+  useTablePreferenceSnapshot,
+} from "./table-persistence";
 import { sortTableRows } from "./table-rows";
 import { matchesTableSearch } from "./table-search";
 import type {
@@ -54,7 +60,6 @@ import type {
 } from "./types";
 import type { TableFilterCompatibility } from "./use-table-filters";
 import { useTableFilters } from "./use-table-filters";
-
 import { useTableQuery } from "./use-table-query";
 import { useTableScope } from "./use-table-scope";
 import { useTableSearch } from "./use-table-search";
@@ -99,15 +104,35 @@ const CELL_BASE = "max-w-0 overflow-hidden border-b px-3 py-3.5 align-middle";
 export function DataTable<T, S extends string = string>(
   props: DataTableProps<T, S>,
 ) {
+  const entry = useTablePreferenceEntry(props.tableId);
+  const persistence = useTablePreferenceSnapshot(entry);
   return (
-    <DataTableProvider
-      key={props.tableId}
-      columns={props.columns}
-      initialLayout={props.initialLayout}
-      persistKey={`kortyx.table.${props.tableId}.layout.v1`}
-    >
-      <DataTableContent {...props} />
-    </DataTableProvider>
+    <CurrentTablePreference.Provider value={entry}>
+      <DataTableProvider
+        key={props.tableId}
+        columns={props.columns}
+        initialLayout={props.initialLayout}
+        persistKey={
+          entry ? undefined : `kortyx.table.${props.tableId}.layout.v1`
+        }
+        preferenceLayout={
+          persistence?.hydrated
+            ? (persistence.preferences.defaults.layout ?? {
+                widths: columnWidths(props.columns),
+                ...columnLayout(props.columns),
+                pinned: {},
+              })
+            : undefined
+        }
+        onLayoutChange={
+          entry
+            ? (layout) => entry.mutate({ kind: "defaults", patch: { layout } })
+            : undefined
+        }
+      >
+        <DataTableContent {...props} />
+      </DataTableProvider>
+    </CurrentTablePreference.Provider>
   );
 }
 

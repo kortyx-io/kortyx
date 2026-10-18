@@ -99,6 +99,13 @@
       "when": 1792161179467,
       "tag": "0013_eval_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792328339026,
+      "tag": "0014_studio_table_preferences",
+      "breakpoints": true
     }
   ]
 }

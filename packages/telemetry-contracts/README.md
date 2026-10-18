@@ -20,6 +20,16 @@ percentage of recorded passed/failed/error cases (unrun cases are excluded), or
 no value when none finished. `tableQueueMs` returns elapsed queue milliseconds
 only when a valid start timestamp is recorded.
 
+Studio preference contracts include `StudioTablePreferencesSchema` (database
+snapshot with revision), `StudioTablePreferenceWriteSchema` (scope/revision plus
+one defaults/upsert-view/delete-view operation), and
+`StudioTableConfigurationSchema` (portable schema-version-1 configuration without
+owner IDs or database revision). Stable table IDs are registered centrally.
+Layouts allow at most 256 column keys, finite widths of 1–10000 px, and left/right
+pins. There are at most 30 uniquely identified views per table. View names are
+1–80 characters and filter/scope strings remain bounded. APIs derive ownership
+from authenticated principals; serialized configuration cannot grant access.
+
 ### Studio sample identities
 
 `SAMPLE_PROJECT` exports the versioned sample project's stable record IDs,
