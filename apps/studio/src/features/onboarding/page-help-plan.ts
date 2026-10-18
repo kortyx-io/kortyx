@@ -34,6 +34,7 @@ export interface PageHelpPlan {
   steps: PageHelpStep[];
   example?: string;
   empty: boolean;
+  documentationUrl?: string;
 }
 
 /** Capture only element references and authored copy. Never read customer content. */
@@ -63,6 +64,24 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
     }
     return undefined;
   };
+  // Edition contributions supply authored help, never text read from customer data.
+  const topic =
+    guide.kind === "settings" || guide.kind === "setup"
+      ? find("[data-page-help-topic]")
+      : undefined;
+  let documentationUrl: string | undefined;
+  try {
+    const candidate = new URL(topic?.dataset.pageHelpDocumentation ?? "");
+    if (
+      candidate.origin === "https://kortyx.io" &&
+      candidate.pathname.startsWith("/docs/") &&
+      !candidate.username &&
+      !candidate.password
+    )
+      documentationUrl = candidate.href;
+  } catch {
+    /* Missing or malformed authored destinations retain shared help. */
+  }
   const steps: PageHelpStep[] = [];
   function add(
     id: PageHelpStepId,
@@ -256,32 +275,38 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
         "";
       add(
         "content",
-        {
-          "sample-project": "Sample project visibility",
-          "api-keys": "Application credentials",
-          privacy: "Telemetry & privacy",
-          appearance: "Appearance",
-          evaluations: "Evaluation defaults",
-          about: "Installed version",
-          general: "Workspace scope",
-          connection: "Server connection",
-          access: "Studio access",
-        }[section] ?? "Selected settings",
-        Object.hasOwn(SETTINGS_HELP, section)
-          ? (SETTINGS_HELP[section] ?? guide.content)
-          : guide.content,
-        find(
-          '[data-settings-card] [data-guide-focus="appearance-option"]',
-          "[data-settings-card]",
-        ),
+        topic?.dataset.pageHelpTitle ??
+          {
+            "sample-project": "Sample project visibility",
+            "api-keys": "Application credentials",
+            privacy: "Telemetry & privacy",
+            appearance: "Appearance",
+            evaluations: "Evaluation defaults",
+            about: "Installed version",
+            general: "Workspace scope",
+            connection: "Server connection",
+            access: "Studio access",
+          }[section] ??
+          "Selected settings",
+        topic?.dataset.pageHelpDescription ??
+          (Object.hasOwn(SETTINGS_HELP, section)
+            ? (SETTINGS_HELP[section] ?? guide.content)
+            : guide.content),
+        topic
+          ? (topic.querySelector<HTMLElement>(":scope > div:first-child") ??
+              topic)
+          : find(
+              '[data-settings-card] [data-guide-focus="appearance-option"]',
+              "[data-settings-card]",
+            ),
       );
     }
     if (guide.kind === "setup")
       add(
         "content",
-        "Connect and verify",
-        guide.content,
-        find("ol", "section"),
+        topic?.dataset.pageHelpTitle ?? "Connect and verify",
+        topic?.dataset.pageHelpDescription ?? guide.content,
+        topic ?? find("ol", "section"),
       );
   }
   const detail = find(
@@ -310,5 +335,6 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
     steps,
     example: guide.example,
     empty: Boolean(guide.example) && !hasContent,
+    ...(documentationUrl ? { documentationUrl } : {}),
   };
 }

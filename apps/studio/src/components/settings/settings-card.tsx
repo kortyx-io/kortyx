@@ -19,7 +19,14 @@ export function SettingsCard({
   help?: HelpDefinition;
 }) {
   return (
-    <section data-settings-card="true" className={cn("min-w-0", className)}>
+    <section
+      data-settings-card="true"
+      data-page-help-topic={help ? "true" : undefined}
+      data-page-help-title={help?.label}
+      data-page-help-description={help?.description}
+      data-page-help-documentation={help?.documentationUrl}
+      className={cn("min-w-0", className)}
+    >
       <div className="mb-6 border-b pb-5">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
