@@ -576,9 +576,13 @@ const runTopologyPush = async (rawOptions: CliOptions): Promise<void> => {
           2,
         ),
       );
-    throw new Error(
-      "KTX_TOPOLOGY_INCOMPLETE: Publication blocked before upload: unresolved child calls or discovery gaps. Use a reasoned exemption for intentional dynamic calls.",
-    );
+    const message =
+      "Publication blocked before upload: unresolved child calls or discovery gaps. Use a reasoned exemption for intentional dynamic calls.";
+    throw new KortyxError("KTX_TOPOLOGY_INCOMPLETE", message, {
+      category: "validation",
+      retryable: false,
+      safeMessage: message,
+    });
   }
   for (const snapshot of snapshots) {
     const calls = discovered.calls.get(snapshot.workflow.id);

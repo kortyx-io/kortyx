@@ -4,12 +4,12 @@ import {
   Cloud,
   Code2,
   Eye,
-  Github,
   PackageOpen,
   Server,
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GithubIcon } from "@/components/icons/github-icon";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
 import { MarketingPageJsonLd } from "@/components/marketing/marketing-page-json-ld";
@@ -121,7 +121,7 @@ export default function OpenSourcePage() {
                 rel="noopener noreferrer"
                 className="group inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#a89cff] px-5 text-sm font-semibold text-[#08080c]"
               >
-                <Github className="size-4" /> View source
+                <GithubIcon className="size-4" /> View source
               </a>
               <Link
                 href="/docs/sdk/getting-started/installation"

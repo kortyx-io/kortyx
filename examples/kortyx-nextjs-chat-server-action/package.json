@@ -48,7 +48,7 @@
     "react-markdown": "catalog:",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "catalog:",
-    "shiki": "^3.21.0",
+    "shiki": "^4.5.0",
     "tailwind-merge": "catalog:",
     "zod": "catalog:"
   },
@@ -58,7 +58,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "autoprefixer": "^10.4.0",
-    "dotenv": "^17.2.1",
+    "dotenv": "^18.0.7",
     "postcss": "^8.5.8",
     "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:",

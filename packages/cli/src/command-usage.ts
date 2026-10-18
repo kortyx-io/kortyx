@@ -63,7 +63,13 @@ export async function runCliWithUsage(
     facts = commandProperties(command);
     phase = "execution";
     const opts = command.optsWithGlobals();
-    flags = { dry_run: opts.dryRun === true, json_output: opts.json === true };
+    flags = {
+      dry_run: opts.dryRun === true,
+      json_output: opts.json === true,
+      ...(facts.cli_command === "topology.push"
+        ? { topology_strict: opts.failOnUnresolvedCalls === true }
+        : {}),
+    };
   });
   try {
     await program.parseAsync(args, { from: "user" });

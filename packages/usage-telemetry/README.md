@@ -198,3 +198,16 @@ unique users, successful page loads, or completed reading. Existing opt-out,
 budgets, aggregation and best-effort delivery apply. No help labels, descriptions,
 URLs, customer identifiers or execution content are collected. This measures
 maintainer product usage separately from customer execution observability.
+
+## Topology publication measurement
+
+`cli.command` counts each `topology.push` invocation once, including dry runs.
+The allowlisted `topology_strict` boolean records whether optional strict discovery
+was selected. A blocked publication reports `KTX_TOPOLOGY_INCOMPLETE`, validation
+category and `retryable: false`; the CLI's existing terminal outcome and opt-out,
+bounded delivery and exporter-failure behavior apply. Compare `sum(count)` for
+strict invocations with all topology-push invocations to measure adoption, and
+blocked strict invocations with all strict invocations to measure rejection rate.
+Do not interpret a successful invocation as complete discovery when strict mode
+is off or intentional dynamic calls are exempt. Paths, expressions, import traces,
+credentials and diagnostic messages are never usage properties.

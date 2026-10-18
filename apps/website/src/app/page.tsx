@@ -5,7 +5,6 @@ import {
   Cloud,
   Code2,
   Eye,
-  Github,
   GitPullRequestArrow,
   Layers3,
   MessageSquareMore,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GithubIcon } from "@/components/icons/github-icon";
 import { AgentRuntimeDemo } from "@/components/marketing/agent-runtime-demo";
 import { FlowLine } from "@/components/marketing/flow-line";
 import { MarketingCta } from "@/components/marketing/marketing-cta";
@@ -330,7 +330,7 @@ export default function Home() {
                   rel="noopener noreferrer"
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/[0.035] px-5 text-sm font-medium text-white/75 transition-colors hover:border-white/22 hover:bg-white/[0.065] hover:text-white"
                 >
-                  <Github className="size-4" />
+                  <GithubIcon className="size-4" />
                   View on GitHub
                 </a>
               </div>

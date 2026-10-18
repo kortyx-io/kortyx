@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowRight, ArrowUpRight, Github, Menu } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type CSSProperties, type ReactNode, useEffect, useRef } from "react";
+import { GithubIcon } from "@/components/icons/github-icon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 
@@ -143,7 +144,7 @@ export function Navbar({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Github className="size-[18px]" />
+                <GithubIcon className="size-[18px]" />
                 <span className="sr-only">Open Kortyx on GitHub</span>
               </a>
             </Button>

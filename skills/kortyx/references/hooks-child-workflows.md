@@ -142,3 +142,21 @@ Implementation invariants: lifecycle facts distinguish started, suspended, resum
 Verify Studio with a completed child, a waiting leaf, divergent fork answers, and a cached sibling. Check parent links and pagination with the child toggle enabled. Public implementation guide: `https://kortyx.io/docs/guides/child-workflows` (when the containing SDK/docs release is available).
 
 For typed failure propagation and safe recovery policy, see [Error handling](error-handling.md).
+
+## Check declared child-call discovery in CI
+
+Run `kortyx topology push --help` against the installed CLI before relying on
+`--fail-on-unresolved-calls`. When available, this optional flag rejects unresolved
+child targets, IDs outside the publication set, and source-discovery gaps before
+uploading topology. Add `--dry-run` to check without publication. Default publication
+remains best effort and reports incomplete discovery separately from upload acceptance;
+`--json` includes structured diagnostics alongside the existing workflows.
+
+An intentional dynamic call can use `// kortyx-dynamic-call: <reason>` immediately
+above `useWorkflow`. Put it inside a custom hook if that hook owns the child call,
+and preserve it in compiled source. Exemptions do not establish complete topology
+and cannot suppress broken imports, missing arguments, or unregistered literal IDs.
+Publish from the application's source when possible; runtime execution evidence
+remains necessary to verify dynamic relationships in Studio. Source expressions and
+import-resolution traces stay in CLI diagnostics and are not topology payloads or
+maintainer usage properties.
