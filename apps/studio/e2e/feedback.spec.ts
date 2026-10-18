@@ -17,12 +17,20 @@ test.beforeEach(async ({ request }) => {
     data: { runId: DRAWER_FIXTURE.runId, actorId: "feedback-e2e-user" },
   });
   expect(cleared.ok(), await cleared.text()).toBe(true);
+  // A timed-out attempt can leave a saved review behind for the retry.
+  const review = await request.delete(
+    `${apiUrl}/v1/studio/runs/${DRAWER_FIXTURE.runId}/review`,
+    { headers: { authorization: `Bearer ${studioKey}` } },
+  );
+  expect([200, 403]).toContain(review.status()); // Read-only keys cannot clear reviews.
 });
 
 test("filters feedback, opens the existing drawer, and keeps human review separate", async ({
   page,
   request,
 }) => {
+  // This multi-route save/edit/reload journey includes cold Next dev compilation.
+  test.setTimeout(60_000);
   const payload = {
     runId: DRAWER_FIXTURE.runId,
     actorId: "feedback-e2e-user",

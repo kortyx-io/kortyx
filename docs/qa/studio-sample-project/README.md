@@ -471,3 +471,9 @@ reports also identified stale tour wording/accessibility selectors and cold Next
 development-route assertions reaching their five-second deadline during compile.
 Updated those assertions without removing coverage or disabling gates. No local
 E2E tests ran; final-head hosted CI is recorded in the PR before merge.
+
+The next hosted run passed the range-filter shard and exposed a separate feedback
+test isolation issue: cold drawer compilation consumed 13 seconds of a 30-second
+multi-page journey, and its retry inherited the saved review. Reset the fixture's
+human review before each attempt (preserving the read-only key path) and give that
+single save/edit/reload journey 60 seconds. All assertions remain in place.
