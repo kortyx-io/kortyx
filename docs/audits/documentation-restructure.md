@@ -220,6 +220,47 @@ audit does not publish or release anything. No CI, commits, pushes or PRs were
 triggered; future PR CI and the previously listed live-service checks remain
 outside this local documentation verification.
 
+## Public PR rebase assessment — 2026-10-18
+
+[Public PR #366](https://github.com/kortyx-io/kortyx/pull/366) rebases this work
+onto `25da0b9c`, including the centralized table controls and sample-project,
+onboarding, tour and current-page-help surfaces from #363 and #364. The earlier
+verification sections above describe the pre-rebase snapshots.
+
+The combined implementation keeps the new DataTable query/scope/layout contracts,
+sample isolation, typed detail-tab families, tour targets and progress IDs. Help
+now covers the centralized Columns panel, filter drawer, sample selector/settings,
+setup guide and learning library. Tour tooltips have a separate documentation
+footer; current-page help chooses documentation for the explained feature.
+Initial focus stays on the project link, column search or learning action so an
+automatically focused help circle cannot obscure the intended control.
+
+Added the customer sample/tour guide and its explicit navigation entry. The
+reorganized areas now contain 54 pages. All 58 original help destinations remain;
+two additive topics describe sample data and learning. The shared telemetry
+catalog keeps guided-help actions alongside tooltip open/documentation actions.
+Cloud's integration and release remain separate; the sample guide explains the
+Cloud update boundary.
+
+Local rebase verification includes 454 Studio tests, 138 website tests, 48 usage
+tests with coverage gates, lint, type checks, production builds, all eight sample
+browser scenarios (including the full six-chapter walkthrough), and all 42 website
+desktop/mobile checks. Expanded table/help regressions and exact-head public CI
+results are recorded in the PR before merge. Screenshots supplement the browser
+checks. An initial local API error was traced to an outdated preview database;
+normal existing migrations restored the seeded evaluation-detail response to 200.
+
+The pruned website container explicitly includes the two shared registry/type
+files used by the help-link audit and the package metadata used by version labels.
+The existing production and test type checks remain enabled. Private Cloud source
+is not required by the public build.
+
+Release boundary: merge this public PR only after its exact-head checks pass;
+publish website documentation before the OSS release; prepare the Cloud PR after
+the public release. Automatic public-to-Cloud synchronization is temporarily held
+to enforce that order and avoid private CI. Restore that workflow as part of the
+later release handoff. No Cloud PR or private CI is triggered by this preparation.
+
 ## Adoption measures and next maintenance
 
 Targets: first visible run within 15 minutes, 80% quickstart completion, and fixes

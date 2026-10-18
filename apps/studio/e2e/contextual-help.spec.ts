@@ -297,7 +297,7 @@ test("light appearance keeps the separate documentation footer", async ({
       name: "About Self-hosted evaluation configuration",
       exact: true,
     })
-    .hover();
+    .click();
   await expect(
     page.getByRole("dialog", {
       name: "About Self-hosted evaluation configuration",
