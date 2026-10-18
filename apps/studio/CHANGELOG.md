@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.23.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.23.0...studio-v0.23.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **studio:** correct page help and failed-run Trace guidance ([aae818d](https://github.com/kortyx-io/kortyx/commit/aae818d61229b981aa34a423dab54c030c0ad885))
+* **studio:** guide failed Trace through its selected inspector ([37b891b](https://github.com/kortyx-io/kortyx/commit/37b891b3ed615597adf004f5c45bcc74fd63e487))
+* **studio:** keep sample evaluations compatible with strict consumers ([#370](https://github.com/kortyx-io/kortyx/issues/370)) ([df65a87](https://github.com/kortyx-io/kortyx/commit/df65a87473f62175d64b4011015240bdba3dc62f))
+* **studio:** preserve chapter resume across sample entry ([a327135](https://github.com/kortyx-io/kortyx/commit/a327135c8317b72ed989fb39b66c031f029e3c8e))
+* **studio:** resume saved chapters from real projects ([76b1c8f](https://github.com/kortyx-io/kortyx/commit/76b1c8f947d935d5f443cc29bda4db2e38e42967))
+* **studio:** use authored settings help for page explanations ([70865d8](https://github.com/kortyx-io/kortyx/commit/70865d896fcc32e9903f1fa0a6ae30373cfefc5c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.19.1
+  * devDependencies
+    * @kortyx/agent bumped to 0.40.1
+    * @kortyx/telemetry bumped to 0.17.2
+    * kortyx bumped to 0.32.2
+
 ## [0.23.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.22.0...studio-v0.23.0) (2026-10-18)
 
 
