@@ -8,7 +8,7 @@ section: "get-started"
 ---
 # Connect your application
 
-You need a working Kortyx agent, a telemetry API endpoint, and a project write key. Get the endpoint and key from [Cloud Settings](/docs/cloud/get-started) or your [local installation](/docs/self-hosting/run-locally). For a team installation, ask its operator for the application write key.
+You need a working Kortyx agent and a project write key. Get the key from [Cloud Settings](/docs/cloud/get-started) or your [local installation](/docs/self-hosting/run-locally). The SDK defaults to `https://api.kortyx.io` for Cloud. For a team installation, ask its operator for the telemetry API endpoint and application write key.
 
 ## Install the adapter
 
@@ -30,16 +30,17 @@ bun add @kortyx/telemetry
 
 ## Configure the server environment
 
-Copy the endpoint and write key from your installation. Cloud provides them in **Settings > Connection** and **Settings > API keys**. For local Studio, run `kortyx studio credentials --format dotenv --service-name my-agent`.
+For Cloud, copy the project write key from **Settings > API keys**. You do not need to configure an endpoint. For local Studio, run `kortyx studio credentials --format dotenv --service-name my-agent`; self-hosted applications also need the telemetry API endpoint supplied by their operator.
 
 Store the supplied values in your application's private server environment:
 
 ```dotenv file=".env.local"
-KORTYX_TELEMETRY_API_URL=<your telemetry API endpoint>
 KORTYX_TELEMETRY_API_KEY=<your project write key>
 KORTYX_TELEMETRY_ENVIRONMENT=development
 KORTYX_TELEMETRY_SERVICE_NAME=my-agent
 ```
+
+For local or self-hosted Studio, also set `KORTYX_TELEMETRY_API_URL` to its reachable telemetry API base URL, such as `http://localhost:6400`.
 
 Load those values with your server's existing environment loader. Use a stable service name across deployments. The environment is an activity label; it does not create a project or an access boundary. Keep the key out of browser code and public environment prefixes.
 
@@ -51,7 +52,7 @@ import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
 import { workflows } from "./workflows";
 
 const telemetry = createKortyxTelemetryAdapter({
-  endpoint: process.env.KORTYX_TELEMETRY_API_URL!,
+  endpoint: process.env.KORTYX_TELEMETRY_API_URL,
   apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
   environment:
     process.env.KORTYX_TELEMETRY_ENVIRONMENT ?? "development",
@@ -81,6 +82,8 @@ const telemetry = createKortyxTelemetryAdapter({
 export const agent = createAgent({ workflows, telemetry });
 ```
 
+The optional `endpoint` above allows self-hosted overrides. Cloud applications can omit the property entirely. The adapter does not read environment variables itself. Upgrade `@kortyx/telemetry` before removing an endpoint from a configuration using an older version that required it.
+
 Keep the service name stable across deploys. Use the environment field as an informative label; it does not create a separate security or storage boundary.
 
 ## Verify the connection
@@ -88,11 +91,11 @@ Keep the service name stable across deploys. Use the environment field as an inf
 Open **Workflows** after the topology push, then trigger one agent request and
 open **Runs** in Studio. If nothing arrives, use this order:
 
-1. Confirm the application server has all four environment variables.
+1. Confirm the application server loaded its project key, environment, and service name. Self-hosted installations also need the correct endpoint; Cloud uses the SDK default.
 2. Confirm it restarted after configuration changed.
 3. Confirm `topology push` used the entry module and service name for this app.
-4. Check the Studio stack with `npx kortyx studio status`.
-5. Inspect recent logs with `npx kortyx studio logs --no-follow`.
+4. For self-hosted Studio, check the stack with `npx kortyx studio status`. For Cloud, check the selected organization and project.
+5. Inspect application delivery failures. For local Studio, also inspect `npx kortyx studio logs --no-follow`.
 6. Confirm the Studio time filter includes the event.
 
 For remote deployments, also verify network reachability from the application server to the telemetry API and confirm the supplied key has `telemetry:write` scope.
@@ -115,7 +118,7 @@ Enable only the content your application is permitted to export:
 
 ```ts tabs="studio-content-capture" tab="TypeScript" file="src/lib/agent.ts"
 const telemetry = createKortyxTelemetryAdapter({
-  endpoint: process.env.KORTYX_TELEMETRY_API_URL!,
+  endpoint: process.env.KORTYX_TELEMETRY_API_URL,
   apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
   captureContent: {
     input: true,

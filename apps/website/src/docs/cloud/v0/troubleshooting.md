@@ -10,7 +10,7 @@ section: "help"
 
 ## My application has no runs
 
-Check that the app's server loaded the intended Cloud endpoint and project write key. Restart or redeploy it after configuration changes. Send a new request through the normal app, then clear Studio filters and check the organization, project, environment, and time range.
+Check that the app's server loaded the intended project write key. With no endpoint override, the SDK sends to `https://api.kortyx.io`; remove any stale local or staging override when connecting to production Cloud. Restart or redeploy it after configuration changes. Send a new request through the normal app, then clear Studio filters and check the organization, project, environment, and time range.
 
 A published workflow map or a saved API key does not create a run. Follow [connection verification](/docs/studio/connect-project#verify-the-connection).
 

@@ -31,6 +31,8 @@ KORTYX_TELEMETRY_ENVIRONMENT=development
 KORTYX_TELEMETRY_SERVICE_NAME=kortyx-canvas
 ```
 
+For Kortyx Cloud, set the project write key and omit both `KORTYX_TELEMETRY_API_URL` and `KORTYX_API_URL`; the adapter defaults to `https://api.kortyx.io`. Without a write key, telemetry stays disabled.
+
 Input/output content is captured by default when telemetry is configured. Set
 `KORTYX_TELEMETRY_CAPTURE_CONTENT=false` to exclude that content, then restart the app.
 

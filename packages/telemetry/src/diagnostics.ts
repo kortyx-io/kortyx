@@ -39,7 +39,7 @@ type Entry = { manifest: DiagnosticManifest; content: string };
 
 /** Independent diagnostic transport. It never changes application execution. */
 export function createDiagnosticDelivery(
-  options: CreateKortyxTelemetryAdapterOptions,
+  options: CreateKortyxTelemetryAdapterOptions & { endpoint: string },
 ) {
   const enabled = options.diagnostics?.enabled !== false;
   const queue = new Map<string, Entry>();

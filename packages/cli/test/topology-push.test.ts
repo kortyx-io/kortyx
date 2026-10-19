@@ -4,6 +4,57 @@ import { join, resolve } from "node:path";
 import { execa } from "execa";
 import { expect, it } from "vitest";
 
+it("publishes to Cloud with only a project key and no endpoint configuration", async () => {
+  const dir = await mkdtemp(join(process.cwd(), ".push-test-"));
+  try {
+    const entry = join(dir, "entry.ts");
+    await writeFile(
+      entry,
+      'import {defineWorkflow} from "@kortyx/core"; export const workflows = [defineWorkflow({id:"cloud",version:"1",nodes:{chat:{run:async()=>({})}},edges:[]})];',
+    );
+    const transport = join(dir, "transport.mjs");
+    await writeFile(
+      transport,
+      `globalThis.fetch = async (url, init) => {
+        if (String(url) !== "https://api.kortyx.io/v1/telemetry/workflow-revisions:ensure") throw Error("Unexpected destination");
+        if (new Headers(init?.headers).get("authorization") !== "Bearer cloud-project-key") throw Error("Missing project key");
+        return Response.json({workflowRevisionId: "cloud-revision", created: true});
+      };`,
+    );
+    const result = await execa(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        "--import",
+        transport,
+        resolve("src/index.ts"),
+        "topology",
+        "push",
+        "--entry",
+        entry,
+        "--json",
+      ],
+      {
+        cwd: dir,
+        env: {
+          KORTYX_TELEMETRY_API_URL: undefined,
+          KORTYX_API_URL: undefined,
+          KORTYX_TELEMETRY_API_KEY: "cloud-project-key",
+          KORTYX_USAGE_TELEMETRY_DISABLED: "1",
+        },
+        reject: false,
+      },
+    );
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      publication: { status: "accepted", workflowCount: 1 },
+    });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}, 30_000);
+
 it("blocks strict publication before HTTP requests and reports exemptions in JSON", async () => {
   const dir = await mkdtemp(join(process.cwd(), ".push-test-"));
   let requests = 0;

@@ -15,9 +15,9 @@ Cloud SDK keys authorize telemetry writes for one project. They are separate fro
 1. Select the intended organization and project.
 2. Open **Settings → API keys** and create a key where your permissions allow it.
 3. Copy and save the secret immediately. It is shown only at creation; reloading or closing the creation result cannot reveal it again.
-4. Add it to your application's server configuration as `KORTYX_TELEMETRY_API_KEY`, alongside the workspace's telemetry endpoint.
+4. Add it to your application's server configuration as `KORTYX_TELEMETRY_API_KEY`. The SDK defaults to `https://api.kortyx.io`; Cloud needs no endpoint setting.
 
-Use **Settings → Connection** for the SDK endpoint/configuration, and follow the shared [connection guide](/docs/studio/connect-project). Never put a secret in source, screenshots, browser storage, or public environment variables.
+Use **Settings → Connection** for the SDK configuration, and follow the shared [connection guide](/docs/studio/connect-project). Never put a secret in source, screenshots, browser storage, or public environment variables.
 
 ## Replace or revoke a key
 

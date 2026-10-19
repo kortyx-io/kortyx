@@ -10,7 +10,7 @@ declare global {
 const endpoint =
   process.env.KORTYX_TELEMETRY_API_URL ?? process.env.KORTYX_API_URL;
 const apiKey = process.env.KORTYX_TELEMETRY_API_KEY;
-if (endpoint && apiKey) {
+if (apiKey) {
   globalThis.__kortyxChatTelemetry ??= createKortyxTelemetryAdapter({
     endpoint,
     apiKey,

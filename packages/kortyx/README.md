@@ -233,7 +233,7 @@ import { createAgent } from "kortyx";
 import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
 
 const telemetry = createKortyxTelemetryAdapter({
-  endpoint: process.env.KORTYX_TELEMETRY_API_URL!,
+  endpoint: process.env.KORTYX_TELEMETRY_API_URL,
   apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
   environment:
     process.env.KORTYX_TELEMETRY_ENVIRONMENT ?? "development",
@@ -246,6 +246,8 @@ const telemetry = createKortyxTelemetryAdapter({
 
 const agent = createAgent({ workflows, telemetry });
 ```
+
+`endpoint` is optional and defaults to `https://api.kortyx.io` for Kortyx Cloud. Local or self-hosted Studio must pass its telemetry API URL explicitly. The application reads environment variables and passes them as options.
 
 Delivery is best-effort and non-blocking: events receive idempotent IDs, are batched in a bounded in-memory queue, and transient network/429/5xx failures retry with exponential backoff and jitter. Use `telemetry.flush()` during graceful shutdown; inspect `getDroppedEventCount()` and `getPermanentDeliveryFailureCount()` for delivery health. Prompt and output content is excluded by default. Enable only the sides you intend to persist with `captureContent: true` or `{ input: true, output: true }`.
 

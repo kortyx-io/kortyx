@@ -19,7 +19,7 @@ You need a working Kortyx application and access to its server configuration. If
 
 ## Connect the server
 
-Follow [Connect your application](/docs/studio/connect-project). Install the adapter, load the configuration you copied, and attach it to your agent. Use this project's Cloud endpoint and write key.
+Follow [Connect your application](/docs/studio/connect-project). Install the adapter, load the configuration you copied, and attach it to your agent. Use the project write key; the SDK defaults to `https://api.kortyx.io`, so no endpoint setting is needed.
 
 Your application owns its workflow models, tools, permissions, and content-capture settings. Keep the write key on the server; never put it in browser code. Cloud sign-in does not automatically connect your application.
 

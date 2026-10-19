@@ -147,7 +147,7 @@ const resolveOptions = async (
     entry: string;
     environment: string;
     serviceName: string;
-    apiUrl?: string | undefined;
+    apiUrl: string;
     apiKey?: string | undefined;
   }
 > => {
@@ -177,7 +177,8 @@ const resolveOptions = async (
     apiUrl:
       options.apiUrl ??
       process.env.KORTYX_TELEMETRY_API_URL ??
-      process.env.KORTYX_API_URL,
+      process.env.KORTYX_API_URL ??
+      "https://api.kortyx.io",
     apiKey: options.apiKey ?? process.env.KORTYX_TELEMETRY_API_KEY,
     deploymentRef:
       options.deploymentRef ??
@@ -532,11 +533,6 @@ const printResults = (
 
 const runTopologyPush = async (rawOptions: CliOptions): Promise<void> => {
   const options = await resolveOptions(rawOptions);
-  if (!options.dryRun && !options.apiUrl) {
-    throw new Error(
-      "Missing Kortyx API URL. Pass --api-url or set KORTYX_TELEMETRY_API_URL.",
-    );
-  }
   if (!options.dryRun && !options.apiKey) {
     throw new Error(
       "Missing telemetry API key. Pass --api-key or set KORTYX_TELEMETRY_API_KEY.",
@@ -663,7 +659,7 @@ const createCliProgram = (): Command => {
     .option("--export <name>", "Named export to load from the entry module.")
     .option(
       "--api-url <url>",
-      "Kortyx API URL. Defaults to KORTYX_TELEMETRY_API_URL.",
+      "Kortyx API URL. Defaults to KORTYX_TELEMETRY_API_URL, KORTYX_API_URL, then https://api.kortyx.io.",
     )
     .option(
       "--api-key <key>",

@@ -13,14 +13,14 @@ const telemetryEndpoint = () =>
   process.env.KORTYX_TELEMETRY_API_URL ?? process.env.KORTYX_API_URL;
 
 export const isCanvasTelemetryConfigured = (): boolean =>
-  Boolean(telemetryEndpoint() && process.env.KORTYX_TELEMETRY_API_KEY);
+  Boolean(process.env.KORTYX_TELEMETRY_API_KEY);
 
 export const getCanvasTelemetryAdapter = ():
   | KortyxTelemetryAdapter
   | undefined => {
   const endpoint = telemetryEndpoint();
   const apiKey = process.env.KORTYX_TELEMETRY_API_KEY;
-  if (!endpoint || !apiKey) return undefined;
+  if (!apiKey) return undefined;
 
   globalThis.__kortyxCanvasTelemetryAdapter ??= createKortyxTelemetryAdapter({
     endpoint,
