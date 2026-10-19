@@ -12,6 +12,7 @@ import type {
   TablePreferenceEntry,
   TablePreferenceSnapshot,
 } from "@/components/data-table/table-persistence";
+import { studioFetch } from "@/lib/studio-fetch";
 import { STUDIO_REQUEST_PATH } from "@/lib/studio-routing";
 
 /** One cache/queue per owner, project and table. No unscoped legacy data is read. */
@@ -68,7 +69,7 @@ export function createTablePreferenceEntry(
     });
   };
   const request = async (body?: unknown): Promise<StudioTablePreferences> => {
-    const response = await fetch(
+    const response = await studioFetch(
       `/api/studio/table-preferences/${encodeURIComponent(tableId)}`,
       {
         method: body ? "POST" : "GET",
