@@ -258,6 +258,7 @@ Set `KORTYX_REDIS_URL` for persistence across process reconstruction (see adapte
 environment settings). A review waits only for the configured execution TTL.
 
 Optional Studio connection uses `KORTYX_TELEMETRY_API_URL` (or `KORTYX_API_URL`),
-`KORTYX_TELEMETRY_API_KEY`, and `KORTYX_TELEMETRY_CAPTURE_CONTENT=true` to show example
-questions. Inspect Response: Completed while execution is waiting, then the flagged
+`KORTYX_TELEMETRY_API_KEY`. This example captures input/output content by default
+to show example questions; set `KORTYX_TELEMETRY_CAPTURE_CONTENT=false` to exclude
+that content. Inspect Response: Completed while execution is waiting, then the flagged
 interrupt and its resolved state. Studio remains read-only.
