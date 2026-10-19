@@ -1,5 +1,6 @@
 import { studioShell } from "@studio/shell";
 import { cookies } from "next/headers";
+import { StudioSessionGuard } from "@/auth/session-guard";
 import { DetailStackProvider } from "@/components/detail/detail-stack";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { StudioRouteProvider } from "@/components/studio-route-provider";
@@ -62,6 +63,7 @@ export async function SidebarLayout({
 
   return (
     <StudioRouteProvider scope={routeScope}>
+      {shell.account ? <StudioSessionGuard /> : null}
       <TablePreferencesProvider
         key={
           sample

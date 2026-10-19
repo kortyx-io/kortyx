@@ -32,6 +32,15 @@ it("preserves Basic Auth for the self-hosted auth adapter", async () => {
   ).toBeNull();
 });
 
+it("Basic Auth does not implement account-session monitoring", async () => {
+  const request = new NextRequest("https://studio.test/api/studio/session", {
+    headers: { "x-kortyx-studio-request-path": "/sample/prompts" },
+  });
+  expect((await proxy(request)).headers.get("x-middleware-next")).toBe("1");
+  const { GET } = await import("../app/api/studio/session/route");
+  expect((await GET(request)).status).toBe(503);
+});
+
 it("keeps development access explicit and proxy delegates to the auth adapter", async () => {
   vi.stubEnv("KORTYX_STUDIO_AUTH_MODE", "none");
   expect(
