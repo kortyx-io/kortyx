@@ -15,6 +15,18 @@ directories remain private (0700), and written files remain private (0600).
 
 ## Development
 
+Signed-in account shells check session validity once a minute, including in
+background tabs, so login can be ready before the user returns. They also check
+when a tab regains focus, becomes visible, resumes from freezing, returns from
+the back/forward cache, reconnects to the network, or receives a denied Studio
+data request. The auth adapter's optional `getSessionStatus` inspects the session
+without starting login or updating foreground activity. When it reports an expired
+session, Studio reloads the current URL so the configured auth adapter handles
+sign-in and the return destination. Permission
+denials and offline failures keep their existing error behavior. These checks
+also run while live data refresh is paused; browser background throttling may
+delay an idle check until the tab becomes active again.
+
 ```bash
 pnpm dev
 ```

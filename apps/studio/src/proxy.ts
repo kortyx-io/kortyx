@@ -11,6 +11,10 @@ import { readSampleProjectPreference } from "@/features/sample-project/server";
 import { STUDIO_REQUEST_PATH } from "@/lib/studio-routing";
 
 export async function proxy(request: NextRequest): Promise<Response> {
+  // This handler uses the auth adapter's noninteractive session check.
+  // Applying API admission first would hide expiry behind a 401/403.
+  if (request.nextUrl.pathname === "/api/studio/session")
+    return NextResponse.next();
   const denial = await studioAuth.authorize(request);
   if (denial) return denial;
   const sampleRoute = isSamplePath(request.nextUrl.pathname);

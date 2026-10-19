@@ -8,6 +8,16 @@ section: "reference"
 ---
 # Find missing or incomplete data
 
+## Your sign-in session expires
+
+Cloud Studio automatically sends you back through sign-in when your session
+expires. It checks once a minute even in background tabs, so sign-in can be ready
+when you return. It also checks when you return to or restore the tab, when the
+network reconnects, and after a denied data request, including when live updates
+are paused. Your browser can delay background checks or freeze the tab; checks
+resume when the browser allows it. A permission denial with a valid session
+still appears on the page; signing in again does not grant additional access.
+
 ## No runs appear
 
 1. Send one request through the real application. Publishing a workflow map alone creates no run.
