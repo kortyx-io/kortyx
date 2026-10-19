@@ -396,7 +396,7 @@ kortyx topology push \
 
 Environment defaults:
 
-- `KORTYX_TELEMETRY_API_URL` or `KORTYX_API_URL`
+- `KORTYX_TELEMETRY_API_URL` or `KORTYX_API_URL`, defaulting to `https://api.kortyx.io` for topology publication
 - `KORTYX_TELEMETRY_API_KEY`
 - `KORTYX_TELEMETRY_ENVIRONMENT` or `NODE_ENV` or `development`
 - `KORTYX_TELEMETRY_SERVICE_NAME` or nearest `package.json` name

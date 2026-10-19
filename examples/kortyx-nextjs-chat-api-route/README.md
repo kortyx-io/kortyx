@@ -257,8 +257,9 @@ end its active attempt. Host time limits still apply; this is not a durable work
 Set `KORTYX_REDIS_URL` for persistence across process reconstruction (see adapter
 environment settings). A review waits only for the configured execution TTL.
 
-Optional Studio connection uses `KORTYX_TELEMETRY_API_URL` (or `KORTYX_API_URL`),
-`KORTYX_TELEMETRY_API_KEY`. This example captures input/output content by default
-to show example questions; set `KORTYX_TELEMETRY_CAPTURE_CONTENT=false` to exclude
-that content. Inspect Response: Completed while execution is waiting, then the flagged
+Optional Studio connection requires `KORTYX_TELEMETRY_API_KEY`. Cloud uses the
+SDK default `https://api.kortyx.io`; local or self-hosted Studio also needs
+`KORTYX_TELEMETRY_API_URL` (or `KORTYX_API_URL`). This example captures input/output
+content by default to show example questions; set `KORTYX_TELEMETRY_CAPTURE_CONTENT=false`
+to exclude that content. Inspect Response: Completed while execution is waiting, then the flagged
 interrupt and its resolved state. Studio remains read-only.

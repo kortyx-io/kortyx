@@ -32,6 +32,18 @@ it.each([
   );
 });
 
+it("configures Cloud telemetry with a project key and no endpoint", async () => {
+  vi.stubEnv("KORTYX_TELEMETRY_API_URL", undefined);
+  vi.stubEnv("KORTYX_API_URL", undefined);
+  const { getCanvasTelemetryAdapter, isCanvasTelemetryConfigured } =
+    await import("./telemetry");
+  expect(isCanvasTelemetryConfigured()).toBe(true);
+  expect(getCanvasTelemetryAdapter()).toBeDefined();
+  expect(createAdapter).toHaveBeenCalledWith(
+    expect.objectContaining({ apiKey: "test-key", endpoint: undefined }),
+  );
+});
+
 it("does not enable telemetry without credentials", async () => {
   vi.stubEnv("KORTYX_TELEMETRY_API_KEY", undefined);
   const { getCanvasTelemetryAdapter } = await import("./telemetry");

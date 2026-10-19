@@ -5,7 +5,8 @@ import type {
 } from "@kortyx/hooks";
 
 export type CreateKortyxTelemetryAdapterOptions = {
-  endpoint: string;
+  /** Telemetry API base URL. Defaults to https://api.kortyx.io (Kortyx Cloud). */
+  endpoint?: string | undefined;
   apiKey: string;
   environment: string;
   service: KortyxTelemetryService;

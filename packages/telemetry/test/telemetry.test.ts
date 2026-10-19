@@ -34,6 +34,64 @@ const event = (eventId: string) => ({
 });
 
 describe("createKortyxTelemetryAdapter", () => {
+  it.each([
+    { connection: {}, origin: "https://api.kortyx.io" },
+    {
+      connection: { endpoint: undefined },
+      origin: "https://api.kortyx.io",
+    },
+    {
+      connection: { endpoint: "https://studio.example.com/" },
+      origin: "https://studio.example.com",
+    },
+  ])("uses $origin for topology, events and diagnostics with $connection", async ({
+    connection,
+    origin,
+  }) => {
+    const requests: Array<{ url: string; authorization: string | null }> = [];
+    const adapter = createKortyxTelemetryAdapter({
+      ...connection,
+      apiKey: "project-write-key",
+      environment: "test",
+      service: { name: "telemetry-test" },
+      flushIntervalMs: 60_000,
+      fetch: async (url, init) => {
+        requests.push({
+          url: String(url),
+          authorization: new Headers(init?.headers).get("authorization"),
+        });
+        return Response.json({
+          workflowRevisionId: "revision_1",
+          created: true,
+          state: "available",
+        });
+      },
+    });
+
+    await adapter.reporter?.ensureWorkflowTopology(topology());
+    await adapter.reporter?.emit([event("cloud-event")]);
+    const diagnosticId = adapter.trace?.reportError?.(
+      new Error("Handled failure"),
+    );
+    await adapter.flush();
+
+    expect(adapter.getDiagnosticDeliveryState(diagnosticId as string)).toBe(
+      "available",
+    );
+    expect(requests.map(({ url }) => url)).toEqual([
+      `${origin}/v1/telemetry/workflow-revisions:ensure`,
+      `${origin}/v1/telemetry/events:batch`,
+      `${origin}/v1/telemetry/diagnostics?env=test`,
+      `${origin}/v1/telemetry/diagnostics/${diagnosticId}/parts?env=test`,
+      `${origin}/v1/telemetry/diagnostics/${diagnosticId}/complete?env=test`,
+    ]);
+    expect(
+      requests.every(
+        ({ authorization }) => authorization === "Bearer project-write-key",
+      ),
+    ).toBe(true);
+  });
+
   it("records output contracts separately from tools and gates their values by capture policy", async () => {
     for (const captureContent of [false, true]) {
       const requests: EventBatch[] = [];

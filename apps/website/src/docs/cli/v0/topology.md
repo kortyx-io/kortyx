@@ -8,7 +8,7 @@ section: "application-commands"
 ---
 # Publish a workflow map
 
-Run this command from your application project with its telemetry endpoint and write key loaded in the server environment. In Cloud, copy the values from **Settings > Connection**. For a local installation, use its generated SDK configuration.
+Run this command from your application project with its project write key loaded in the server environment. Cloud defaults to `https://api.kortyx.io` and needs no endpoint setting. For local or self-hosted Studio, also set `KORTYX_TELEMETRY_API_URL` (or `KORTYX_API_URL`) to its telemetry API base URL, or pass `--api-url`. The flag takes precedence over those environment variables.
 
 ## Publish a workflow catalog
 

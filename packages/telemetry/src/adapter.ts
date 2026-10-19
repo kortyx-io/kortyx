@@ -37,8 +37,12 @@ const endpointFor = (endpoint: string, path: string): string =>
  * telemetry; delivery remains best-effort and cannot fail a workflow.
  */
 export function createKortyxTelemetryAdapter(
-  options: CreateKortyxTelemetryAdapterOptions,
+  providedOptions: CreateKortyxTelemetryAdapterOptions,
 ): KortyxTelemetryAdapter {
+  const options = {
+    ...providedOptions,
+    endpoint: providedOptions.endpoint ?? "https://api.kortyx.io",
+  };
   const fetchImpl = options.fetch ?? globalThis.fetch;
   if (!fetchImpl) {
     throw new Error(

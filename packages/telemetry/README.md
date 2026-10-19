@@ -9,7 +9,6 @@ import { createAgent } from "kortyx";
 import { createKortyxTelemetryAdapter } from "@kortyx/telemetry";
 
 const telemetry = createKortyxTelemetryAdapter({
-  endpoint: process.env.KORTYX_TELEMETRY_API_URL!,
   apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
   environment:
     process.env.KORTYX_TELEMETRY_ENVIRONMENT ?? "development",
@@ -23,6 +22,24 @@ const agent = createAgent({
   telemetry,
 });
 ```
+
+The endpoint defaults to `https://api.kortyx.io` for Kortyx Cloud. Cloud users
+only need their project write key, environment, and service configuration.
+For local or self-hosted Studio, pass its telemetry API base URL explicitly:
+
+```ts
+const telemetry = createKortyxTelemetryAdapter({
+  endpoint: process.env.KORTYX_TELEMETRY_API_URL!,
+  apiKey: process.env.KORTYX_TELEMETRY_API_KEY!,
+  environment: "development",
+  service: { name: "support-agent" },
+});
+```
+
+Environment variables are read by your application; the adapter uses the options
+you pass. An omitted or `undefined` endpoint selects Cloud. Keep all connection
+configuration server-side. Upgrade `@kortyx/telemetry` before removing an endpoint
+from an existing configuration that used a version requiring it.
 
 `@kortyx/otel` is a separate optional adapter for OpenTelemetry. Applications
 choose the adapter appropriate to their telemetry destination; `kortyx` itself
