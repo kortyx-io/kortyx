@@ -81,6 +81,12 @@ pnpm --filter @kortyx/example-canvas topology:push
 Then send a real Canvas request. Do not add or invoke a synthetic smoke workflow
 to make Studio look connected.
 
+The repository's Canvas and Next.js chat API-route examples capture input/output
+content by default when telemetry is configured. Set the server-side
+`KORTYX_TELEMETRY_CAPTURE_CONTENT=false` to exclude that content, then restart the
+app. This is an example configuration; the SDK's general content-capture default
+remains opt-in.
+
 ## Child Workflow Visibility
 
 Register parent and child definitions in the catalog. The CLI discovers resolvable calls from node/custom-hook source; dynamic targets are added through runtime observations. No call declarations are required. In **Runs**, enable **Include child workflows** to search individual calls, then open a child row to its parent execution's **Execution** tab. This view shows nested calls, node/generation ownership, lifecycle, captured input/returned data, and branch selection. Child rows do not increase session root-run counts.

@@ -31,6 +31,9 @@ KORTYX_TELEMETRY_ENVIRONMENT=development
 KORTYX_TELEMETRY_SERVICE_NAME=kortyx-canvas
 ```
 
+Input/output content is captured by default when telemetry is configured. Set
+`KORTYX_TELEMETRY_CAPTURE_CONTENT=false` to exclude that content, then restart the app.
+
 Push the declared workflow topology before testing Studio. This is the
 deterministic path Studio should rely on for the system map:
 

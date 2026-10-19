@@ -16,7 +16,7 @@ if (endpoint && apiKey) {
     apiKey,
     environment: process.env.KORTYX_TELEMETRY_ENVIRONMENT ?? "development",
     service: { name: "kortyx-nextjs-chat-example" },
-    captureContent: process.env.KORTYX_TELEMETRY_CAPTURE_CONTENT === "true",
+    captureContent: process.env.KORTYX_TELEMETRY_CAPTURE_CONTENT !== "false",
   });
 }
 export const telemetry = globalThis.__kortyxChatTelemetry;

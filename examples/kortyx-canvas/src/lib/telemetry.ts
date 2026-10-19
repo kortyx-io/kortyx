@@ -9,12 +9,6 @@ declare global {
   var __kortyxCanvasTelemetryAdapter: KortyxTelemetryAdapter | undefined;
 }
 
-const booleanFromEnv = (value: string | undefined): boolean | undefined => {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return undefined;
-};
-
 const telemetryEndpoint = () =>
   process.env.KORTYX_TELEMETRY_API_URL ?? process.env.KORTYX_API_URL;
 
@@ -38,9 +32,7 @@ export const getCanvasTelemetryAdapter = ():
         ? { deploymentRef: process.env.KORTYX_TELEMETRY_DEPLOYMENT_REF }
         : {}),
     },
-    captureContent: booleanFromEnv(
-      process.env.KORTYX_TELEMETRY_CAPTURE_CONTENT,
-    ),
+    captureContent: process.env.KORTYX_TELEMETRY_CAPTURE_CONTENT !== "false",
     tags: ["canvas-example"],
     metadata: {
       source: "examples/kortyx-canvas",
