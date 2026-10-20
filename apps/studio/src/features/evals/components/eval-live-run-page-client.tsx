@@ -94,11 +94,7 @@ export function EvalLiveRunPageClient({
                 const separator = key.lastIndexOf(":");
                 router.push(
                   detailNavigationHref(
-                    evalCaseHref(
-                      id,
-                      key.slice(0, separator),
-                      Number(key.slice(separator + 1)),
-                    ),
+                    `${evalCaseHref(id, key.slice(0, separator), Number(key.slice(separator + 1)))}?case=${encodeURIComponent(key)}`,
                     search,
                   ),
                 );

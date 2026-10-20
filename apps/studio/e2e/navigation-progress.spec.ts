@@ -187,28 +187,26 @@ test("returning to the current list cancels pending detail navigation and clears
 test("an unavailable eval refresh shows its failure without trapping navigation", async ({
   page,
 }) => {
-  await page.goto("/evals/runs?live=false");
+  await page.goto(`${runPath}?live=false`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   await page.route(
-    `**/api/studio/evals/runs/${EVAL_FIXTURE.candidate}`,
+    `**/api/studio/evals/runs/${EVAL_FIXTURE.candidate}/live*`,
     (route) =>
       route.fulfill({
         status: 503,
         json: { error: "Eval service is temporarily unavailable." },
       }),
   );
-  await page
-    .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`)
-    .locator("td")
-    .nth(1)
-    .click();
-  await expect(page).toHaveURL(`${runPath}?live=false`);
+  // SSR already supplied saved evidence. Reconnecting Live requests compact
+  // state; healthy navigation must not depend on a redundant full-result read.
+  await page.getByRole("button", { name: /Live refresh:/ }).click();
   await expect(
     page
       .getByRole("alert")
       .filter({ hasText: "Eval service is temporarily unavailable." }),
   ).toBeVisible();
   await expect(page.locator(".bprogress")).toHaveCount(0);
+  await page.getByRole("button", { name: /Live refresh:/ }).click();
   await page.getByRole("button", { name: "Run history", exact: true }).click();
   await expect(page).toHaveURL(/\/evals\/runs\?live=false$/);
 });
