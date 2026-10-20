@@ -93,12 +93,15 @@ test.describe("Eval route and drawer navigation", () => {
   test("keeps comparison mounted through workflow inspection, close, Back and Forward", async ({
     page,
   }) => {
+    // This can start a CI shard: both detail routes may need cold compilation.
+    test.setTimeout(60_000);
     await page.goto(comparePath);
     await page
       .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
     await expect(page).toHaveURL(
       new RegExp(`${comparisonCasePath}.*baseline=`),
+      { timeout: 16_000 },
     );
     const comparisonDrawer = page.locator(
       `[data-detail-drawer="${comparisonCasePath}"]`,
@@ -113,7 +116,7 @@ test.describe("Eval route and drawer navigation", () => {
     const drawer = page.locator(`[data-detail-drawer="${workflowPath}"]`);
     await expect(
       drawer.getByRole("button", { name: "Overview", exact: true }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 16_000 });
     expect(await node?.evaluate((el) => el.isConnected)).toBe(true);
     await expect(page).toHaveURL(/baseline=/);
     await expect(page.getByRole("dialog")).toHaveCount(2);

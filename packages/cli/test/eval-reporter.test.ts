@@ -77,6 +77,12 @@ it("reports deterministic checks separately from model criteria, including every
     suiteId: scenario.id,
     onProgress: (event) => h.reporter.progress(event),
   });
+  const failed = result.cases[0]?.steps[0]?.checks?.find(
+    (check) => !check.passed,
+  );
+  if (!failed) throw new Error("Failed check fixture required");
+  // Recorded verdicts may include observed evidence, even when the check failed.
+  failed.evidence = ["Observed answer: EUR 49\u001b[2J"];
   h.reporter.finish(result);
   expect(h.output()).toContain("1/2 checks passed");
   expect(h.output()).toContain("Check 2 (text-contains)");
@@ -84,6 +90,8 @@ it("reports deterministic checks separately from model criteria, including every
     "The answer does not contain the required text.",
   );
   expect(h.output()).not.toContain("criteria passed");
+  expect(h.output()).toContain("Evidence: Observed answer: EUR 49 [2J");
+  expect(h.output()).not.toContain("\u001b");
 });
 
 it("animates long calls, keeps concurrent attempts distinct, and stops its timer on close", () => {
