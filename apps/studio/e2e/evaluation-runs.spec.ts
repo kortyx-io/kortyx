@@ -101,7 +101,9 @@ for (const scope of ["all", "selected"] as const) {
     const tableControls = page.locator(
       '[data-table-controls="evaluation-conversations"]',
     );
-    await expect(tableControls.getByRole("button")).toHaveCount(3);
+    await expect(
+      tableControls.getByRole("button", { name: /^(Filters|Columns|Views)$/ }),
+    ).toHaveCount(3);
     await expect(tableControls.getByRole("searchbox")).toHaveCount(1);
     await expect(page.locator("[data-table-footer]")).toHaveCount(1);
     const suiteCount = scope === "all" ? 3 : 2;

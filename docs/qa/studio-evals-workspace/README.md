@@ -591,3 +591,25 @@ only the repository's two existing ignored advisories; patched-toolchain reruns
 pass all 594 Studio tests and 144 website/docs tests. The live server process and
 database remain intact. This is a development-tool patch, not a new runtime
 package, migration or deployment.
+
+Production-browser CI on the patched toolchain passed 37/39 evaluation navigation
+checks. Two remaining assertions still expected the redundant Step 1/2 prefix on
+compact definition headings. Updated them to assert the actual User message /
+Response to human input heading, the selected step in its dropdown, and the
+scripted message/Paris selection. Reload/history and horizontal-overflow checks
+remain unchanged. These browser checks are rerun in CI, not locally.
+
+Standard browser CI also identified assertions that counted every toolbar action
+as one of the three shared table controls, and an ambiguous Clear filters locator
+after adding the empty-state recovery action. The checks now identify Filters,
+Columns and Views by name and scope filter reset to its sidebar, retaining search,
+URL independence, row counts and pagination assertions. No retries, timeouts or
+coverage gates were relaxed. Final browser verification remains CI-only.
+
+The last standard shard caught a loading-search race: the skeleton's inert search
+was still reported as editable to browser automation, so an early fill could be
+discarded when the loaded table mounted. Loading search now has a native disabled
+state until the real table can retain input; a focused unit regression verifies
+the transition. Dispatch-state checks now use the real conversation link, retaining
+all three retry/reconnect/unknown assertions and the absence of fabricated
+workflow links.

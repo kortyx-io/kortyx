@@ -270,10 +270,14 @@ test.describe("Eval drawer hardening", () => {
     await page.getByRole("button", { name: "Next step", exact: true }).click();
     await expect(
       page.getByRole("heading", {
-        name: "Step 2 Respond to human input",
+        name: "Response to human input",
         exact: true,
       }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Conversation step", exact: true }),
+    ).toContainText("Step 2");
+    await expect(page.getByText("paris", { exact: true })).toBeVisible();
   });
 
   test("launch from suite drawer restores selection and app judge through URL history", async ({
@@ -745,13 +749,26 @@ test.describe("Eval opaque IDs and shareable links", () => {
       exact: true,
     });
     await expect(
-      conversation.getByRole("heading", { name: /Step 1 User message/ }),
+      conversation.getByRole("heading", { name: "User message", exact: true }),
     ).toBeVisible();
+    await expect(
+      conversation.getByText("Find a role", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Conversation step", exact: true }),
+    ).toContainText("Step 1");
     await page.getByRole("button", { name: "Next step", exact: true }).click();
     await expect(
       conversation.getByRole("heading", {
-        name: /Step 2 Respond to human input/,
+        name: "Response to human input",
+        exact: true,
       }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Conversation step", exact: true }),
+    ).toContainText("Step 2");
+    await expect(
+      conversation.getByText("paris", { exact: true }),
     ).toBeVisible();
     await expect
       .poll(() =>

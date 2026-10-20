@@ -17,7 +17,7 @@ for (const status of ["retrying", "reconnecting", "unknown"] as const) {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(`/evals/runs/${id}`);
       await page
-        .getByRole("button", { name: "Ambiguous role", exact: true })
+        .getByRole("link", { name: "Ambiguous role", exact: true })
         .click();
       const drawer = page.getByRole("dialog", {
         name: "Ambiguous role",

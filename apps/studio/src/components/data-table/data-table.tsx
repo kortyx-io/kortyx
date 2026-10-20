@@ -378,6 +378,7 @@ function DataTableContent<T, S extends string>({
       >
         {header}
         <DataTableFilterControls
+          disabled={loading}
           help={help}
           tableId={tableId}
           searching={searching}

@@ -23,7 +23,9 @@ for (const [path, id] of [
     await page.goto(path);
     const controls = page.locator(`[data-table-controls="${id}"]`);
     await expect(controls).toBeVisible();
-    await expect(controls.getByRole("button")).toHaveCount(3);
+    await expect(
+      controls.getByRole("button", { name: /^(Filters|Columns|Views)$/ }),
+    ).toHaveCount(3);
     await expect(controls.getByRole("searchbox")).toHaveCount(1);
     await expect(page.getByRole("searchbox")).toHaveCount(1);
     await expect(page.locator("[data-table-footer]")).toHaveCount(1);
@@ -213,7 +215,9 @@ test("prompt-linked tables always expose controls and filter empty datasets", as
       );
       const controls = page.locator(`[data-table-controls="${tableId}"]`);
       await expect(controls).toBeVisible();
-      await expect(controls.getByRole("button")).toHaveCount(3);
+      await expect(
+        controls.getByRole("button", { name: /^(Filters|Columns|Views)$/ }),
+      ).toHaveCount(3);
       await expect(controls.getByRole("searchbox")).toHaveCount(1);
       await expect(page.getByRole("searchbox")).toHaveCount(1);
       await expect(page.locator("[data-table-footer]")).toHaveCount(1);
@@ -363,6 +367,7 @@ test("embedded table search is independent of parent search, combines with filte
     .click();
   await expect(page.locator("[data-row-key]")).toHaveCount(0);
   await page
+    .getByRole("complementary", { name: "Filters", exact: true })
     .getByRole("button", { name: "Clear filters", exact: true })
     .click();
   await expect(search).toHaveValue("human-choice");
