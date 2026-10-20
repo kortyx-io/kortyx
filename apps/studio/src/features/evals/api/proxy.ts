@@ -10,7 +10,7 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
   if (sample) return sample;
   const path = parts.join("/");
   if (
-    !/^(settings|targets|evaluations(?:\/table|\/[a-f0-9-]{36}(?:\/(?:cancel|results))?)?|runs(?:\/[a-f0-9-]{36}(?:\/cancel)?)?)$/.test(
+    !/^(settings|targets|capabilities|evaluations(?:\/table|\/[a-f0-9-]{36}(?:\/(?:cancel|results))?)?|runs(?:\/[a-f0-9-]{36}(?:\/(?:cancel|live|case))?)?)$/.test(
       path,
     )
   )
@@ -62,7 +62,7 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
           "content-type": "application/json",
         },
         ...(body ? { body } : {}),
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(20_000)]),
         cache: "no-store",
         redirect: "error",
       },

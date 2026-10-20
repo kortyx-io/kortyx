@@ -33,6 +33,10 @@ export {
   putErrorDiagnosticPart,
 } from "./repositories/error-diagnostics";
 export {
+  getEvalLiveRun,
+  getEvalLiveState,
+} from "./repositories/eval-live";
+export {
   getEvalSettings,
   saveEvalSettings,
 } from "./repositories/eval-settings";

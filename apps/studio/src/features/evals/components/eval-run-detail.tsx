@@ -1,5 +1,6 @@
 "use client";
 
+import type { StudioEvalLiveDetail } from "@kortyx/agent/evals";
 import { GitCompareArrows, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -39,7 +40,7 @@ export function EvalRunDetail({
   cancelling,
   onCompare,
 }: {
-  run: EvalDetail;
+  run: EvalDetail | StudioEvalLiveDetail;
   liveControl?: ReactNode;
   onCaseChange: (key: string | null) => void;
   onBack: () => void;
@@ -51,7 +52,9 @@ export function EvalRunDetail({
 }) {
   const rows = caseRows(run);
   const counts = progressCounts(rows);
-  const judge = run.result?.judge ?? run.request?.judge;
+  const result = "result" in run ? run.result : null;
+  const errors = "errors" in run ? run.errors : (result?.errors ?? []);
+  const judge = result?.judge ?? run.request?.judge;
   const columns: DataTableColumn<CaseRow>[] = [
     {
       key: "case",
@@ -100,7 +103,7 @@ export function EvalRunDetail({
           "steps",
           "Completed steps",
           "number",
-          (r) => r.steps.length,
+          (r) => r.completedSteps ?? r.steps.length,
         ),
         columnFilter(
           "expectedSteps",
@@ -113,7 +116,7 @@ export function EvalRunDetail({
       defaultWidth: 90,
       render: (item) => (
         <span className="font-mono text-xs">
-          {item.steps.length} / {item.expectedSteps}
+          {item.completedSteps ?? item.steps.length} / {item.expectedSteps}
         </span>
       ),
     },
@@ -153,6 +156,7 @@ export function EvalRunDetail({
       label: "Failure summary",
       read: (r) => [
         ...r.errors.map((error) => error.message),
+        ...(r.failures ?? []),
         ...r.steps
           .filter((step) => step.status === "failed" || step.status === "error")
           .map((step) => step.reason ?? ""),
@@ -164,8 +168,11 @@ export function EvalRunDetail({
       kind: "number",
       read: (r) => {
         const criteria = r.steps.flatMap((step) => step.criteria);
-        return criteria.length
-          ? (criteria.filter((item) => item.passed).length / criteria.length) *
+        const total = r.criteriaTotal ?? criteria.length;
+        return total
+          ? ((r.criteriaPassed ??
+              criteria.filter((item) => item.passed).length) /
+              total) *
               100
           : undefined;
       },
@@ -235,7 +242,7 @@ export function EvalRunDetail({
             }),
             ...[
               ...(run.issue && !run.termination ? [run.issue] : []),
-              ...(run.result?.errors ?? []),
+              ...errors,
               ...rows.flatMap((row) => row.errors),
             ]
               .filter((issue) => issue.code !== "EVAL_RUN_TIMEOUT")
@@ -395,7 +402,7 @@ export function EvalRunDetail({
                       )}
                     </KeyValue>
                   </dl>
-                  {run.result?.errors.map((issue, index) => (
+                  {errors.map((issue, index) => (
                     <EvalFailure
                       key={`${index}:${issue.code}`}
                       issue={issue}

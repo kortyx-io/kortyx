@@ -142,6 +142,36 @@ describe("live refresh controller", () => {
 });
 
 describe("eval notification lifecycle", () => {
+  it("coalesces continuous changes within a bounded interval and reconciles on open without a duplicate initial read", async () => {
+    vi.useFakeTimers();
+    const factory = sourceFactory();
+    const refresh = vi.fn(async () => undefined);
+    const controller = createLiveRefreshController({
+      resource: "evals",
+      refresh,
+      minRefreshIntervalMs: 1_000,
+      refreshOnEnable: false,
+      onSnapshot: () => undefined,
+      createEventSource: factory.create,
+    });
+    controller.setEnabled(true);
+    expect(refresh).not.toHaveBeenCalled();
+    factory.sources[0]?.onopen?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 100; i++) factory.sources[0]?.change?.();
+    await vi.advanceTimersByTimeAsync(999);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    factory.sources[0]?.change?.();
+    controller.setEnabled(false);
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    controller.refreshNow();
+    expect(refresh).toHaveBeenCalledTimes(3);
+    controller.dispose();
+  });
   it("subscribes to eval progress and workflow billing, catches the initial subscription gap, and never polls while connected", async () => {
     vi.useFakeTimers();
     const factory = sourceFactory();

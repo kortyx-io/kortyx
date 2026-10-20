@@ -16,7 +16,7 @@ export function EvalLiveCaseContent({
   repetition: number;
   fullPage?: boolean;
 }) {
-  const current = useEvalRun(run.id, run, 0);
+  const current = useEvalRun(run.id, run, 0, { caseId, repetition });
   const row = caseRows(current.detail ?? run).find(
     (item) => item.caseId === caseId && item.repetition === repetition,
   );

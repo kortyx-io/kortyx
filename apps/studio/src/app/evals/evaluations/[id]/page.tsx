@@ -1,5 +1,5 @@
 import {
-  readEvalTargets,
+  readEvalCapabilities,
   readEvaluationDetail,
 } from "@/features/evals/api/server";
 import { EvaluationDetail } from "@/features/evals/components/evaluation-detail";
@@ -11,7 +11,7 @@ export default async function Page({
   const { id } = await params;
   const [detail, targets] = await Promise.allSettled([
     readEvaluationDetail(id),
-    readEvalTargets(),
+    readEvalCapabilities(),
   ]);
   return (
     <EvaluationDetail

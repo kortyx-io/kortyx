@@ -35,6 +35,8 @@ export type LiveRefreshControllerOptions = {
   reconnectDelayMs?: number;
   fallbackMinMs?: number;
   fallbackMaxMs?: number;
+  minRefreshIntervalMs?: number;
+  refreshOnEnable?: boolean;
 };
 
 export type LiveRefreshController = {
@@ -63,6 +65,8 @@ export const createLiveRefreshController = (
   let source: LiveEventSource | undefined;
   let reconnectTimer: Timer | undefined;
   let fallbackTimer: Timer | undefined;
+  let refreshTimer: Timer | undefined;
+  let lastRefreshAt: number | undefined;
   let refreshActive = false;
   let refreshTrailing = false;
   let refreshTrailingForced = false;
@@ -87,8 +91,10 @@ export const createLiveRefreshController = (
   const clearScheduledWork = () => {
     if (reconnectTimer) clearTimer(reconnectTimer);
     if (fallbackTimer) clearTimer(fallbackTimer);
+    if (refreshTimer) clearTimer(refreshTimer);
     reconnectTimer = undefined;
     fallbackTimer = undefined;
+    refreshTimer = undefined;
   };
 
   const closeSource = () => {
@@ -103,6 +109,20 @@ export const createLiveRefreshController = (
       refreshTrailingForced ||= force;
       return;
     }
+    const remaining =
+      lastRefreshAt === undefined
+        ? 0
+        : (options.minRefreshIntervalMs ?? 0) - (Date.now() - lastRefreshAt);
+    if (!force && remaining > 0) {
+      refreshTimer ??= setTimer(() => {
+        refreshTimer = undefined;
+        requestRefresh();
+      }, remaining);
+      return;
+    }
+    if (refreshTimer) clearTimer(refreshTimer);
+    refreshTimer = undefined;
+    lastRefreshAt = Date.now();
     const refreshUsage = studioOperation("studio.live", {
       resource: options.resource,
       action: force ? "manual_refresh" : "refresh",
@@ -191,7 +211,7 @@ export const createLiveRefreshController = (
       publish({ status: "paused" });
       return;
     }
-    requestRefresh();
+    if (options.refreshOnEnable !== false) requestRefresh();
     connect();
   };
 

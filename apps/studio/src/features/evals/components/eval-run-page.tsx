@@ -1,8 +1,10 @@
 import {
+  readEvalCapabilities,
   readEvalDetail,
   readEvalHistory,
-  readEvalTargets,
+  readEvalLiveDetail,
 } from "../api/server";
+import { EvalLiveRunPageClient } from "./eval-live-run-page-client";
 import { EvalRunPageClient } from "./eval-run-page-client";
 export async function EvalRunPage({
   id,
@@ -13,10 +15,27 @@ export async function EvalRunPage({
   mode: "run" | "compare";
   baselineId?: string;
 }) {
+  if (mode === "run") {
+    const [detail, history, capabilities] = await Promise.allSettled([
+      readEvalLiveDetail(id),
+      readEvalHistory(),
+      readEvalCapabilities(),
+    ]);
+    return (
+      <EvalLiveRunPageClient
+        id={id}
+        initial={detail.status === "fulfilled" ? detail.value.run : null}
+        history={history.status === "fulfilled" ? history.value : { runs: [] }}
+        canRun={
+          capabilities.status === "fulfilled" && capabilities.value.canRun
+        }
+      />
+    );
+  }
   const [detail, history, targets, baseline] = await Promise.allSettled([
     readEvalDetail(id),
     readEvalHistory(),
-    readEvalTargets(),
+    readEvalCapabilities(),
     baselineId ? readEvalDetail(baselineId) : Promise.resolve(null),
   ]);
   return (
@@ -30,7 +49,7 @@ export async function EvalRunPage({
       history={history.status === "fulfilled" ? history.value : { runs: [] }}
       targets={
         targets.status === "fulfilled"
-          ? targets.value
+          ? { targets: [], ...targets.value }
           : { targets: [], canRun: false }
       }
     />

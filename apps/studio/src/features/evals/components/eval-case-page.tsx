@@ -4,7 +4,7 @@ import { DetailLink } from "@/components/detail/detail-link";
 import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
 import { studioRouteId } from "@/lib/studio-routes";
-import { readEvalDetail } from "../api/server";
+import { readEvalCase } from "../api/server";
 import { evalCaseHref, evalRunHref } from "../lib/navigation";
 import { caseRows } from "../lib/presentation";
 import { EvalLiveCaseContent } from "./eval-live-case-content";
@@ -17,7 +17,7 @@ export async function EvalCasePage({
 }) {
   const { evalRunId, caseId: encodedCaseId, repetition } = await params;
   const caseId = studioRouteId(encodedCaseId);
-  const { run } = await readEvalDetail(evalRunId);
+  const { run } = await readEvalCase(evalRunId, caseId, Number(repetition));
   const row = caseRows(run).find(
     (row) => row.caseId === caseId && row.repetition === Number(repetition),
   );

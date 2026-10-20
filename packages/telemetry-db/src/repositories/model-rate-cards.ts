@@ -89,3 +89,29 @@ export const listApplicableModelRateCards = async (
         ),
       ),
     );
+
+/** One small scope-level fingerprint; changing prices never locks every eval run. */
+export async function getModelRateCardVersion(
+  db: TelemetryDb,
+  input: { organizationId: string; projectId: string },
+) {
+  const [row] = await db
+    .select({
+      version: sql<string>`md5(coalesce(jsonb_agg(to_jsonb(${modelRateCards}) ORDER BY ${modelRateCards.id})::text, '[]'))`,
+    })
+    .from(modelRateCards)
+    .where(
+      or(
+        and(
+          eq(modelRateCards.organizationId, input.organizationId),
+          eq(modelRateCards.projectId, input.projectId),
+        ),
+        and(
+          isNull(modelRateCards.organizationId),
+          isNull(modelRateCards.projectId),
+        ),
+      ),
+    );
+  if (!row) throw new Error("Model pricing version is unavailable.");
+  return row.version;
+}

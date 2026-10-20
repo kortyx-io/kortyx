@@ -1,4 +1,8 @@
-import { createSampleProjectReadModels } from "@kortyx/telemetry-db/sample-project";
+import {
+  createSampleProjectReadModels,
+  emptyEvalLiveProjection,
+  projectEvalProgress,
+} from "@kortyx/telemetry-db/sample-project";
 import "server-only";
 import {
   DiagnosticResponseSchema,
@@ -324,6 +328,56 @@ export function sampleResponse(path: string, method = "GET"): Response {
     }
     if (resource === "evals") {
       if (id === "targets") return json(data.evals.targets);
+      if (id === "capabilities") return json({ canRun: false });
+      if (id === "runs" && (parts[3] === "live" || parts[3] === "case")) {
+        const detail = data.evals.runs.find((item) => item.run.id === parts[2]);
+        if (!detail)
+          return json({ error: "Sample evaluation unavailable." }, 404);
+        const run = detail.run;
+        if (parts[3] === "case") {
+          const matches = (item: { caseId: string; repetition: number }) =>
+            item.caseId === params.get("caseId") &&
+            item.repetition === Number(params.get("repetition"));
+          return json({
+            run: {
+              ...run,
+              result: run.result
+                ? { ...run.result, cases: run.result.cases.filter(matches) }
+                : null,
+              events: run.events.filter(({ event }) =>
+                event.type === "case-completed"
+                  ? matches(event.result)
+                  : "caseId" in event && matches(event),
+              ),
+            },
+          });
+        }
+        const projection = emptyEvalLiveProjection();
+        for (const { event } of run.events)
+          projectEvalProgress(projection, event);
+        for (const result of run.result?.cases ?? [])
+          projectEvalProgress(projection, { type: "case-completed", result });
+        const { events: _, result: __, caseCosts: ___, ...metadata } = run;
+        const version = "0".repeat(64);
+        const live = {
+          ...metadata,
+          version,
+          errors: run.result?.errors ?? [],
+          cases: Object.values(projection.attempts).map((a) => ({
+            ...a.summary,
+            costs:
+              run.caseCosts?.[`${a.summary.caseId}:${a.summary.repetition}`],
+          })),
+        };
+        if (params.has("after")) {
+          const { suite: ____, request: _____, ...state } = live;
+          return json({
+            version,
+            run: params.get("after") === version ? null : state,
+          });
+        }
+        return json({ run: live });
+      }
       if (id === "runs" && !parts[2])
         return json({ runs: data.evals.runs.map((detail) => detail.run) });
       if (id === "runs" && parts.length === 3) {

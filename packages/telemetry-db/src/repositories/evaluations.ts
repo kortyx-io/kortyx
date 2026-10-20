@@ -7,8 +7,13 @@ import type {
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryNotFoundError, TelemetryValidationError } from "../errors";
-import { evalRunEvents, evalRuns, evaluationRuns } from "../schema";
-import { loadEvalCosts, sumEvalCosts } from "./eval-costs";
+import { evalRuns, evaluationRuns } from "../schema";
+import { sumEvalCosts } from "./eval-costs";
+import { type EvalLiveSummary, getEvalLiveSummaries } from "./eval-live";
+import {
+  emptyEvalLiveProjection,
+  projectEvalProgress,
+} from "./eval-live-projection";
 import { getEvalRun } from "./evals";
 import { ensureProjectEnvironmentAllowed } from "./projects";
 import { notifyStudioChange } from "./studio-changes";
@@ -123,160 +128,127 @@ export function summarizeEvaluation(
   events: Map<string, EvalProgress[]>,
   costs: Map<string, { costs: EvalCosts }>,
 ): StudioEvaluationSummary {
-  const counts = { passed: 0, failed: 0, error: 0, cancelled: 0 };
-  const failures = children.flatMap((child) => {
-    const results = child.result?.cases ?? [
-      ...new Map(
-        (events.get(child.id) ?? [])
-          .filter((event) => event.type === "case-completed")
-          .map((event) => [
-            `${event.result.caseId}:${event.result.repetition}`,
-            event.result,
-          ]),
-      ).values(),
-    ];
-    return [
-      ...(child.result?.errors ?? []).map((issue) => ({
-        suiteRunId: child.id,
-        phase: issue.phase,
-        code: issue.code,
-        message: issue.message,
-        ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
-      })),
-      ...(!child.issue && !child.termination && child.error
-        ? [
-            {
-              suiteRunId: child.id,
-              phase: "execute" as const,
-              code: "EVAL_EXECUTION_UNKNOWN",
-              message: child.error,
-            },
-          ]
-        : []),
-      ...(child.issue
-        ? [
-            {
-              suiteRunId: child.id,
-              phase: child.issue.phase,
-              code: child.issue.code,
-              message: child.issue.message,
-              ...(child.issue.diagnosticId
-                ? { diagnosticId: child.issue.diagnosticId }
-                : {}),
-            },
-          ]
-        : []),
-      ...results.flatMap((item) =>
-        item.errors.map((issue) => ({
-          suiteRunId: child.id,
-          caseId: item.caseId,
-          repetition: item.repetition,
-          phase: issue.phase,
-          code: issue.code,
-          message: issue.message,
-          ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
-        })),
-      ),
-    ];
-  });
-  const pendingAttempts = { notStarted: 0, executing: 0, awaitingGrading: 0 };
-  for (const child of children) {
-    const attemptStates = new Map<string, string>();
-    for (const event of events.get(child.id) ?? []) {
-      if (event.type === "case-started")
-        attemptStates.set(`${event.caseId}:${event.repetition}`, "executing");
-      if (event.type === "case-completed")
-        attemptStates.set(
-          `${event.result.caseId}:${event.result.repetition}`,
-          event.result.status === "ungraded" ? "awaitingGrading" : "completed",
-        );
-      if (event.type === "case-progress" && event.phase === "grading")
-        attemptStates.set(
-          `${event.caseId}:${event.repetition}`,
-          "awaitingGrading",
-        );
-    }
-    for (const item of child.result?.cases ?? [])
-      attemptStates.set(
-        `${item.caseId}:${item.repetition}`,
-        item.status === "ungraded" ? "awaitingGrading" : "completed",
-      );
-    for (const id of child.request.caseIds ??
-      child.suite.cases.map((item) => item.id))
-      for (let i = 1; i <= child.request.repetitions; i++) {
-        const state = attemptStates.get(`${id}:${i}`);
-        if (!state) pendingAttempts.notStarted++;
-        else if (state === "executing") pendingAttempts.executing++;
-        else if (state === "awaitingGrading") pendingAttempts.awaitingGrading++;
-      }
-  }
-  let totalAttempts = 0;
-  let completedAttempts = 0;
-  for (const child of children) {
-    totalAttempts +=
-      (child.request.caseIds?.length ?? child.suite.cases.length) *
-      child.request.repetitions;
-    if (child.result) {
-      for (const key of Object.keys(counts) as (keyof typeof counts)[])
-        counts[key] += child.result.counts[key];
-      completedAttempts += child.result.cases.filter(
-        (item) => item.status !== "ungraded",
-      ).length;
-    } else {
-      const attempts = new Map<
-        string,
-        Extract<EvalProgress, { type: "case-completed" }>["result"]
-      >();
+  return summarizeLiveEvaluation(
+    parent,
+    children.map((child) => {
+      const projection = emptyEvalLiveProjection();
       for (const event of events.get(child.id) ?? [])
-        if (event.type === "case-completed")
-          attempts.set(
-            `${event.result.caseId}:${event.result.repetition}`,
-            event.result,
-          );
-      for (const item of attempts.values())
-        if (item.status !== "ungraded") {
-          counts[item.status]++;
-          completedAttempts++;
-        }
+        projectEvalProgress(projection, event);
+      for (const result of child.result?.cases ?? [])
+        projectEvalProgress(projection, { type: "case-completed", result });
+      const cases = Object.values(projection.attempts).map((a) => a.summary);
+      const counts = { passed: 0, failed: 0, error: 0, cancelled: 0 };
+      for (const item of cases)
+        if (item.status in counts) counts[item.status as keyof typeof counts]++;
+      return {
+        ...child,
+        resultRecorded: Boolean(child.result),
+        judge: child.request.judge,
+        resolvedSettings: child.request.resolvedSettings,
+        suiteName: child.suite.name ?? null,
+        version: "",
+        cases,
+        counts,
+        totalAttempts:
+          (child.request.caseIds?.length ?? child.suite.cases.length) *
+          child.request.repetitions,
+        completedAttempts: cases
+          .filter((c) => c.status !== "ungraded")
+          .filter((c) => c.status in counts).length,
+        errors: child.result?.errors ?? [],
+        costs: costs.get(child.id)?.costs,
+        createdAt: child.createdAt.toISOString(),
+        startedAt: date(child.startedAt),
+        endedAt: date(child.endedAt),
+        cancelRequestedAt: date(child.cancelRequestedAt),
+      };
+    }),
+  );
+}
+function summarizeLiveEvaluation(
+  parent: Parent,
+  children: EvalLiveSummary[],
+): StudioEvaluationSummary {
+  const counts = { passed: 0, failed: 0, error: 0, cancelled: 0 };
+  const pendingAttempts = { notStarted: 0, executing: 0, awaitingGrading: 0 };
+  let totalAttempts = 0,
+    completedAttempts = 0;
+  for (const child of children) {
+    const total = child.totalAttempts ?? 0;
+    totalAttempts += total;
+    completedAttempts += child.completedAttempts ?? 0;
+    for (const key of Object.keys(counts) as (keyof typeof counts)[])
+      counts[key] += child.counts?.[key] ?? 0;
+    pendingAttempts.notStarted += Math.max(0, total - child.cases.length);
+    for (const item of child.cases) {
+      if (item.status in counts) continue;
+      if (item.status === "ungraded" || item.phase === "grading")
+        pendingAttempts.awaitingGrading++;
+      else if (item.status === "running") pendingAttempts.executing++;
+      else pendingAttempts.notStarted++;
     }
   }
   const completedSuites = children.filter(
     (child) => !active(child.status),
   ).length;
   const started = children
-    .flatMap((child) => (child.startedAt ? [child.startedAt] : []))
-    .sort((a, b) => a.getTime() - b.getTime());
+    .flatMap((c) => (c.startedAt ? [c.startedAt] : []))
+    .sort();
   const ended = children
-    .flatMap((child) => (child.endedAt ? [child.endedAt] : []))
-    .sort((a, b) => b.getTime() - a.getTime());
-  const status = children.some((child) => active(child.status))
+    .flatMap((c) => (c.endedAt ? [c.endedAt] : []))
+    .sort()
+    .reverse();
+  const status = children.some((c) => active(c.status))
     ? started.length
       ? "running"
       : "queued"
-    : children.some((child) => child.status === "error")
+    : children.some((c) => c.status === "error")
       ? "error"
-      : children.some((child) => child.status === "cancelled")
+      : children.some((c) => c.status === "cancelled")
         ? "cancelled"
-        : children.some((child) => child.status === "failed")
+        : children.some((c) => c.status === "failed")
           ? "failed"
           : children.length
             ? "passed"
             : "error";
-  const parts = children.flatMap((child) =>
-    costs.get(child.id)?.costs ? [costs.get(child.id)!.costs] : [],
-  );
+  const parts = children.flatMap((c) => (c.costs ? [c.costs] : []));
+  const failure = (
+    issue: Pick<
+      import("@kortyx/agent/evals").EvalIssue,
+      "phase" | "code" | "message"
+    > & { diagnosticId?: string | undefined },
+  ) => ({
+    phase: issue.phase,
+    code: issue.code,
+    message: issue.message,
+    ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
+  });
+  const failures = children.flatMap((child) => [
+    ...child.errors.map((issue) => ({
+      suiteRunId: child.id,
+      ...failure(issue),
+    })),
+    ...(child.issue ? [{ suiteRunId: child.id, ...failure(child.issue) }] : []),
+    ...(!child.issue && !child.termination && child.error
+      ? [
+          {
+            suiteRunId: child.id,
+            phase: "execute" as const,
+            code: "EVAL_EXECUTION_UNKNOWN",
+            message: child.error,
+          },
+        ]
+      : []),
+    ...child.cases.flatMap((item) =>
+      item.errors.map((issue) => ({
+        suiteRunId: child.id,
+        caseId: item.caseId,
+        repetition: item.repetition,
+        ...failure(issue),
+      })),
+    ),
+  ]);
   return {
-    termination:
-      children.find((child) => child.termination)?.termination ?? null,
-    resolvedSettings:
-      parent.request.resolvedSettings ?? children[0]?.request.resolvedSettings,
-    failures,
-    pendingAttempts,
-    interruptedSuites: children.filter(
-      (child) =>
-        child.termination ||
-        (!active(child.status) && !child.result && Boolean(child.error)),
-    ).length,
     id: parent.id,
     name: parent.name,
     targetId: parent.targetId,
@@ -287,18 +259,27 @@ export function summarizeEvaluation(
       ...parent.request.metadata,
       source: parent.request.metadata?.source ?? "manual",
     },
-    judge: children[0]?.request.judge,
+    judge: children[0]?.judge,
     status,
     createdAt: parent.createdAt.toISOString(),
-    startedAt: date(started[0] ?? null),
-    endedAt:
-      completedSuites === children.length ? date(ended[0] ?? null) : null,
+    startedAt: started[0] ?? null,
+    endedAt: completedSuites === children.length ? (ended[0] ?? null) : null,
     cancelRequestedAt: date(parent.cancelRequestedAt),
     suiteCount: children.length,
     completedSuites,
     totalAttempts,
     completedAttempts,
     counts,
+    pendingAttempts,
+    failures,
+    interruptedSuites: children.filter(
+      (c) =>
+        c.termination ||
+        (!active(c.status) && !c.resultRecorded && Boolean(c.error)),
+    ).length,
+    termination: children.find((c) => c.termination)?.termination ?? null,
+    resolvedSettings:
+      parent.request.resolvedSettings ?? children[0]?.resolvedSettings,
     ...(parts.length
       ? {
           costs: {
@@ -311,51 +292,17 @@ export function summarizeEvaluation(
   };
 }
 async function loadChildren(db: TelemetryDb, scope: Scope, ids: string[]) {
-  if (!ids.length)
-    return {
-      children: [] as Child[],
-      events: new Map<string, EvalProgress[]>(),
-      costs: new Map<string, { costs: EvalCosts }>(),
-    };
-  const children = await db
-    .select()
+  if (!ids.length) return [];
+  const rows = await db
+    .select({ id: evalRuns.id })
     .from(evalRuns)
     .where(and(childScope(scope), inArray(evalRuns.evaluationId, ids)))
     .orderBy(evalRuns.createdAt, evalRuns.id);
-  const eventMap = new Map<string, EvalProgress[]>();
-  // Final results are authoritative; only unfinished suites need progress events.
-  const pending = children
-    .filter((child) => !child.result)
-    .map((child) => child.id);
-  if (pending.length) {
-    const events = await db
-      .select({ runId: evalRunEvents.runId, event: evalRunEvents.event })
-      .from(evalRunEvents)
-      .where(
-        and(
-          eq(evalRunEvents.organizationId, scope.organizationId),
-          eq(evalRunEvents.projectId, scope.projectId),
-          inArray(evalRunEvents.runId, pending),
-        ),
-      )
-      .orderBy(evalRunEvents.id);
-    for (const event of events) {
-      const list = eventMap.get(event.runId) ?? [];
-      list.push(event.event);
-      eventMap.set(event.runId, list);
-    }
-  }
-  const costs = await loadEvalCosts(
+  return getEvalLiveSummaries(
     db,
     scope,
-    children.map((child) => ({
-      ...child,
-      ...(eventMap.has(child.id)
-        ? { events: eventMap.get(child.id)!.map((event) => ({ event })) }
-        : {}),
-    })),
+    rows.map((r) => r.id),
   );
-  return { children, events: eventMap, costs };
 }
 export async function listEvaluations(
   db: TelemetryDb,
@@ -397,16 +344,14 @@ export async function listEvaluations(
     parents.map((parent) => parent.id),
   );
   const grouped = parents.map((parent) =>
-    summarizeEvaluation(
+    summarizeLiveEvaluation(
       parent,
-      data.children.filter((child) => child.evaluationId === parent.id),
-      data.events,
-      data.costs,
+      data.filter((child) => child.evaluationId === parent.id),
     ),
   );
   // Old suite runs remain visible and retain their original detail links.
   const legacy = await db
-    .select()
+    .select({ id: evalRuns.id })
     .from(evalRuns)
     .where(
       and(
@@ -420,12 +365,17 @@ export async function listEvaluations(
     .orderBy(desc(evalRuns.createdAt), desc(evalRuns.id))
     .limit(options.scan?.limit ?? 100)
     .offset(options.scan?.offset ?? 0);
-  const legacyCosts = await loadEvalCosts(db, scope, legacy);
-  const old = legacy.map((child) => ({
-    ...summarizeEvaluation(
+  const old = (
+    await getEvalLiveSummaries(
+      db,
+      scope,
+      legacy.map((r) => r.id),
+    )
+  ).map((child) => ({
+    ...summarizeLiveEvaluation(
       {
         id: child.id,
-        name: child.suite.name ?? child.suiteId,
+        name: child.suiteName ?? child.suiteId,
         targetId: child.targetId,
         targetName: child.targetName,
         environment: child.environment,
@@ -434,12 +384,12 @@ export async function listEvaluations(
           suites: [],
           targetId: child.targetId,
         },
-        createdAt: child.createdAt,
-        cancelRequestedAt: child.cancelRequestedAt,
+        createdAt: new Date(child.createdAt),
+        cancelRequestedAt: child.cancelRequestedAt
+          ? new Date(child.cancelRequestedAt)
+          : null,
       },
       [child],
-      new Map(),
-      legacyCosts,
     ),
     legacy: true,
   }));
@@ -460,73 +410,29 @@ export async function getEvaluation(
     .limit(1);
   if (!parent) throw new TelemetryNotFoundError("Evaluation run not found.");
   const data = await loadChildren(db, scope, [id]);
-  const summary = summarizeEvaluation(
-    parent,
-    data.children,
-    data.events,
-    data.costs,
-  );
+  const summary = summarizeLiveEvaluation(parent, data);
   const suites = includeContent
-    ? await Promise.all(
-        data.children.map((child) => getEvalRun(db, scope, child.id)),
-      )
-    : data.children.map((child) => ({
-        id: child.id,
-        evaluationId: child.evaluationId,
-        targetId: child.targetId,
-        targetName: child.targetName,
-        environment: child.environment,
-        suiteId: child.suiteId,
-        suiteRevision: child.suiteRevision,
-        suiteName: child.suite.name ?? null,
-        status: child.status,
-        createdAt: child.createdAt,
-        startedAt: child.startedAt,
-        endedAt: child.endedAt,
-        cancelRequestedAt: child.cancelRequestedAt,
-        error: child.error,
-        termination: child.termination,
-        issue: child.issue,
-        resolvedSettings: child.request.resolvedSettings,
-        totalAttempts:
-          (child.request.caseIds?.length ?? child.suite.cases.length) *
-          child.request.repetitions,
-        completedAttempts: child.result
-          ? child.result.cases.filter((item) => item.status !== "ungraded")
-              .length
-          : [
-              ...new Map(
-                (data.events.get(child.id) ?? [])
-                  .filter((event) => event.type === "case-completed")
-                  .map((event) => [
-                    `${event.result.caseId}:${event.result.repetition}`,
-                    event.result,
-                  ]),
-              ).values(),
-            ].filter((item) => item.status !== "ungraded").length,
-        phase: (data.events.get(child.id) ?? [])
-          .filter((event) => event.type === "case-progress")
-          .at(-1)?.phase,
-        counts:
-          child.result?.counts ??
-          [
-            ...new Map(
-              (data.events.get(child.id) ?? [])
-                .filter((event) => event.type === "case-completed")
-                .map((event) => [
-                  `${event.result.caseId}:${event.result.repetition}`,
-                  event.result,
-                ]),
-            ).values(),
-          ].reduce(
-            (counts, item) => {
-              if (item.status !== "ungraded") counts[item.status]++;
-              return counts;
-            },
-            { passed: 0, failed: 0, error: 0, cancelled: 0 },
-          ),
-        costs: data.costs.get(child.id)?.costs,
-      }));
+    ? await Promise.all(data.map((child) => getEvalRun(db, scope, child.id)))
+    : data.map(
+        ({
+          cases,
+          errors: ____,
+          version: _____,
+          resultRecorded: ______,
+          ...child
+        }) => ({
+          ...child,
+          phase: cases.some(
+            (c) => c.status === "running" && c.phase !== "grading",
+          )
+            ? "execute"
+            : cases.some(
+                  (c) => c.status === "ungraded" || c.phase === "grading",
+                )
+              ? "grading"
+              : undefined,
+        }),
+      );
   return { ...summary, suites };
 }
 export async function cancelEvaluation(

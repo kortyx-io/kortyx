@@ -147,18 +147,18 @@ export const PAGE_GUIDES = {
     title: "Evaluation details",
     kind: "detail",
     overview:
-      "This evaluation groups suite executions for one target. Finished suites and recorded case outcomes are separate progress counts; unfinished grading has no final verdict yet.",
+      "This evaluation groups suite executions for one target. Finished suites and recorded case outcomes are separate progress counts; unfinished grading has no final verdict yet. In connected projects, Live keeps progress and costs current.",
     content:
-      "After the guide, open a suite to inspect individual conversations. Check errors, cancellations, pending grading, costs, and recorded context before interpreting the overall outcome.",
+      "Live updates keep suite progress and costs current. After the guide, open a suite to inspect individual conversations. Check errors, cancellations and pending grading before interpreting the overall outcome.",
     example: `/evals/evaluations/${sample.evaluationId}`,
   },
   "eval-run": {
     title: "Suite run results",
     kind: "detail",
     overview:
-      "This is one execution of a conversation suite. Counts summarize attempts; a case's criterion results and recorded observations explain the evidence behind its outcome.",
+      "This is one execution of a conversation suite. Counts summarize attempts; a case's criterion results and recorded observations explain the evidence behind its outcome. In connected projects, Live keeps progress and costs current.",
     content:
-      "After the guide, open a conversation for its step evidence and workflow links. Configuration and Suite definition show the context that produced these results. Compare uses a saved baseline when one is available.",
+      "Live updates keep attempt progress and costs current. After the guide, open a conversation to load its step evidence and workflow links. Configuration and Suite definition show the context that produced these results. Compare uses a saved baseline when one is available.",
     example: `/evals/runs/${sample.evalRunId}`,
   },
   "eval-case": {

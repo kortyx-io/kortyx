@@ -2,6 +2,7 @@ import { sampleResponse } from "@/features/sample-project/http";
 import { isSampleProject } from "@/features/sample-project/server";
 import "server-only";
 import {
+  StudioEvalLiveDetailSchema,
   StudioEvaluationDetailSchema,
   StudioEvaluationHistorySchema,
 } from "@kortyx/agent/evals";
@@ -66,4 +67,14 @@ export const readEvaluationTable = (
     StudioEvaluationHistorySchema.extend({
       totalCount: z.number().int().nonnegative(),
     }),
+  );
+
+export const readEvalLiveDetail = (id: string) =>
+  read(`runs/${encodeURIComponent(id)}/live`, StudioEvalLiveDetailSchema);
+export const readEvalCapabilities = () =>
+  read("capabilities", z.object({ canRun: z.boolean() }));
+export const readEvalCase = (id: string, caseId: string, repetition: number) =>
+  read(
+    `runs/${encodeURIComponent(id)}/case?${new URLSearchParams({ caseId, repetition: String(repetition) })}`,
+    EvalDetailSchema,
   );

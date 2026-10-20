@@ -102,3 +102,8 @@ export function createSampleProjectReadModels(
     detailEvents: StudioDetailEventSchema.array().parse(models.detailEvents),
   };
 }
+
+export {
+  emptyEvalLiveProjection,
+  projectEvalProgress,
+} from "../repositories/eval-live-projection";

@@ -13,11 +13,17 @@ export const useLiveRefresh = ({
   resource,
   relatedResources,
   refresh: refreshData,
+  minRefreshIntervalMs,
+  refreshOnEnable,
+  refreshKey,
 }: {
   enabled: boolean;
   resource: "runs" | "sessions" | "interrupts" | "evals";
   relatedResources?: readonly ("runs" | "sessions" | "interrupts" | "evals")[];
   refresh?: () => Promise<void>;
+  minRefreshIntervalMs?: number;
+  refreshOnEnable?: boolean;
+  refreshKey?: string;
 }) => {
   const router = useRouter();
   const sample = useStudioRouteScope()?.sampleProject === true;
@@ -64,7 +70,10 @@ export const useLiveRefresh = ({
   const controllerRef = useRef<
     ReturnType<typeof createLiveRefreshController> | undefined
   >(undefined);
+  const enabledRef = useRef(enabled && !sample);
+  enabledRef.current = enabled && !sample;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: A new entity must reopen the stream and reconcile the server-read/subscription gap.
   useEffect(() => {
     const controller = createLiveRefreshController({
       resource,
@@ -73,6 +82,8 @@ export const useLiveRefresh = ({
         : [],
       refresh: () => refreshRef.current(),
       onSnapshot: setSnapshot,
+      minRefreshIntervalMs,
+      refreshOnEnable,
     });
     controllerRef.current = controller;
 
@@ -81,6 +92,7 @@ export const useLiveRefresh = ({
         document.visibilityState === "visible" && navigator.onLine,
       );
     syncAvailability();
+    controller.setEnabled(enabledRef.current);
     document.addEventListener("visibilitychange", syncAvailability);
     window.addEventListener("online", syncAvailability);
     window.addEventListener("offline", syncAvailability);
@@ -92,7 +104,7 @@ export const useLiveRefresh = ({
       controller.dispose();
       controllerRef.current = undefined;
     };
-  }, [resource, relatedKey]);
+  }, [resource, relatedKey, minRefreshIntervalMs, refreshOnEnable, refreshKey]);
 
   useEffect(() => {
     controllerRef.current?.setEnabled(enabled && !sample);

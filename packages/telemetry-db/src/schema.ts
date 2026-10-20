@@ -873,6 +873,10 @@ export const evaluationRuns = pgTable(
 export const evalRuns = pgTable(
   "eval_runs",
   {
+    liveProjection:
+      jsonb("live_projection").$type<
+        import("./repositories/eval-live-projection").EvalLiveProjection
+      >(),
     issue: jsonb("issue").$type<import("@kortyx/agent/evals").EvalIssue>(),
     termination:
       jsonb("termination").$type<
@@ -942,6 +946,10 @@ export const evalRuns = pgTable(
       table.createdAt,
     ),
     index("eval_runs_queue_idx").on(table.status, table.createdAt),
+    index("eval_runs_live_projection_idx").using(
+      "gin",
+      sql`${table.liveProjection} jsonb_path_ops`,
+    ),
     check(
       "eval_runs_status_check",
       sql`${table.status} in ('queued', 'running', 'passed', 'failed', 'error', 'cancelled')`,

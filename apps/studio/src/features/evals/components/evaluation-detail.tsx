@@ -7,7 +7,7 @@ import {
 } from "@kortyx/agent/evals";
 import { tablePassRate, tableQueueMs } from "@kortyx/telemetry-contracts";
 import { parseAsBoolean } from "nuqs";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { valueColumn } from "@/components/data-table/value-column";
@@ -47,6 +47,9 @@ export function EvaluationDetail({
   const referenceTime = useEvalReferenceTime();
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const request = useRef<AbortController | null>(null);
+  const currentId = useRef(id);
+  currentId.current = id;
   const router = useRouter();
   const search = useSearchParams();
   const [query, setQuery] = useStudioQueryStates(
@@ -55,14 +58,20 @@ export function EvaluationDetail({
   );
   const read = useCallback(
     async (signal?: AbortSignal) => {
+      request.current?.abort();
+      const controller = new AbortController();
+      request.current = controller;
+      const activeSignal = signal
+        ? AbortSignal.any([signal, controller.signal])
+        : controller.signal;
       const next = StudioEvaluationDetailSchema.parse(
         await evalRequest(
           `evaluations/${encodeURIComponent(id)}`,
           undefined,
-          signal,
+          activeSignal,
         ),
       );
-      if (!signal?.aborted) {
+      if (!activeSignal.aborted && currentId.current === id) {
         setRun(next.run);
         setError("");
       }
@@ -70,20 +79,28 @@ export function EvaluationDetail({
     [id],
   );
   useEffect(() => {
+    setRun(initial);
     const controller = new AbortController();
-    void read(controller.signal).catch((cause) => {
-      if (!controller.signal.aborted)
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "Could not load evaluations.",
-        );
-    });
-    return () => controller.abort();
-  }, [read]);
+    if (!initial)
+      void read(controller.signal).catch((cause) => {
+        if (!controller.signal.aborted)
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Could not load evaluations.",
+          );
+      });
+    return () => {
+      controller.abort();
+      request.current?.abort();
+    };
+  }, [read, initial]);
   const live = useLiveRefresh({
     enabled: query.live,
     resource: "evals",
+    minRefreshIntervalMs: 1_000,
+    refreshOnEnable: false,
+    refreshKey: id,
     relatedResources: ["runs"],
     refresh: () => read(),
   });
