@@ -30,7 +30,8 @@ export function createApiLifecycle(options: {
   };
   const drainEvaluations = () => {
     if (aborting) return aborting;
-    draining ??= (async () => {
+    if (draining) return draining;
+    const attempt = (async () => {
       if (aborting) return;
       setState("draining");
       try {
@@ -41,7 +42,11 @@ export function createApiLifecycle(options: {
         throw error;
       }
     })();
-    return draining;
+    draining = attempt;
+    void attempt.catch(() => {
+      if (draining === attempt) draining = undefined;
+    });
+    return attempt;
   };
   const beginHttpDrain = () => {
     if (!http) {
@@ -68,7 +73,8 @@ export function createApiLifecycle(options: {
     drainEvaluations,
     terminate() {
       if (aborting) return aborting;
-      terminating ??= (async () => {
+      if (terminating) return terminating;
+      const attempt = (async () => {
         beginHttpDrain();
         try {
           await drainEvaluations();
@@ -79,7 +85,11 @@ export function createApiLifecycle(options: {
         // A rejected drain preserves dependencies and never reports success.
         await finish();
       })();
-      return terminating;
+      terminating = attempt;
+      void attempt.catch(() => {
+        if (terminating === attempt) terminating = undefined;
+      });
+      return attempt;
     },
     abort() {
       aborting ??= (async () => {
@@ -103,7 +113,7 @@ export function registerApiSignals(
     ReturnType<typeof createApiLifecycle>,
     "terminate" | "abort" | "drainEvaluations"
   >,
-  failed: () => void,
+  failed: (error: unknown) => void,
 ) {
   signals.on("SIGTERM", () => void lifecycle.terminate().catch(failed));
   signals.on("SIGINT", () => void lifecycle.abort().catch(failed));

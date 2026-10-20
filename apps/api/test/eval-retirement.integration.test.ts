@@ -20,6 +20,7 @@ import { StudioTablePreferenceResponseSchema } from "@kortyx/telemetry-contracts
 import {
   appendEvalProgress,
   claimEvalRuns,
+  confirmEvalWorkerRetirement,
   createTelemetryApiKey,
   createTelemetryDbClient,
   ensureLocalDevelopmentProject,
@@ -1012,6 +1013,34 @@ describe.skipIf(!url)(
       await ready(replacement);
       await expect.poll(() => status(a)).toBe("error");
       expect(calls.filter((message) => message === "held-0")).toHaveLength(1);
+      // The replacement quarantines expired ownership; the original process can
+      // now prove quiescence without rerunning the uncertain evaluation.
+      old.child.kill("SIGUSR2");
+      await expect.poll(() => old.logs().includes("state: drained")).toBe(true);
+      expect(old.logs()).toContain('"event":"eval-worker-retirement-failed"');
+      old.child.kill("SIGTERM");
+      expect(await old.exited).toBe(0);
     }, 20_000);
+
+    it("keeps retirement verification read-only and scoped to its owner, including expired claims", async () => {
+      const web = await launch("api");
+      await ready(web);
+      const a = await submit(web.base, "held");
+      const owner = randomUUID();
+      const [run] = await claimEvalRuns(db!.db, owner, [target]);
+      expect(await confirmEvalWorkerRetirement(db!.db, owner)).toBe(false);
+      expect(await confirmEvalWorkerRetirement(db!.db, randomUUID())).toBe(
+        true,
+      );
+      await db!
+        .sql`UPDATE eval_runs SET lease_expires_at=now()-interval '1 second' WHERE id=${run!.id}::uuid`;
+      expect(await confirmEvalWorkerRetirement(db!.db, owner)).toBe(false);
+      expect(await status(a)).toBe("running");
+      // Model the ordinary expiry reconciliation; the proof itself never writes.
+      await db!
+        .sql`UPDATE eval_runs SET status='error',ended_at=now() WHERE evaluation_id=${a}::uuid`;
+      expect(await confirmEvalWorkerRetirement(db!.db, owner)).toBe(true);
+      expect(calls).toHaveLength(0);
+    });
   },
 );

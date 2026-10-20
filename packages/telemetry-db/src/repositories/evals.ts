@@ -299,6 +299,27 @@ export const claimEvalRun = async (
   owner: string,
   targets: readonly (Scope & { id: string })[],
 ) => (await claimRuns(db, owner, targets, false))[0];
+/** Read-only proof after this owner has stopped claiming and settled local tasks.
+ * Expired leases remain unresolved until the ordinary queue reconciles them;
+ * this check never changes results, releases claims or dispatches work.
+ */
+export async function confirmEvalWorkerRetirement(
+  db: TelemetryDb,
+  owner: string,
+) {
+  const pending = await db
+    .select({ id: evalRuns.id })
+    .from(evalRuns)
+    .where(
+      and(
+        eq(evalRuns.leaseOwner, owner),
+        sql`${evalRuns.status} in ('queued', 'running')`,
+      ),
+    )
+    .limit(1);
+  return pending.length === 0;
+}
+
 export async function heartbeatEvalRun(
   db: TelemetryDb,
   id: string,

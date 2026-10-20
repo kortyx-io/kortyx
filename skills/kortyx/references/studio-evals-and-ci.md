@@ -666,8 +666,14 @@ old processes retire. Saved Compose files do not gain grace settings from an ima
 update. A fixed grace extension alone does not protect arbitrary run deadlines.
 The bundled OSS API implementation uses drain on SIGTERM; SIGINT explicitly aborts.
 Explicit stop during a pending worker drain rejects that drain. A lost claim
-acknowledgement remains a retirement failure even if later polling recovers. SIGUSR2
-prepares evaluation draining while HTTP remains available for submissions,
+acknowledgement requires an authoritative ownership check before retirement can
+succeed. The stock PostgreSQL store checks after local tasks/claims/heartbeats
+settle; expired-but-running ownership still blocks it. Repeating SIGUSR2 retries
+this read-only check without resuming claims or replaying tools. Custom stores may
+implement `confirmRetirement(owner)`; otherwise ambiguity still fails closed.
+Original causes are retained in scoped diagnostics with safe owner/phase metadata
+in operator logs. These capabilities require a worker release containing them.
+SIGUSR2 prepares evaluation draining while HTTP remains available for submissions,
 progress and cancellation. Wait for the verified owner's drained confirmation
 before terminating a singleton combined API/worker. Platform force-kill deadlines
 still apply; the 25-second HTTP drain is not an evaluation timeout.
@@ -677,8 +683,13 @@ on web-only APIs and run `node apps/api/dist/eval-worker.js` from the API image
 with the same targets and applicable judge settings. Its private health listener
 serves `/live`, `/health` and `/ready` only; draining is alive but unready for
 new claims. Use liveness, not admission readiness, for restart decisions.
-Strict singleton replacement queues new work until the new owner starts.
-Temporary overlap requires measured capacity and compatible versions. Set
+For normal compatible rollout, start the replacement while the old owner still
+accepts work, verify `/ready` (including a successful queue check), drain the old
+owner, then remove it after `drained`. Web-only releases do not need worker
+retirement when contracts remain compatible. Keep persistent database storage
+outside container replacement. Strict singleton replacement needs maintenance
+and queues work until its replacement starts. Overlap needs enough host capacity
+and an explicitly compatible rolling release; a `recreate` release is not rolling. Set
 `KORTYX_EVAL_MAX_CONCURRENT_EVALUATIONS` identically on all OSS workers (default
 four evaluation groups across the database, including draining owners). Custom
 stores must enforce their own shared cap; legacy workers and direct claim callers

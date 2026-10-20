@@ -44,6 +44,7 @@ export {
   appendEvalProgress,
   claimEvalRun,
   claimEvalRuns,
+  confirmEvalWorkerRetirement,
   enqueueEvalRun,
   finishEvalRun,
   getEvalAttemptEvidence,

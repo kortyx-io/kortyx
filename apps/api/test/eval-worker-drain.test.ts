@@ -401,6 +401,93 @@ describe("evaluation worker admission drain", () => {
     }
   });
 
+  it("confirms retirement from durable ownership after a claim acknowledgement failure", async () => {
+    const f = fixture();
+    const original = new Error("private connection details");
+    vi.mocked(f.store.claim)
+      .mockRejectedValueOnce(original)
+      .mockResolvedValue(undefined);
+    f.store.confirmRetirement = vi.fn(async () => true);
+    f.worker.start();
+    await vi.waitFor(() => expect(f.store.claim).toHaveBeenCalled());
+    await f.worker.drain();
+    const claims = vi.mocked(f.store.claim).mock.calls.length;
+    f.worker.start();
+    expect(f.store.confirmRetirement).toHaveBeenCalledWith(expect.any(String));
+    expect(f.store.claim).toHaveBeenCalledTimes(claims);
+    expect(f.contexts).toHaveLength(0);
+    expect(f.worker.isReady()).toBe(false);
+    await f.worker.stop();
+  });
+
+  it("retries the read-only retirement proof without dispatching or hiding its original cause", async () => {
+    const f = fixture();
+    const original = new Error("private unconfirmed claim");
+    vi.mocked(f.store.claim)
+      .mockRejectedValueOnce(original)
+      .mockResolvedValue(undefined);
+    f.store.confirmRetirement = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    f.worker.start();
+    await vi.waitFor(() => expect(f.store.claim).toHaveBeenCalled());
+    await expect(f.worker.drain()).rejects.toMatchObject({
+      phase: "claim",
+      cause: original,
+      owner: expect.any(String),
+    });
+    await f.worker.drain();
+    expect(f.store.confirmRetirement).toHaveBeenCalledTimes(2);
+    expect(
+      new Set(
+        vi.mocked(f.store.confirmRetirement).mock.calls.map(([owner]) => owner),
+      ).size,
+    ).toBe(1);
+    expect(f.contexts).toHaveLength(0);
+    await f.worker.stop();
+  });
+
+  it("retains both causes if retirement verification is unavailable", async () => {
+    const f = fixture();
+    const original = new Error("private failed claim");
+    const unavailable = new Error("private proof query");
+    vi.mocked(f.store.claim)
+      .mockRejectedValueOnce(original)
+      .mockResolvedValue(undefined);
+    f.store.confirmRetirement = vi
+      .fn()
+      .mockRejectedValueOnce(unavailable)
+      .mockResolvedValueOnce(true);
+    f.worker.start();
+    await vi.waitFor(() => expect(f.store.claim).toHaveBeenCalled());
+    await expect(f.worker.drain()).rejects.toMatchObject({
+      phase: "verification",
+      cause: expect.objectContaining({
+        errors: [expect.objectContaining({ cause: original }), unavailable],
+      }),
+    });
+    await f.worker.drain();
+    expect(f.contexts).toHaveLength(0);
+    await f.worker.stop();
+  });
+
+  it("requires a successful queue check before replacement readiness and recovers after a transient claim error", async () => {
+    const f = fixture();
+    vi.mocked(f.store.claim)
+      .mockRejectedValueOnce(new Error("queue unavailable"))
+      .mockResolvedValue(undefined);
+    expect(f.worker.isReady()).toBe(false);
+    f.worker.start();
+    await vi.waitFor(() => expect(f.store.claim).toHaveBeenCalledTimes(1));
+    expect(f.worker.isReady()).toBe(false);
+    await vi.waitFor(() => expect(f.worker.isReady()).toBe(true));
+    f.store.confirmRetirement = async () => true;
+    await f.worker.drain();
+    expect(f.worker.isReady()).toBe(false);
+    await f.worker.stop();
+  });
+
   it("makes drain-before-start terminal and repeatable without queue access", async () => {
     const f = fixture();
     await f.worker.drain();

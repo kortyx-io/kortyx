@@ -115,6 +115,46 @@ describe("independent evaluation and HTTP retirement", () => {
     await aborted;
     expect(f.closeResources).toHaveBeenCalledOnce();
   });
+  it("can retry a failed preparation without resuming claims or closing dependencies", async () => {
+    const f = fixture();
+    const original = new Error("Unconfirmed claim");
+    f.worker.drain
+      .mockRejectedValueOnce(original)
+      .mockResolvedValueOnce(undefined);
+    await expect(f.lifecycle.drainEvaluations()).rejects.toBe(original);
+    expect(f.lifecycle.evaluationState()).toBe("failed");
+    await f.lifecycle.drainEvaluations();
+    expect(f.lifecycle.evaluationState()).toBe("drained");
+    expect(f.worker.drain).toHaveBeenCalledTimes(2);
+    expect(f.markNotReady).not.toHaveBeenCalled();
+    expect(f.closeResources).not.toHaveBeenCalled();
+  });
+
+  it("retries failed termination after ownership settles while preserving the HTTP drain", async () => {
+    const f = fixture();
+    f.worker.drain
+      .mockRejectedValueOnce(new Error("Unconfirmed write"))
+      .mockResolvedValueOnce(undefined);
+    f.http.resolve();
+    await expect(f.lifecycle.terminate()).rejects.toThrow("Unconfirmed write");
+    await f.lifecycle.terminate();
+    expect(f.worker.drain).toHaveBeenCalledTimes(2);
+    expect(f.drainHttp).toHaveBeenCalledOnce();
+    expect(f.closeResources).toHaveBeenCalledOnce();
+    expect(f.lifecycle.evaluationState()).toBe("drained");
+  });
+
+  it("delivers the original signal failure to diagnostics", async () => {
+    const f = fixture();
+    const original = new Error("private storage cause");
+    f.worker.drain.mockRejectedValueOnce(original);
+    const signals = new EventEmitter();
+    const failed = vi.fn();
+    registerApiSignals(signals, f.lifecycle, failed);
+    signals.emit("SIGUSR2");
+    await vi.waitFor(() => expect(failed).toHaveBeenCalledWith(original));
+  });
+
   it("handles repeated real signals and never escalates SIGTERM into abort", async () => {
     const f = fixture();
     const signals = new EventEmitter();

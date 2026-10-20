@@ -6,6 +6,7 @@ import { loadApiConfig } from "./config";
 import { loadStudioEvalJudge } from "./evals/judge";
 import { loadEvalTargets } from "./evals/targets";
 import { createEvalWorker } from "./evals/worker";
+import { reportWorkerRetirementFailure } from "./evals/worker-retirement";
 import { createApiLifecycle, registerApiSignals } from "./lifecycle";
 import { createPostgresStudioChangeBus } from "./realtime/studio-change-bus";
 import { closeApiResources, drainServer } from "./shutdown";
@@ -53,6 +54,7 @@ const server = serve({
 
 console.log(`Kortyx API listening on http://${config.host}:${config.port}`);
 
+let retirementFailed = false;
 const lifecycle = createApiLifecycle({
   worker: evalWorker,
   markNotReady: () => {
@@ -64,10 +66,16 @@ const lifecycle = createApiLifecycle({
     // Optional maintainer delivery cannot turn completed retirement into failure.
     await flushUsageTelemetry().catch(() => undefined);
   },
-  onEvaluationState: (state) =>
-    console.log(`Evaluation worker state: ${state}`),
+  onEvaluationState: (state) => {
+    console.log(`Evaluation worker state: ${state}`);
+    if (state === "drained" && retirementFailed) {
+      retirementFailed = false;
+      process.exitCode = 0;
+    }
+  },
 });
-registerApiSignals(process, lifecycle, () => {
-  console.error("Kortyx API retirement could not be confirmed.");
+registerApiSignals(process, lifecycle, (error) => {
+  retirementFailed = true;
   process.exitCode = 1;
+  void reportWorkerRetirementFailure(dbClient.db, evalTargets, error);
 });

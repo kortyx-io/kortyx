@@ -5,6 +5,7 @@ import { loadEvalWorkerConfig } from "./config";
 import { loadStudioEvalJudge } from "./evals/judge";
 import { loadEvalTargets } from "./evals/targets";
 import { createEvalWorker } from "./evals/worker";
+import { reportWorkerRetirementFailure } from "./evals/worker-retirement";
 import { createApiLifecycle, registerApiSignals } from "./lifecycle";
 import { drainServer } from "./shutdown";
 
@@ -36,10 +37,11 @@ const server = serve({
       return new Response(null, { status: 404 });
     let available = true;
     if (path === "/ready") {
-      available = lifecycle.evaluationState() === "running";
+      available = lifecycle.evaluationState() === "running" && worker.isReady();
       try {
         await database.sql`SELECT 1`;
-        available = lifecycle.evaluationState() === "running";
+        available =
+          lifecycle.evaluationState() === "running" && worker.isReady();
       } catch {
         available = false;
       }
@@ -57,6 +59,7 @@ const server = serve({
     );
   },
 });
+let retirementFailed = false;
 const lifecycle = createApiLifecycle({
   worker,
   markNotReady: () => undefined,
@@ -65,12 +68,18 @@ const lifecycle = createApiLifecycle({
     await database.close();
     await flushUsageTelemetry().catch(() => undefined);
   },
-  onEvaluationState: (state) =>
-    console.log(`Evaluation worker state: ${state}`),
+  onEvaluationState: (state) => {
+    console.log(`Evaluation worker state: ${state}`);
+    if (state === "drained" && retirementFailed) {
+      retirementFailed = false;
+      process.exitCode = 0;
+    }
+  },
 });
-registerApiSignals(process, lifecycle, () => {
-  console.error("Evaluation worker retirement could not be confirmed.");
+registerApiSignals(process, lifecycle, (error) => {
+  retirementFailed = true;
   process.exitCode = 1;
+  void reportWorkerRetirementFailure(database.db, targets, error);
 });
 worker.start();
 console.log("Kortyx standalone evaluation worker started.");
