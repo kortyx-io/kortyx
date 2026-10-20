@@ -582,3 +582,12 @@ Visual evidence: [desktop loading](screenshots/loading-desktop.png),
   Studio :6302, API :6400, consumer :6501 and existing sample/user data stay running.
 
 Final local rerun: **594 Studio tests / 114 files passed**, **144 website/docs tests / 11 files passed**. Studio type-check, repository lint (warnings only), and git diff --check pass. Temporary review route and feedback Playwright configuration were removed.
+
+CI follow-up: the first run found newly updated Vite/launch-editor advisories in
+the repository's existing Vite 8.3.2 pin. Updated the shared catalog/override and
+lockfile to Vite 8.3.3, whose upstream release includes the launch-editor 2.14.2
+fixes. No audit exceptions or CI checks changed. `pnpm audit:deps` now passes with
+only the repository's two existing ignored advisories; patched-toolchain reruns
+pass all 594 Studio tests and 144 website/docs tests. The live server process and
+database remain intact. This is a development-tool patch, not a new runtime
+package, migration or deployment.
