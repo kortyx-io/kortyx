@@ -613,3 +613,8 @@ state until the real table can retain input; a focused unit regression verifies
 the transition. Dispatch-state checks now use the real conversation link, retaining
 all three retry/reconnect/unknown assertions and the absence of fabricated
 workflow links.
+
+The next CI run passed all other partitions, including the loading search, table
+controls, definition headings and production navigation. Its remaining dispatch
+assertion expected the old recovery sentence's word “attempt”; it now matches
+“repetition”, preserving the visible unknown-state recovery guidance check.

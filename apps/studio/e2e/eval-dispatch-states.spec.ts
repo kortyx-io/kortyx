@@ -36,7 +36,7 @@ for (const status of ["retrying", "reconnecting", "unknown"] as const) {
       await expect(
         drawer.getByText(
           status === "unknown"
-            ? "Execution status is unknown. Inspect the consumer before running this attempt again."
+            ? "Execution status is unknown. Inspect the consumer before running this repetition again."
             : status === "reconnecting"
               ? "Reconnecting to the accepted execution. Captured evidence is retained."
               : /Consumer busy\. Retrying/,
