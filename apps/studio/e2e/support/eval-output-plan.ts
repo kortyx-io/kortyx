@@ -5,6 +5,7 @@ import {
   defineOutputContract,
   defineSuite,
   defineWorkflow,
+  evalChecks,
   type ProviderModelRef,
   useReason,
   useStructuredData,
@@ -40,6 +41,13 @@ export const OUTPUT_SUITE = defineSuite({
           expect: {
             type: "answer",
             outputs: [{ schemaId: "app.product-list", schemaVersion: "2" }],
+            checks: [
+              evalChecks.outputEquals({
+                schemaId: "app.product-list",
+                path: ["products", 0, "price"],
+                value: 80,
+              }),
+            ],
           },
         },
       ],
@@ -53,6 +61,13 @@ export const OUTPUT_SUITE = defineSuite({
           expect: {
             type: "answer",
             outputs: [{ schemaId: "app.product-list", schemaVersion: "1" }],
+            checks: [
+              evalChecks.outputEquals({
+                schemaId: "app.product-list",
+                path: ["products", 0, "price"],
+                value: 99,
+              }),
+            ],
           },
         },
       ],

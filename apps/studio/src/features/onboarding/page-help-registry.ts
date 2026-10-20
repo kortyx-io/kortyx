@@ -140,7 +140,7 @@ export const PAGE_GUIDES = {
     overview:
       "This suite defines conversation cases, their steps, and expected observations. The suite revision identifies the exact definition used by an evaluation.",
     content:
-      "Read case inputs and expectations before reviewing scores. Saved results retain their suite and grader context so comparisons can distinguish changed tests from changed outcomes.",
+      "Read case inputs, deterministic checks, and expectations before reviewing scores. Saved results retain their suite and grader context so comparisons can distinguish changed tests from changed outcomes.",
     example: `/evals/suites/${sample.targetId}/${sample.suiteId}`,
   },
   evaluation: {
@@ -149,7 +149,7 @@ export const PAGE_GUIDES = {
     overview:
       "This evaluation groups suite executions for one target. Finished suites and recorded case outcomes are separate progress counts; unfinished grading has no final verdict yet. In connected projects, Live keeps progress and costs current.",
     content:
-      "Live updates keep suite progress and costs current. After the guide, open a suite to inspect individual conversations. Check errors, cancellations and pending grading before interpreting the overall outcome.",
+      "Live keeps suite progress and costs current. After the guide, open a suite to inspect conversations. Check errors, cancellations and pending grading before interpreting the outcome. Rerun failed cases selects recorded failures and errors once each for a fresh launch against current deployed definitions.",
     example: `/evals/evaluations/${sample.evaluationId}`,
   },
   "eval-run": {
@@ -158,7 +158,7 @@ export const PAGE_GUIDES = {
     overview:
       "This is one execution of a conversation suite. Counts summarize attempts; a case's criterion results and recorded observations explain the evidence behind its outcome. In connected projects, Live keeps progress and costs current.",
     content:
-      "Live updates keep attempt progress and costs current. After the guide, open a conversation to load its step evidence and workflow links. Configuration and Suite definition show the context that produced these results. Compare uses a saved baseline when one is available.",
+      "Live keeps progress and costs current. Open a conversation to load step evidence and workflow links. Configuration and Suite definition explain the run; Compare uses a saved baseline. Mixed results marks recorded passes and failures, with errors counted separately. Rerun failed cases prepares a fresh launch against current deployed definitions.",
     example: `/evals/runs/${sample.evalRunId}`,
   },
   "eval-case": {
@@ -167,7 +167,7 @@ export const PAGE_GUIDES = {
     overview:
       "This view explains one conversation attempt. Step results connect expected behavior, the observed response, grading criteria, and execution evidence.",
     content:
-      "Inspect each step's reason and evidence. Awaiting evaluation means grading is unfinished. Workflow links show what actually ran; conversation details retain the inputs and responses.",
+      "Inspect each step's deterministic check results separately from model criteria. Missing check verdicts are Not assessed. Awaiting evaluation means grading is unfinished. Workflow links show what actually ran; conversation details retain the inputs and responses.",
     example: `/evals/cases/${sample.evalRunId}/${sample.caseId}/1`,
   },
   "eval-comparison": {

@@ -325,3 +325,43 @@ it("records rejected eval settings during configuration without sending suite ID
   );
   expect(JSON.stringify(records)).not.toContain("private-");
 });
+
+it("records deterministic-check adoption and quality failure without collecting descriptors or evidence", async () => {
+  const { createEvals, evalChecks } = await import("../src/evals/index");
+  await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [
+      {
+        id: "private-suite",
+        cases: [
+          {
+            id: "private-case",
+            steps: [
+              {
+                message: "private-input",
+                expect: {
+                  type: "answer",
+                  checks: [evalChecks.textContains("private-expected")],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    execute: () => ({
+      observation: { type: "answer", text: "private-actual", structured: [] },
+    }),
+  }).run({ suiteId: "private-suite" });
+  await telemetry.flush();
+  expect(records).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        operation: "sdk.eval",
+        outcome: "quality_failed",
+        properties: expect.objectContaining({ deterministic_checks: true }),
+      }),
+    ]),
+  );
+  expect(JSON.stringify(records)).not.toContain("private-");
+});

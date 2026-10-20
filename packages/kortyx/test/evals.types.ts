@@ -4,7 +4,7 @@ import type {
   EvalSuite,
   ProviderModelRef,
 } from "../src";
-import { createEvalJudge, createEvals } from "../src";
+import { createEvalJudge, createEvals, evalChecks } from "../src";
 
 const outputRequirements: EvalOutputExpectation[] = [
   { schemaId: "app.product-list" },
@@ -18,13 +18,35 @@ const structuredSuite: EvalSuite = {
       steps: [
         {
           message: "Show products",
-          expect: { type: "answer", outputs: outputRequirements },
+          expect: {
+            type: "answer",
+            outputs: outputRequirements,
+            checks: [
+              evalChecks.textEquals("EUR 49"),
+              evalChecks.textEquals("EUR 49", { ignoreCase: true }),
+              evalChecks.textContains("EUR"),
+              evalChecks.textMatches("EUR\\s*49", "i"),
+              evalChecks.toolCalled("catalog.lookup"),
+              evalChecks.toolInputEquals("catalog.lookup", { sku: "blue" }),
+              evalChecks.outputEquals({
+                schemaId: "app.product-list",
+                path: ["products", 0, "price"],
+                value: 49,
+              }),
+            ],
+          },
         },
       ],
     },
   ],
 };
 void structuredSuite;
+// @ts-expect-error Regex descriptors must be serializable strings.
+evalChecks.textMatches(/EUR/);
+// @ts-expect-error Case sensitivity is a boolean option, not a regex flag.
+evalChecks.textEquals("sales", { ignoreCase: "i" });
+// @ts-expect-error Expected values must be JSON, not callbacks.
+evalChecks.outputEquals({ schemaId: "app.card", path: [], value: () => true });
 const invalidOutput: EvalOutputExpectation = {
   schemaId: "app.product-list",
   // @ts-expect-error Output contract versions are strings.

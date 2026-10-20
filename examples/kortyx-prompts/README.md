@@ -16,7 +16,9 @@ Run `pnpm --filter @kortyx/example-prompts start`. Register the server's
 binding the same project and environment. Use explicit local HTTP opt-in.
 
 The example exposes `intent-regression`, with support and sales cases and an app
-judge. Test the candidate from Studio before making it live. Once promoted,
+judge. It checks exact labels with `evalChecks.textEquals("sales", { ignoreCase: true })`.
+Studio shows the recorded check verdicts alongside the judge criteria. Test the
+candidate from Studio before making it live. Once promoted,
 `POST /api/chat` with `{ "message": "Help me reset my password" }` resolves the
 live prompt and sends generation identity to Studio. The example chat route is
 local demonstration code; production applications retain their own authentication.

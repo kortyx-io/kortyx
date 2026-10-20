@@ -9,7 +9,9 @@ import { valueColumn } from "@/components/data-table/value-column";
 import { DetailLink } from "@/components/detail/detail-link";
 import { KeyValue } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { ErrorNotices } from "@/features/diagnostics/error-notices";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
@@ -18,6 +20,7 @@ import {
   caseRows,
   displayName,
   isActive,
+  mixedCaseResults,
   progressCounts,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
@@ -32,6 +35,7 @@ import { EvalSettingsSummary, evalTerminationNotice } from "./eval-termination";
 export function EvalRunDetail({
   run,
   liveControl,
+  rerunControl,
   onCaseChange,
   onBack,
   onCancel,
@@ -42,6 +46,7 @@ export function EvalRunDetail({
 }: {
   run: EvalDetail | StudioEvalLiveDetail;
   liveControl?: ReactNode;
+  rerunControl?: ReactNode;
   onCaseChange: (key: string | null) => void;
   onBack: () => void;
   onCancel: () => void;
@@ -55,6 +60,7 @@ export function EvalRunDetail({
   const result = "result" in run ? run.result : null;
   const errors = "errors" in run ? run.errors : (result?.errors ?? []);
   const judge = result?.judge ?? run.request?.judge;
+  const mixed = mixedCaseResults(run, rows);
   const columns: DataTableColumn<CaseRow>[] = [
     {
       key: "case",
@@ -64,21 +70,41 @@ export function EvalRunDetail({
       ],
       label: "Conversation",
       defaultWidth: 320,
-      render: (item) => (
-        <div className="min-w-0">
-          <Button
-            variant="link"
-            size="inline"
-            className="max-w-full justify-start"
-            onClick={() => onCaseChange(item.key)}
-          >
-            <span className="truncate">{item.name}</span>
-          </Button>
-          <p className="truncate font-mono text-[10px] text-muted-foreground">
-            {item.caseId}
-          </p>
-        </div>
-      ),
+      render: (item) => {
+        const result = mixed.get(item.caseId);
+        return (
+          <div className="min-w-0">
+            <Button
+              variant="link"
+              size="inline"
+              className="max-w-full justify-start"
+              onClick={() => onCaseChange(item.key)}
+            >
+              <span className="truncate">{item.name}</span>
+            </Button>
+            <p className="truncate font-mono text-[10px] text-muted-foreground">
+              {item.caseId}
+            </p>
+            {result ? (
+              <div
+                data-guide-focus="eval-mixed-results"
+                className="mt-1 flex flex-col items-start gap-1"
+              >
+                <div className="flex items-center gap-1">
+                  <Badge variant="secondary">Mixed results</Badge>
+                  <HelpCircle help={studioHelp.evalMixedResults} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {result.passed}/{result.passed + result.failed} assessed
+                  attempts passed
+                  {result.errors ? ` · ${result.errors} errors` : ""}
+                  {result.other ? ` · ${result.other} unassessed` : ""}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       key: "status",
@@ -207,6 +233,7 @@ export function EvalRunDetail({
               startedAt={run.startedAt}
             />
             {liveControl}
+            {rerunControl}
             <EvalStatus status={run.status} termination={run.termination} />
             <Button
               variant="secondary"

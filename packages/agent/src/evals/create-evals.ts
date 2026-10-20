@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { ResumeResponse } from "../execution/types";
 import type { ChatMessage } from "../types/chat-message";
 import { usage } from "../usage";
+import { evaluateChecks } from "./checks";
 import {
   EvalConfigurationError,
   EvalObservationSchema,
@@ -632,13 +633,21 @@ export function createEvals<
                   evaluated.reason =
                     "The observed interaction did not match the expected answer or interrupt contract.";
                 } else {
+                  if (step.expect.checks?.length)
+                    evaluated.checks = evaluateChecks(
+                      step.expect.checks,
+                      observation,
+                    );
                   const outputReason = missingOutputReason(
                     step.expect.outputs,
                     observation,
                   );
-                  if (outputReason) {
+                  const failedReason =
+                    outputReason ??
+                    evaluated.checks?.find((check) => !check.passed)?.reason;
+                  if (failedReason) {
                     evaluated.status = "failed";
-                    evaluated.reason = outputReason;
+                    evaluated.reason = failedReason;
                   } else {
                     const reference = step.expect.reference;
                     if (reference !== undefined) {
@@ -930,6 +939,9 @@ export function createEvals<
                 : result.status,
           {
             scale: scale(selected.length * repetitions),
+            deterministic_checks: selected.some((item) =>
+              item.steps.some((step) => Boolean(step.expect.checks?.length)),
+            ),
             phase: usagePhase,
             ...(result.status === "error"
               ? {

@@ -1,5 +1,5 @@
 import type { EvalProgress, EvalSuite } from "@kortyx/agent";
-import { createEvals } from "@kortyx/agent";
+import { createEvals, evalChecks } from "@kortyx/agent";
 import { afterEach, expect, it, vi } from "vitest";
 import { createEvalTerminalReporter } from "../src/evals/reporter";
 
@@ -43,6 +43,48 @@ function harness(color = true, columns = 100) {
   };
 }
 afterEach(() => vi.useRealTimers());
+
+it("reports deterministic checks separately from model criteria, including every failed check reason", async () => {
+  const h = harness(false);
+  const scenario: EvalSuite = {
+    id: "catalog",
+    cases: [
+      {
+        id: "products",
+        steps: [
+          {
+            message: "Price",
+            expect: {
+              type: "answer",
+              checks: [
+                evalChecks.textContains("EUR"),
+                evalChecks.textContains("USD"),
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  };
+  h.reporter.start(scenario);
+  const result = await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [scenario],
+    execute: () => ({
+      observation: { type: "answer", text: "EUR 49", structured: [] },
+    }),
+  }).run({
+    suiteId: scenario.id,
+    onProgress: (event) => h.reporter.progress(event),
+  });
+  h.reporter.finish(result);
+  expect(h.output()).toContain("1/2 checks passed");
+  expect(h.output()).toContain("Check 2 (text-contains)");
+  expect(h.output()).toContain(
+    "The answer does not contain the required text.",
+  );
+  expect(h.output()).not.toContain("criteria passed");
+});
 
 it("animates long calls, keeps concurrent attempts distinct, and stops its timer on close", () => {
   vi.useFakeTimers();

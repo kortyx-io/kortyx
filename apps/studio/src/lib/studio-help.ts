@@ -154,6 +154,21 @@ export const studioHelp = {
     "Shows which test conversations passed, failed, or could not be checked. A conversation can run successfully and still fail a quality check.",
     "evals#read-results-and-compare",
   ),
+  evalRerun: help(
+    "Rerun failed cases",
+    "Preselects recorded failed and errored cases in a new launch. Repetitions are deduplicated into case selections. Review the current suite definition, judge, and execution settings; launching executes tools again and keeps the original results.",
+    "evaluation-results#rerun-failed-cases",
+  ),
+  evalMixedResults: help(
+    "Mixed results",
+    "A finished case has at least one assessed pass and one assessed failure. The count includes only passed and failed attempts; errors and unassessed attempts are separate. Differences can come from the application, data, or judge.",
+    "evaluation-results#mixed-results-across-repetitions",
+  ),
+  evalChecks: help(
+    "Deterministic checks",
+    "Built-in assertions inspect the current captured answer, tool calls, or completed structured outputs before model judging. All checks must pass. Missing tool evidence cannot satisfy a tool assertion.",
+    "judging#deterministic-checks",
+  ),
   evalTiming: help(
     "Evaluation timing",
     "Time spent waiting, running conversations, checking answers, and cleaning up. A running test can keep adding time until it finishes.",

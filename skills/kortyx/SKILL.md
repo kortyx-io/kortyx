@@ -61,7 +61,7 @@ Evals:
   setup complete. Read this first for a new eval integration or deployment.
 - `references/conversation-evals.md`: authoring `defineSuite` cases, initializing
   `createEvals` around an existing agent, reusing application authentication,
-  scripted interrupt responses, emitted tool evidence, local judges, and mounting
+  scripted interrupt responses, deterministic checks, emitted tool evidence, local judges, and mounting
   the consumer endpoint. Read this before implementing an eval integration.
 - [references/eval-criteria-and-evidence.md](references/eval-criteria-and-evidence.md): writing independent judge criteria, describing frontend-visible versus internal fields, and configuring compact evidence, history, output selection, and custom filters. Read when authoring or tuning judging.
 - `references/studio-evals-and-ci.md`: registering consumer targets, enabling

@@ -52,6 +52,34 @@ actual evidence when testing a prompt change.
 
 > **Good to know:** Comparison reads saved grades without running your app or judge again. To test a fresh change, [start another evaluation](/docs/studio/first-eval#7-run-and-verify-the-actual-workflow), then compare the same cases and [judge settings](/docs/studio/judging).
 
+## Rerun failed cases
+
+On a finished evaluation or suite run, choose **Rerun failed cases** to open the
+existing launch drawer. Recorded failed and errored case IDs are preselected;
+repeated attempts select each case once. Cancelled, ungraded, never-started, and
+uncertain attempts are excluded. The previous judge and execution settings are
+prefilled when recorded, subject to current availability and limits.
+
+Review the selection before launching. This creates a new run against the current
+deployed suite definitions; live prompt versions are selected by default and can
+be changed in the drawer. It does not replay historical continuations, freeze old
+application/data state, or modify the original results. Tools execute again.
+If a failed case or target is no longer deployed, the shortcut explains the gap
+instead of silently selecting a different case. Sample projects remain read-only.
+
+## Mixed results across repetitions
+
+Finished suite runs label a case **Mixed results** only when it has at least one
+recorded assessed pass and one recorded assessed failure. For example,
+**2/5 assessed attempts passed** means two passes and three failures. Errors and
+unassessed attempts are shown separately and excluded from that denominator.
+Running evaluations have no mixed-results badge. One assessed outcome, passes
+plus infrastructure errors, or failures plus cancellations are insufficient.
+
+The badge describes observed results, not their cause. Application behavior,
+external data, fixture differences, and judge variability can all contribute.
+Inspect the individual attempt evidence before drawing a conclusion.
+
 ## Read results and compare
 
 Passed/failed describe assessed quality. Errors describe execution or grading problems; cancelled and interrupted work do not count as successful quality evidence. Progress distinguishes suites finished from recorded attempt outcomes. A resolved interrupt does not establish successful continuation.

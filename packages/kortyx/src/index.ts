@@ -2,6 +2,8 @@ export type {
   CreateEvalsOptions,
   EvalCase,
   EvalCaseResult,
+  EvalCheck,
+  EvalCheckResult,
   EvalCommand,
   EvalContext,
   EvalCriterion,
@@ -47,6 +49,7 @@ export {
   defineSuite,
   EvalConfigurationError,
   EvalSuiteSchema,
+  evalChecks,
   getEvalSuiteRevision,
   parseEvalSuite,
 } from "@kortyx/agent";

@@ -36,5 +36,8 @@ describe.skipIf(!base)("Studio prompt example transport", () => {
         format: "system-user",
       }),
     );
+    expect(manifest.suites[0].cases[0].steps[0].expect.checks).toEqual([
+      { type: "text-equals", value: "support", ignoreCase: true },
+    ]);
   });
 });

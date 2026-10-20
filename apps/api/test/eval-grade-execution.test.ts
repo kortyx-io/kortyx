@@ -1,4 +1,9 @@
-import { createEvals, type EvalJudge, type EvalSuite } from "@kortyx/agent";
+import {
+  createEvals,
+  type EvalJudge,
+  type EvalSuite,
+  evalChecks,
+} from "@kortyx/agent";
 import { expect, it, vi } from "vitest";
 import { gradeEvalExecution } from "../src/evals/grade-execution";
 
@@ -42,6 +47,49 @@ const judge: EvalJudge = {
     evidence: ["90000 versus 99000"],
   }),
 };
+it("preserves deterministic verdicts and never sends failed checks to a Studio model", async () => {
+  const execution = await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [
+      {
+        id: "checks",
+        cases: [false, true].map((pass) => ({
+          id: String(pass),
+          steps: [
+            {
+              message: "Price",
+              expect: {
+                type: "answer" as const,
+                checks: [evalChecks.textContains(pass ? "EUR" : "USD")],
+                criteria: ["Correct price"],
+              },
+            },
+          ],
+        })),
+      },
+    ],
+    execute: () => ({
+      observation: { type: "answer", text: "EUR 49", structured: [] },
+    }),
+  }).run({ suiteId: "checks", grading: "studio" });
+  const grade = vi.fn(() => ({
+    passed: true,
+    reason: "Correct price",
+    evidence: [],
+  }));
+  const result = await gradeEvalExecution(
+    execution,
+    { ...judge, grade },
+    new AbortController().signal,
+    async () => {},
+  );
+  expect(grade).toHaveBeenCalledOnce();
+  expect(result.cases.map((item) => item.status)).toEqual(["failed", "passed"]);
+  expect(
+    result.cases.map((item) => item.steps[0]?.checks?.[0]?.passed),
+  ).toEqual([false, true]);
+  expect(execution.cases[1]?.status).toBe("ungraded");
+});
 it("Studio cannot turn a missing output into a pass and still grades content after successful contract checks", async () => {
   const output = {
     schemaId: "app.product-list",

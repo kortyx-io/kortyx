@@ -1,3 +1,5 @@
+export { EvalCheckSchema } from "./check-contracts";
+export { evalChecks } from "./checks";
 export {
   EvalConfigurationError,
   EvalIssueSchema,
@@ -32,6 +34,8 @@ export type {
   CreateEvalsOptions,
   EvalCase,
   EvalCaseResult,
+  EvalCheck,
+  EvalCheckResult,
   EvalCommand,
   EvalContext,
   EvalCriterion,

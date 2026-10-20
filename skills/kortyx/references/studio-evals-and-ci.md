@@ -718,3 +718,19 @@ kortyx studio evals runs start --all --connection staging --target catalog \
 A wait timeout does not cancel the server evaluation. `runs get --json` includes
 structured termination, frozen effective settings and original error issues by
 default; `--include-content` additionally includes full conversations/events.
+
+## Rerunning failures and inspecting repetition variability
+
+Finished Studio evaluation and suite-run pages offer **Rerun failed cases**.
+It opens the existing launch drawer with recorded failed/errored case IDs selected
+once each and previous judge/execution settings when recorded. Launching creates
+a fresh run with current deployed suite definitions and the selected prompt
+source (live by default), not a replay of historical application/data state.
+Cancelled, ungraded, never-started, and uncertain attempts are excluded. Missing
+current cases/targets require manual review; samples stay read-only.
+
+A finished suite case shows **Mixed results** only with both an assessed pass and
+failure. The displayed passed/assessed count excludes errors and unassessed work,
+which remain separate. Do not infer model randomness or a root cause from this
+badge. Deterministic `step.checks` results are distinct from semantic criteria in
+Studio and CLI results; see the conversation-evals reference for authoring.

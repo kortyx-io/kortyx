@@ -116,6 +116,10 @@ for (const scope of ["all", "selected"] as const) {
       .click();
     await expect(page).toHaveURL(/\/evals\/runs\/[0-9a-f-]+$/);
 
+    // Navigation can leave the pointer over a table header's hover help.
+    // Dismiss it before selecting a conversation underneath that popover.
+    await page.mouse.move(5, 5);
+    await page.keyboard.press("Escape");
     await page
       .getByRole("button", { name: "Ambiguous role", exact: true })
       .click();

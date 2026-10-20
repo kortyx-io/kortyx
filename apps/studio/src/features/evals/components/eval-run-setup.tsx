@@ -307,6 +307,15 @@ export function EvalRunSetup({
             }}
           />
         </div>
+        {query.launchRerun ? (
+          <p className="text-sm text-muted-foreground">
+            Failed and errored cases are selected once each. This creates a new
+            run using current deployed suite definitions and the prompt source
+            selected below (Live prompts by default). It does not replay the
+            original application or data state. Review the cases, judge and
+            execution settings before launching; tools will execute again.
+          </p>
+        ) : null}
         {target?.manifest?.promptContracts?.length ? (
           <div className="space-y-3 rounded-lg border p-3">
             <div className="space-y-1">

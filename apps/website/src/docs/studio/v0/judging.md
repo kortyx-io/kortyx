@@ -29,3 +29,15 @@ Use `createEvals.defaults.evidence` for default evidence selection and `suite.ev
 Inspect each criterion's result and reason in the saved run. A completed workflow can fail a quality check. A judge request that fails, times out, or returns an invalid verdict is an evaluation error.
 
 Next: [Read and compare results](/docs/studio/evaluation-results).
+
+## Deterministic checks
+
+Suite authors can add built-in `expect.checks` for exact or contained literal text, regex, observed
+tool calls, exact tool arguments, and completed structured-output values. These
+checks execute in the application before semantic judging for either judge
+location. All must pass; failures stop that case and skip semantic judging for the
+step. Inspect **Deterministic checks** in the suite definition and case inspector
+for definitions, results, reasons, and supporting evidence. **Not assessed** means
+no recorded check verdict, not a pass. These results are separate from model
+criteria. See [SDK deterministic checks](/docs/sdk/guides/conversation-evals#deterministic-checks)
+for examples, tool emission requirements, and the current-step evidence boundary.

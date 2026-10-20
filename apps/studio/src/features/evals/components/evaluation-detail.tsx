@@ -31,6 +31,7 @@ import { isActive } from "../lib/presentation";
 import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalDuration } from "./eval-duration";
+import { EvalRerunFailed } from "./eval-rerun-failed";
 import { EvalStatus } from "./eval-status";
 import { EvalSettingsSummary, evalTerminationNotice } from "./eval-termination";
 
@@ -333,6 +334,7 @@ export function EvaluationDetail({
                       void setQuery({ live: !query.live });
                     }}
                   />
+                  <EvalRerunFailed run={run} canRun={canRun} />
                   {canRun && isActive(run.status) ? (
                     <Button
                       variant="secondary"
