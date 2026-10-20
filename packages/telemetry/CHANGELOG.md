@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.3](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.17.2...telemetry-v0.17.3) (2026-10-20)
+
+
+### Bug Fixes
+
+* **telemetry:** default SDK and topology ingestion to Cloud ([103f298](https://github.com/kortyx-io/kortyx/commit/103f2989e735ef7efeaca49b206911d0584cecb0))
+* **telemetry:** default SDK and topology ingestion to Cloud ([e9ea1f1](https://github.com/kortyx-io/kortyx/commit/e9ea1f143c6a8608e40dfdb359bb560480d21efc))
+
 ## [0.17.2](https://github.com/kortyx-io/kortyx/compare/telemetry-v0.17.1...telemetry-v0.17.2) (2026-10-18)
 
 

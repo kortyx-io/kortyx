@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.53.2](https://github.com/kortyx-io/kortyx/compare/website-v0.53.1...website-v0.53.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **evals:** keep live updates off full-result reads ([301d690](https://github.com/kortyx-io/kortyx/commit/301d69087167ce6086c45ec4c7efe4679bb5604b))
+* **evals:** keep live updates off full-result reads ([76f846b](https://github.com/kortyx-io/kortyx/commit/76f846bdc86c1f9b3e4ff1ff593f86c8e3f7ba98))
+* **evals:** verify and retry failed worker retirement ([9e5c06c](https://github.com/kortyx-io/kortyx/commit/9e5c06cc6ecd83daa745925d78ef3629c0de3aaf))
+* **evals:** verify and retry failed worker retirement ([a18babb](https://github.com/kortyx-io/kortyx/commit/a18babbe134d20b66078921001d5757cb9826af4))
+* **studio:** redirect expired account sessions automatically ([9710292](https://github.com/kortyx-io/kortyx/commit/97102925fa74aacd90f259811d87b0e627c17995))
+* **studio:** redirect expired account sessions automatically ([d472e5b](https://github.com/kortyx-io/kortyx/commit/d472e5b5e315a195eb3085567da5a669467ae77a))
+* **telemetry:** default SDK and topology ingestion to Cloud ([103f298](https://github.com/kortyx-io/kortyx/commit/103f2989e735ef7efeaca49b206911d0584cecb0))
+* **telemetry:** default SDK and topology ingestion to Cloud ([e9ea1f1](https://github.com/kortyx-io/kortyx/commit/e9ea1f143c6a8608e40dfdb359bb560480d21efc))
+
 ## [0.53.1](https://github.com/kortyx-io/kortyx/compare/website-v0.53.0...website-v0.53.1) (2026-10-18)
 
 

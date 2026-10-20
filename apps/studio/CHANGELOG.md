@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.23.3](https://github.com/kortyx-io/kortyx/compare/studio-v0.23.2...studio-v0.23.3) (2026-10-20)
+
+
+### Bug Fixes
+
+* **evals:** keep live updates off full-result reads ([301d690](https://github.com/kortyx-io/kortyx/commit/301d69087167ce6086c45ec4c7efe4679bb5604b))
+* **evals:** keep live updates off full-result reads ([76f846b](https://github.com/kortyx-io/kortyx/commit/76f846bdc86c1f9b3e4ff1ff593f86c8e3f7ba98))
+* **evals:** preserve navigation state and align CI regressions ([2c95706](https://github.com/kortyx-io/kortyx/commit/2c957069ab3747b924806c52b8b091d3a001f02c))
+* **studio:** redirect expired account sessions automatically ([9710292](https://github.com/kortyx-io/kortyx/commit/97102925fa74aacd90f259811d87b0e627c17995))
+* **studio:** redirect expired account sessions automatically ([d472e5b](https://github.com/kortyx-io/kortyx/commit/d472e5b5e315a195eb3085567da5a669467ae77a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.40.2
+    * @kortyx/telemetry bumped to 0.17.3
+    * kortyx bumped to 0.32.3
+
 ## [0.23.2](https://github.com/kortyx-io/kortyx/compare/studio-v0.23.1...studio-v0.23.2) (2026-10-18)
 
 
