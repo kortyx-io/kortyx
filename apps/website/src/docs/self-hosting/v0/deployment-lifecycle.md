@@ -22,13 +22,56 @@ Use this guide with a release that includes the standalone worker and retirement
 signals below. Older images do not acquire these capabilities from configuration
 alone. Check the selected release's notes and deployment strategy before upgrading.
 
+## Normal rollout: replacement first, then drain
+
+For deployment without interrupting the web application, run web-only API replicas
+and separate evaluation workers against the same persistent database. Keep enough
+host capacity for the old and replacement processes to overlap. The default local
+Compose installation is a combined single instance; it does not promise zero downtime.
+
+For a release explicitly verified as compatible with the serving version:
+
+1. Start the replacement web/API replicas and workers while the old ones continue
+   serving and accepting work. Wait for each replacement's `/ready` to return 200.
+   Worker readiness includes a successful queue check; a listening health port
+   alone is insufficient. Readiness does not promise unused execution capacity.
+2. Route web traffic to healthy replacements. Send `SIGUSR2` to each old worker.
+   Old workers finish their already-owned groups, including later cases, cleanup,
+   heartbeats and final writes. Replacements take queued groups under the same
+   database ownership and concurrency rules. There is no transfer or replay of
+   in-flight executions.
+3. Wait for each old worker's `drained` confirmation, then send `SIGTERM` and
+   remove it. Do not start a platform's force-kill countdown before an evaluation
+   that exceeds that countdown has drained. If the platform guarantees enough
+   termination grace for the entire evaluation, direct `SIGTERM` can perform the
+   same worker drain. Configure the rollout lifecycle accordingly.
+
+If a candidate fails to become ready, retain the old serving generation and stop
+that rollout before draining it. Web-only API releases need no worker retirement
+when they leave worker configuration and database contracts compatible. HTTP/SSE
+connections may reconnect during a web rollout; this does not restart evaluations.
+The consumer endpoint must also remain available to both worker generations.
+
+This sequence uses the existing durable queue, private worker health endpoints
+and process signals. It needs no separate recovery service, queue reset or workflow
+checkpoint transfer. Automation may implement these three steps using the deployment
+platform's normal readiness and lifecycle controls.
+
+Check the release's `rolling`/`recreate` declaration and the complete upgrade range.
+The automated Studio publication currently declares `recreate` conservatively;
+do not turn that into an overlapping rollout without a reviewed compatibility
+assessment. An incompatible migration, a first upgrade from a worker without these
+capabilities, or a strict one-process host limit still needs controlled maintenance.
+Keep database storage and bootstrap/migration execution independent of old process
+removal; do not replace the database alongside a web container.
+
 ## Choose the smallest suitable setup
 
 | Setup | Appropriate use | What happens during replacement |
 | --- | --- | --- |
 | Combined API/worker | Maintenance is acceptable | Drain, restart, resume queue |
 | Separate web and worker | Independent web releases | Retire the worker separately |
-| Temporary worker overlap | Compatible rolling releases | Verify replacement, drain owner |
+| Replacement-first overlap | Normal compatible production releases | Verify replacement, drain owner |
 
 A configured replica count of one may describe normal capacity, or a strict limit
 of one process at any moment. The latter prevents overlapping worker generations:
@@ -86,7 +129,7 @@ The default API includes a worker. For planned maintenance:
    HTTP stays available for submission, progress, prompt reads and cancellation.
 3. Wait for that owner's current `drained` state confirmation. A `failed` state
    or operator wait timeout is an incomplete operation; retain the owner and
-   investigate. A drained worker cannot resume admission.
+   investigate using the diagnostics below. A drained worker cannot resume admission.
 4. Send `SIGTERM` and confirm a clean process exit before starting another worker
    when the one-process limit is strict.
 5. Complete any required maintenance/migrations, start the compatible replacement
@@ -154,6 +197,43 @@ admitting work. If the replacement fails after preparation, the original still
 finishes its work but cannot claim again: repair/start a compatible eligible
 owner. Do not restart an owner that still has active leases. Serialize additional
 worker releases while an earlier generation drains.
+
+## When a drain fails
+
+A drain failure keeps the owner and its dependencies available. It never restarts
+an evaluation or resumes that owner's admission. The failure records its original
+cause, operation phase and worker owner identity; safe operator logs include the
+phase, owner, diagnostic references and a bounded database/network code when
+available. Full causes use existing project-scoped, redacted diagnostics. An
+unattributed global claim failure is not copied into unrelated tenants' diagnostics;
+if it cannot be attributed safely, or diagnostic storage is unavailable, only safe
+operator metadata is logged.
+
+After local execution, claims and heartbeats settle, the stock PostgreSQL worker
+checks whether that owner still has any queued/running claims. An earlier error
+whose durable ownership is already resolved no longer prevents retirement. This
+is a read-only check: an expired-but-running claim still blocks confirmation.
+Ordinary queue expiry reconciliation may record an interrupted/unknown outcome;
+it never automatically replays that execution. Successfully persisted results
+remain unchanged.
+
+Once the underlying problem has been resolved, retry `SIGUSR2` on the same owner.
+It repeats the ownership check, rather than dispatching work or clearing a flag
+without evidence. On success the worker reports `drained` and can exit cleanly.
+If claims remain unresolved or the database cannot be read, it still fails closed
+and reports the cause. Keep the compatible replacement available for queued work;
+do not reset the queue or resubmit evaluations as a deployment probe.
+
+Custom `EvalJobStore` implementations may add
+`confirmRetirement(owner): Promise<boolean>`. Return true only after authoritative
+storage proves that owner has no unresolved durable claims; implementations must
+not dispatch, replay or silently release work. Without this capability, ambiguous
+retirement retains its previous fail-closed behavior. Scope this capability with
+the same tenant/owner fences as claims and final writes.
+
+These retry and diagnostic capabilities require an updated worker binary. They do
+not clear an older, already-failed process or authorize bypassing its deployment
+guard. Verify the first upgrade's ownership and compatibility separately.
 
 ## Preserve limits and compatibility
 

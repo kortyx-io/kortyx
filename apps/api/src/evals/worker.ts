@@ -14,6 +14,7 @@ import {
   appendEvalProgress,
   type claimEvalRun,
   claimEvalRuns,
+  confirmEvalWorkerRetirement,
   finishEvalRun,
   getEvalAttemptEvidence,
   getEvalExecutionGeneration,
@@ -34,6 +35,7 @@ import { type AttemptExecution, executeEvaluation } from "./execute-evaluation";
 import { gradeEvalExecution } from "./grade-execution";
 import { type EvalTarget, readEvalWire } from "./targets";
 import { evalOutcomeUsage } from "./usage";
+import { EvalWorkerRetirementError } from "./worker-retirement";
 
 export type EvalWorkerRun = NonNullable<
   Awaited<ReturnType<typeof claimEvalRun>>
@@ -46,6 +48,11 @@ export type EvalWorkerOutcome = Parameters<typeof finishEvalRun>[3] & {
 export interface EvalJobStore {
   /** Return all siblings atomically for an evaluation, or a legacy standalone run. */
   claim(owner: string): Promise<EvalWorkerRun | EvalWorkerRun[] | undefined>;
+  /** Called only after local tasks, claims and heartbeats settle. True proves
+   * this owner has no unresolved durable claims. It must not dispatch/replay work.
+   * Without this capability an ambiguous drain continues to fail closed.
+   */
+  confirmRetirement?(owner: string): Promise<boolean>;
   heartbeat(
     id: string,
     owner: string,
@@ -102,6 +109,7 @@ export function createEvalWorker(
       });
       return runs.length ? runs : undefined;
     },
+    confirmRetirement: (owner) => confirmEvalWorkerRetirement(db, owner),
     heartbeat: (id, owner) => heartbeatEvalRun(db, id, owner),
     executionEvidence: (id, owner, caseId, repetition) =>
       getEvalAttemptEvidence(db, id, owner, caseId, repetition),
@@ -294,8 +302,12 @@ export function createEvalWorker(
       } catch (error) {
         // Suite execution can retain a reporting error without rejecting its task.
         // Retirement must still fail closed on an ambiguous terminal write.
-        drainFailure ??= new Error(
-          "Evaluation worker completion could not be confirmed.",
+        drainFailure ??= new EvalWorkerRetirementError(
+          "completion",
+          owner,
+          error,
+          id,
+          run,
         );
         throw error;
       }
@@ -327,7 +339,8 @@ export function createEvalWorker(
   const executing = new Set<Promise<void>>();
   let stopped = false;
   let draining = false;
-  let drainFailure: Error | undefined;
+  let admissionReady = false;
+  let drainFailure: EvalWorkerRetirementError | undefined;
   let retirement: Promise<void> | undefined;
   let loop: Promise<void> | undefined;
   const active = new Set<AbortController>();
@@ -801,6 +814,7 @@ export function createEvalWorker(
               continue;
             }
             const claimed = await store.claim(owner);
+            admissionReady = true;
             if (stopped) break;
             if (!claimed) {
               await pause();
@@ -833,10 +847,14 @@ export function createEvalWorker(
             })();
             executing.add(task);
             void task
-              .catch(() => {
+              .catch((error) => {
                 // A lost terminal write must not become a successful retirement.
-                drainFailure ??= new Error(
-                  "Evaluation worker completion could not be confirmed.",
+                drainFailure ??= new EvalWorkerRetirementError(
+                  "completion",
+                  owner,
+                  error,
+                  Array.isArray(claimed) ? claimed[0]?.id : claimed.id,
+                  Array.isArray(claimed) ? claimed[0] : claimed,
                 );
               })
               .finally(() => {
@@ -851,10 +869,13 @@ export function createEvalWorker(
                   attemptIssues.delete(run.id);
                 }
               });
-          } catch {
+          } catch (error) {
+            admissionReady = false;
             if (!stopped)
-              drainFailure ??= new Error(
-                "Evaluation claim could not be confirmed.",
+              drainFailure ??= new EvalWorkerRetirementError(
+                "claim",
+                owner,
+                error,
               );
             if (!stopped && !draining) await pause();
           }
@@ -862,24 +883,50 @@ export function createEvalWorker(
         await Promise.allSettled(executing);
       })();
     },
+    /** Readiness means this loop has successfully reached its store, not just HTTP is up. */
+    isReady() {
+      return admissionReady && !stopped && !draining;
+    },
     /** Stop admission, retaining leases, cancellation and final writes until done.
      * A claim already in flight belongs to this worker and is also completed.
      * There is no retirement timeout: the caller must preserve the owning process.
      * Use stop() explicitly to abort instead; it rejects a pending drain.
-     * A drained worker cannot restart. Prior ambiguous claims remain failures.
+     * A drained worker cannot restart. An ambiguous drain is retryable after a
+     * read-only store check proves the owner has no unresolved durable claims.
      */
     drain() {
       draining = true;
-      retirement ??= (async () => {
+      if (retirement) return retirement;
+      const attempt = (async () => {
         await loop;
         await Promise.allSettled(heartbeats);
         if (stopped)
           throw new Error(
             "Evaluation worker retirement was explicitly aborted.",
           );
-        if (drainFailure) throw drainFailure;
+        if (drainFailure) {
+          let confirmed: boolean | undefined;
+          try {
+            confirmed = await baseStore.confirmRetirement?.(owner);
+          } catch (error) {
+            throw new EvalWorkerRetirementError(
+              "verification",
+              owner,
+              new AggregateError(
+                [drainFailure, error],
+                "Retirement verification failed.",
+              ),
+            );
+          }
+          if (confirmed !== true) throw drainFailure;
+          drainFailure = undefined;
+        }
       })();
-      return retirement;
+      retirement = attempt;
+      void attempt.catch(() => {
+        if (retirement === attempt) retirement = undefined;
+      });
+      return attempt;
     },
     async stop() {
       stopped = true;
