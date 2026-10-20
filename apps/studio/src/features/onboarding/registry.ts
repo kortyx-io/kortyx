@@ -243,14 +243,14 @@ export const CHAPTERS = [
         view: { surface: "evaluation" },
         title: "Read the saved result",
         content:
-          "This suite run passed all three conversations. Counts summarize the attempts in this run; open a case to inspect its evidence.",
+          "This suite run passed all three conversations. Counts summarize the attempts in this run; open a case to inspect its evidence. Finished cases with both assessed passes and failures show Mixed results; errors stay separate. Failed cases in writable projects can be selected for a fresh launch.",
       },
       {
         id: "case-evidence",
         view: { surface: "eval-case" },
         title: "Inspect the grading evidence",
         content:
-          "This criterion states the expected delivery information. Its assessment explains why the recorded answer passed. After the guide, expand Conversation and debugging to inspect the input and answer.",
+          "This criterion states the expected delivery information. Its assessment explains why the recorded answer passed. After the guide, expand Conversation and debugging to inspect the input and answer. Deterministic checks, when present, have separate verdicts before model criteria.",
       },
       {
         id: "saved-comparison",

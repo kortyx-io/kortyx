@@ -1,3 +1,5 @@
+export { EvalCheckSchema } from "./evals/check-contracts";
+export { evalChecks } from "./evals/checks";
 export * from "./evals/contracts";
 export { defineSuite } from "./evals/define-suite";
 export { createEvalIssue } from "./evals/errors";

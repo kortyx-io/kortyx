@@ -58,11 +58,14 @@ const compactDetail = (run: StudioEvalDetail) => ({
       status,
       durationMs,
       errors,
-      steps: steps.map(({ index, status, criteria, reason }) => ({
+      steps: steps.map(({ index, status, criteria, checks, reason }) => ({
         index,
         status,
         reason,
         criteria: criteria.map(({ id, passed }) => ({ id, passed })),
+        ...(checks
+          ? { checks: checks.map(({ index, passed }) => ({ index, passed })) }
+          : {}),
       })),
     }),
   ),

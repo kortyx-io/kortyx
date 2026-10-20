@@ -13,6 +13,7 @@ import {
   createPrompts,
   definePrompt,
   defineWorkflow,
+  evalChecks,
   studioPromptSource,
   usePrompt,
   useReason,
@@ -120,6 +121,9 @@ const evals = createEvals({
               message: "Help me reset my password",
               expect: {
                 type: "answer",
+                checks: [
+                  evalChecks.textEquals("support", { ignoreCase: true }),
+                ],
                 criteria: [
                   'The response classifies the user intent with only the label "support" (case-insensitive). No explanation or supporting data is needed.',
                 ],
@@ -135,6 +139,7 @@ const evals = createEvals({
               message: "I want to buy a subscription",
               expect: {
                 type: "answer",
+                checks: [evalChecks.textEquals("sales", { ignoreCase: true })],
                 criteria: [
                   'The response classifies the user intent with only the label "sales" (case-insensitive). No explanation or supporting data is needed.',
                 ],

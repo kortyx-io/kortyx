@@ -214,9 +214,13 @@ export function createEvalTerminalReporter(
         if (item) item.completedSteps = event.step.index + 1;
         const passed = event.step.status === "passed";
         const criterionCount = event.step.criteria.length;
-        const detail = criterionCount
-          ? ` · ${event.step.criteria.filter((criterion) => criterion.passed).length}/${criterionCount} criteria passed`
-          : "";
+        const detail =
+          (event.step.checks?.length
+            ? ` · ${event.step.checks.filter((check) => check.passed).length}/${event.step.checks.length} checks passed`
+            : "") +
+          (criterionCount
+            ? ` · ${event.step.criteria.filter((criterion) => criterion.passed).length}/${criterionCount} criteria passed`
+            : "");
         line(
           `    ${paint(passed ? 32 : 33, passed ? "✓" : "◇")} ${text(event.caseId)} #${event.repetition} · Step ${event.step.index + 1}/${steps.get(event.caseId) ?? "?"} · ${event.step.observation.type === "interrupt" ? "Human input requested" : text(event.step.observation.type)}${detail}`,
         );
@@ -261,6 +265,14 @@ export function createEvalTerminalReporter(
             `    Expected ${step.expectation.type} · observed ${step.observation.type}`,
           );
           if (step.reason) line(`    ${text(step.reason)}`);
+          for (const check of step.checks?.filter((value) => !value.passed) ??
+            []) {
+            line(
+              `    ✗ Check ${check.index + 1} (${check.check.type}): ${text(check.reason)}`,
+            );
+            for (const evidence of check.evidence)
+              line(paint(90, `      Evidence: ${text(evidence)}`));
+          }
           for (const criterion of step.criteria.filter(
             (value) => !value.passed,
           )) {

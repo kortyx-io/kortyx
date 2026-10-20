@@ -139,3 +139,16 @@ default). Eval failures retain original messages, stacks, causes and response
 properties with credential redaction automatically. See the repository guides
 [SDK evals](../../docs/evals/sdk-runner.md) and
 [Studio settings and migration](../../docs/evals/studio-execution.md).
+
+## Deterministic eval checks
+
+Import `evalChecks` with `defineSuite` and add `expect.checks`, for example
+`[evalChecks.textContains("EUR"), evalChecks.toolCalled("catalog.lookup")]`.
+For an exact answer, use `evalChecks.textEquals("sales")`; pass
+`{ ignoreCase: true }` as the second argument to ignore case without trimming whitespace.
+Built-in text, regex, tool-input, and structured-output equality checks execute
+before semantic judging in both App and Studio modes, with no callback registry
+or extra `createEvals` configuration. Check-only local suites need no model judge.
+Use `verify` for final application-state postconditions. See
+[the SDK runner guide](https://github.com/kortyx-io/kortyx/blob/main/docs/evals/sdk-runner.md#deterministic-checks)
+for evidence boundaries, saved verdicts, and mixed-version upgrade order.

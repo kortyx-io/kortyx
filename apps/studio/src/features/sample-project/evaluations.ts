@@ -1,4 +1,4 @@
-import { getEvalSuiteRevision } from "@kortyx/agent";
+import { evalChecks, getEvalSuiteRevision } from "@kortyx/agent";
 import {
   type EvalCaseResult,
   type EvalObservation,
@@ -28,7 +28,11 @@ type Turn = Conversation["turns"][number];
 type Models = ReturnType<typeof createSampleProjectReadModels>;
 const answer = (message: string, criteria: string[]) => ({
   message,
-  expect: { type: "answer" as const, criteria },
+  expect: {
+    type: "answer" as const,
+    checks: [evalChecks.textMatches("\\S")],
+    criteria,
+  },
 });
 const creditReview = (message: string, approve: boolean) => [
   {
@@ -356,6 +360,19 @@ function caseResult(
               },
             },
       expectation: step.expect,
+      ...(step.expect.checks?.length && conversation.verdict !== "error"
+        ? {
+            checks: step.expect.checks.map((check, checkIndex) => ({
+              index: checkIndex,
+              check,
+              passed: /\S/.test(observed.text),
+              reason: /\S/.test(observed.text)
+                ? "The answer contains non-whitespace text."
+                : "The answer is empty.",
+              evidence: /\S/.test(observed.text) ? [observed.text] : [],
+            })),
+          }
+        : {}),
       observation: observed,
       status:
         conversation.verdict === "error"

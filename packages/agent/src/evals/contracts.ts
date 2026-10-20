@@ -2,6 +2,7 @@ import { isFailureDescriptor, serializeFailure } from "@kortyx/core/errors";
 import { PromptSnapshotSchema } from "@kortyx/prompts/browser";
 import { DiagnosticContentSchema } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
+import { EvalCheckSchema } from "./check-contracts";
 import { EvalEvidencePolicySchema } from "./evidence-policy";
 import {
   EvalExecutionSettingsSchema,
@@ -32,6 +33,7 @@ const expectation = z
     outputs: z
       .array(z.object({ schemaId: id, schemaVersion: id.optional() }).strict())
       .optional(),
+    checks: z.array(EvalCheckSchema).max(100).optional(),
     criteria: z
       .array(
         z.union([
@@ -224,6 +226,14 @@ export const EvalJudgeUsageSchema = z
   .strict();
 export const EvalStepResultSchema = z
   .object({
+    checks: z
+      .array(
+        EvalVerdictSchema.extend({
+          index: z.number().int().nonnegative(),
+          check: EvalCheckSchema,
+        }),
+      )
+      .optional(),
     evidence: z
       .object({
         version: z.literal("compact-v1"),

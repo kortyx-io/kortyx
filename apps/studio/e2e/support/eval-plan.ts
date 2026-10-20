@@ -47,7 +47,18 @@ export const EVAL_SUITE = EvalSuiteSchema.parse({
       steps: [
         {
           message: "Describe the role",
-          expect: { type: "answer", criteria: ["The description is present"] },
+          expect: {
+            type: "answer",
+            checks: [
+              { type: "text-contains", value: "Software Engineer" },
+              {
+                type: "text-equals",
+                value: "software engineer role description",
+                ignoreCase: true,
+              },
+            ],
+            criteria: ["The description is present"],
+          },
         },
       ],
     },

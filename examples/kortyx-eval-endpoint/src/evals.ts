@@ -1,5 +1,5 @@
 import { openrouter } from "@kortyx/openrouter";
-import { createEvalJudge, createEvals, defineSuite } from "kortyx";
+import { createEvalJudge, createEvals, defineSuite, evalChecks } from "kortyx";
 import { agent } from "./agent";
 
 export const catalogSmoke = defineSuite({
@@ -15,6 +15,7 @@ export const catalogSmoke = defineSuite({
           message: "What is the price of the blue backpack in my catalog?",
           expect: {
             type: "answer",
+            checks: [evalChecks.toolCalled("list_products")],
             criteria: [
               "Uses a successful list_products tool result and reports the blue backpack's EUR 49 price faithfully. Fails if no successful lookup evidence is available.",
             ],

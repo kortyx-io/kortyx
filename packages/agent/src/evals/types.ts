@@ -16,6 +16,20 @@ export type EvalJson =
   | { readonly [key: string]: EvalJson };
 export type EvalHandlerRef = { using: string; params?: EvalJson };
 export type EvalCriterion = string | { id: string; text: string };
+export type EvalCheck =
+  | { type: "text-equals"; value: string; ignoreCase?: boolean }
+  | { type: "text-contains"; value: string }
+  | { type: "text-matches"; pattern: string; flags?: string }
+  | { type: "tool-called"; tool: string }
+  | { type: "tool-input-equals"; tool: string; input: EvalJson }
+  | {
+      type: "output-equals";
+      schemaId: string;
+      schemaVersion?: string;
+      path: readonly (string | number)[];
+      value: EvalJson;
+    };
+export type EvalCheckResult = EvalVerdict & { index: number; check: EvalCheck };
 export type EvalOutputExpectation = {
   schemaId: string;
   schemaVersion?: string;
@@ -26,6 +40,7 @@ export type EvalExpectation = {
   schemaVersion?: string;
   /** Required completed structured output contracts in this step; other outputs are allowed. */
   outputs?: readonly EvalOutputExpectation[];
+  checks?: readonly EvalCheck[];
   criteria?: readonly EvalCriterion[];
   reference?: EvalJson;
 };
@@ -157,6 +172,7 @@ export type EvalStepResult = {
   status: EvalExecutionStatus;
   reason?: string;
   criteria: EvalCriterionResult[];
+  checks?: EvalCheckResult[];
 };
 export type EvalRuntimeExecution = { sessionId: string; runId: string };
 export type EvalCaseResult = {

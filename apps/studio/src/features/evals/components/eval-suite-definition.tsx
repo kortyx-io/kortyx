@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/detail/detail-primitives";
 import { Button } from "@/components/ui/button";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { displayName } from "../lib/presentation";
+import { EvalDeterministicChecks } from "./eval-deterministic-checks";
 import { EvalDisclosure } from "./eval-disclosure";
 import { EvalOutputRequirements } from "./eval-output-requirements";
 import { EvalPayloadViewer } from "./eval-payload-viewer";
@@ -134,6 +135,7 @@ function StepDefinition({
         </p>
       ) : null}
       <EvalOutputRequirements outputs={step.expect.outputs} />
+      <EvalDeterministicChecks checks={step.expect.checks} scope={scope} />
       {step.expect.criteria?.length ? (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
@@ -154,7 +156,9 @@ function StepDefinition({
         <p className="text-xs text-muted-foreground">
           {step.expect.outputs?.length
             ? "Checks the response type and required structured outputs. No LLM grading criteria."
-            : "Checks the expected response type. No additional grading criteria."}
+            : step.expect.checks?.length
+              ? "Checks the expected response type and deterministic assertions. No LLM grading criteria."
+              : "Checks the expected response type. No additional grading criteria."}
         </p>
       )}
     </li>

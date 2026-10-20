@@ -72,6 +72,83 @@ scenario input, not a template inferred from setup. A case may specify
 the expected interrupt fails before semantic judging. Only demand ambiguity
 when the scenario's available data deliberately contains it.
 
+## Deterministic checks
+
+Use built-in, serializable `expect.checks` for assertions that do not need a model:
+
+```ts
+import { defineSuite, evalChecks } from "kortyx";
+
+const suite = defineSuite({
+  id: "catalog-checks",
+  cases: [{
+    id: "blue-backpack",
+    steps: [{
+      message: "Show the blue backpack and its price in EUR",
+      expect: {
+        type: "answer",
+        checks: [
+          evalChecks.textContains("EUR"),
+          evalChecks.textMatches("EUR\\s*49", "i"),
+          evalChecks.toolCalled("catalog.lookup"),
+          evalChecks.toolInputEquals("catalog.lookup", { sku: "blue-backpack" }),
+          evalChecks.outputEquals({
+            schemaId: "app.product-card",
+            path: ["price"],
+            value: 49,
+          }),
+        ],
+        criteria: ["Describes the requested product faithfully using successful tool results."],
+      },
+    }],
+  }],
+});
+```
+
+No callback registry or additional `createEvals` option is required. Helpers return
+plain descriptors such as `{ type: "tool-called", tool: "catalog.lookup" }`.
+Up to 100 checks are allowed per step, and all must pass. Every evaluated check
+saves its index, definition, pass/fail,
+reason, and evidence in `step.checks`, separately from semantic `step.criteria`.
+A failed check stops the case before reference loading and semantic judging;
+cleanup still runs. Checks run in the application for both App and Studio judging.
+Local SDK/CLI check-only suites need no judge. Studio retains its normal explicit
+judge selection, but check-only steps make no semantic judge calls.
+
+- `textEquals(value, { ignoreCase? }?)` compares the entire current answer as
+  literal text. It is case-sensitive by default; for example,
+  `textEquals("sales", { ignoreCase: true })` also accepts `"SALES"`. Whitespace
+  is preserved, regex characters are literal, and an empty expected string is
+  allowed. Case-insensitive comparison uses JavaScript `toLowerCase()`.
+- `textContains(value)` is case-sensitive literal matching of current answer text.
+- `textMatches(pattern, flags?)` uses a JavaScript regular expression expressed as
+  strings, never a `RegExp` object. Invalid patterns/flags fail suite validation;
+  patterns are limited to 1,000 characters. Author trusted patterns and avoid
+  expensive expressions. A new expression is used for each attempt.
+- `toolCalled(name)` requires a matching captured tool-call event. It establishes
+  that a call was observed, not that it succeeded. `toolInputEquals(name, value)`
+  requires a captured call-start event with exactly equal JSON arguments. Object
+  key order is ignored; array order and scalar types are preserved.
+- `outputEquals({ schemaId, schemaVersion?, path, value })` checks a current
+  completed output envelope. `path` is relative to `data`, supports string keys
+  and numeric array indexes, and is limited to 64 segments. `[]` checks the whole
+  data value. Omitted versions accept any version. Missing properties do not
+  equal `null`; partial, invalidated, and prior-turn outputs do not qualify.
+
+Checks inspect the current step's full captured observation. Judge evidence
+filters and history selection do not change their inputs. Enable
+`toolExecution: { emit: true }` for tool assertions; missing evidence fails and
+never establishes that an unobserved tool did not run. Silent calls and private
+runtime state remain outside this boundary. Use semantic criteria for grounding
+and successful task behavior; use the existing `verify` hook for final database
+or other application-state postconditions.
+
+Definitions and results are visible in Studio suite/case views and CLI JSON.
+Keep secrets out of expected values and captured evidence. Deploy the compatible
+Studio API, worker, Studio UI, and CLI before upgrading application SDKs that
+expose checks. Older services reject unsupported descriptors; older saved suites
+without checks remain readable. No database migration is required.
+
 ## Required structured outputs
 
 Declare required completed output contracts on the step that must produce them:

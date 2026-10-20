@@ -34,6 +34,55 @@ export const isActive = (status?: string) =>
 export const displayName = (id: string) =>
   id.replace(/[-_]/g, " ").replace(/^./, (s) => s.toUpperCase());
 
+/** Recorded terminal outcomes, excluding statuses inferred from interrupted transport. */
+export function recordedCaseResults(run: EvalDetail) {
+  const results = new Map<string, EvalCaseResult>();
+  for (const { event } of run.events)
+    if (event.type === "case-completed")
+      results.set(
+        `${event.result.caseId}:${event.result.repetition}`,
+        event.result,
+      );
+  for (const item of run.result?.cases ?? [])
+    results.set(`${item.caseId}:${item.repetition}`, item);
+  return results;
+}
+
+/** Assessed behavior only; infrastructure errors never create a mixed quality result. */
+export function mixedCaseResults(
+  run: EvalDetail | StudioEvalLiveDetail,
+  rows = caseRows(run),
+) {
+  const results = new Map<
+    string,
+    { passed: number; failed: number; errors: number; other: number }
+  >();
+  if (isActive(run.status)) return results;
+  const recorded =
+    "cases" in run
+      ? new Map(
+          run.cases.map((item) => [`${item.caseId}:${item.repetition}`, item]),
+        )
+      : recordedCaseResults(run);
+  for (const row of rows) {
+    const counts = results.get(row.caseId) ?? {
+      passed: 0,
+      failed: 0,
+      errors: 0,
+      other: 0,
+    };
+    const status = recorded.get(row.key)?.status;
+    if (status === "passed") counts.passed++;
+    else if (status === "failed") counts.failed++;
+    else if (status === "error") counts.errors++;
+    else counts.other++;
+    results.set(row.caseId, counts);
+  }
+  for (const [id, counts] of results)
+    if (!counts.passed || !counts.failed) results.delete(id);
+  return results;
+}
+
 export function caseRows(run: EvalDetail | StudioEvalLiveDetail): CaseRow[] {
   const result = "result" in run ? run.result : null;
   const rows = new Map<string, CaseRow>();

@@ -12,6 +12,7 @@ import { useStudioQueryStates } from "@/lib/nuqs";
 import type { EvalTargets } from "../schema";
 export const evalSetupParsers = {
   launch: parseAsBoolean.withDefault(false),
+  launchRerun: parseAsBoolean.withDefault(false),
   launchJudge: parseAsStringLiteral(["studio", "app"]),
   launchApplication: parseAsString.withDefault(""),
   launchSuite: parseAsString.withDefault(""),
@@ -117,6 +118,7 @@ export function useEvalSetup(targets: EvalTargets) {
         target?.manifest?.suites[0];
       void setQuery({
         launch: true,
+        launchRerun: null,
         launchApplication: target?.id ?? "",
         launchSuite: suiteId ? (suite?.id ?? "") : "",
         launchScope: suiteId ? "selected" : "all",
@@ -140,6 +142,7 @@ export function useEvalSetup(targets: EvalTargets) {
     close: () => {
       return setQuery({
         launch: null,
+        launchRerun: null,
         launchApplication: null,
         launchSuite: null,
         launchScope: null,

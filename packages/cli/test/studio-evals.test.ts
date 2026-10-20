@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { StudioEvaluationResultsSchema } from "@kortyx/agent/evals";
 import { Command } from "commander";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { saveConnections } from "../src/connections";
@@ -513,6 +514,51 @@ describe("Studio eval CLI", () => {
     ]);
     expect(command.output[1]).toContain("private answer");
     expect(command.output[1]).not.toContain("never-print");
+  });
+  it("keeps check verdicts in compact JSON without disclosing definitions, reasons or evidence", async () => {
+    const args = await configured();
+    const base = mockFetch();
+    const request = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (url, init) => {
+        const response = await base(url, init);
+        if (!new URL(String(url)).pathname.endsWith("/results"))
+          return response;
+        const body = StudioEvaluationResultsSchema.parse(await response.json());
+        const step = body.run.suites[0]?.result?.cases[0]?.steps[0];
+        if (!step) throw new Error("Recorded step fixture required");
+        step.checks = [
+          {
+            index: 0,
+            check: {
+              type: "text-equals",
+              value: "private answer",
+              ignoreCase: true,
+            },
+            passed: true,
+            reason: "private check reasoning",
+            evidence: ["private answer"],
+          },
+        ];
+        return Response.json(body, { status: response.status });
+      });
+    const command = cli(request);
+    await command.run(["runs", "get", id, ...args, "--json"]);
+    const step = JSON.parse(command.output[0] ?? "").run.suites[0]
+      .caseResults[0].steps[0];
+    expect(step.checks).toEqual([{ index: 0, passed: true }]);
+    expect(command.output[0]).not.toContain("private");
+    expect(command.output[0]).not.toContain("text-equals");
+    await command.run([
+      "runs",
+      "get",
+      id,
+      ...args,
+      "--json",
+      "--include-content",
+    ]);
+    expect(command.output[1]).toContain("private check reasoning");
+    expect(command.output[1]).toContain("text-equals");
   });
   it("reads unfinished runs and filters latest history", async () => {
     const args = await configured();

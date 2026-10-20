@@ -328,6 +328,7 @@ export const publicCatalog: UsageCatalog = {
     topology_strict: "boolean",
     settings_override: "boolean",
     case_timeout_override: "boolean",
+    deterministic_checks: "boolean",
     run_timeout_override: "boolean",
     phase: [
       "admission",

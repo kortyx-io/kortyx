@@ -16,6 +16,7 @@ import {
 } from "../lib/navigation";
 import { isActive } from "../lib/presentation";
 import type { EvalHistory } from "../schema";
+import { EvalRerunFailed } from "./eval-rerun-failed";
 import { EvalRunDetail } from "./eval-run-detail";
 
 export function EvalLiveRunPageClient({
@@ -80,6 +81,9 @@ export function EvalLiveRunPageClient({
           {current.detail ? (
             <EvalRunDetail
               run={current.detail}
+              rerunControl={
+                <EvalRerunFailed run={current.detail} canRun={canRun} />
+              }
               liveControl={
                 <LiveRefreshButton
                   enabled={query.live}

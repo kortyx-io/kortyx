@@ -5,6 +5,7 @@ import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
 import type { CaseRow } from "../lib/presentation";
 import { EvalCostBreakdown } from "./eval-cost";
+import { EvalDeterministicChecks } from "./eval-deterministic-checks";
 import { EvalDisclosure } from "./eval-disclosure";
 import { EvalFailure } from "./eval-failure";
 import { EvalOutputRequirements } from "./eval-output-requirements";
@@ -45,6 +46,11 @@ function StepEvaluation({
         Expected {step.expectation.type} · Observed {step.observation.type}
       </p>
       <EvalOutputRequirements outputs={step.expectation.outputs} />
+      <EvalDeterministicChecks
+        checks={step.expectation.checks}
+        results={step.checks ?? []}
+        scope={scope}
+      />
       {step.reason ? (
         <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs text-red-700 dark:text-red-400">
           {step.reason}
