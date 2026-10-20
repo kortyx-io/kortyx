@@ -1,9 +1,15 @@
 import type { EvalProgress, EvalRunResult } from "@kortyx/agent/evals";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryNotFoundError } from "../errors";
 import { evalRunEvents, evalRuns } from "../schema";
 import { loadEvalCosts } from "./eval-costs";
+import {
+  getEvalLiveSummaries,
+  maintainEvalProjection,
+  priceEvalProjection,
+} from "./eval-live";
+import { projectEvalProgress } from "./eval-live-projection";
 import { ensureProjectEnvironmentAllowed } from "./projects";
 import { notifyStudioChange } from "./studio-changes";
 
@@ -37,7 +43,6 @@ export const listEvalRuns = async (
 ) => {
   const runs = await db
     .select({
-      result: evalRuns.result,
       id: evalRuns.id,
       evaluationId: evalRuns.evaluationId,
       targetId: evalRuns.targetId,
@@ -72,16 +77,46 @@ export const listEvalRuns = async (
     )
     .orderBy(desc(evalRuns.createdAt))
     .limit(latestPerSuite ? 2147483647 : 100);
-  const costs = await loadEvalCosts(db, scope, runs);
-  return runs.map(({ result: _, ...run }) => ({
+  const live = new Map(
+    (
+      await getEvalLiveSummaries(
+        db,
+        scope,
+        runs.map((r) => r.id),
+      )
+    ).map((r) => [r.id, r]),
+  );
+  return runs.map((run) => ({
     ...run,
     resolvedSettings: run.resolvedSettings ?? undefined,
-    costs: costs.get(run.id)?.costs,
+    counts: live.get(run.id)?.counts,
+    totalAttempts: live.get(run.id)?.totalAttempts,
+    completedAttempts: live.get(run.id)?.completedAttempts,
+    costs: live.get(run.id)?.costs,
   }));
 };
-export async function getEvalRun(db: TelemetryDb, scope: Scope, id: string) {
+export async function getEvalRun(
+  db: TelemetryDb,
+  scope: Scope,
+  id: string,
+  selection?: { caseId: string; repetition: number },
+) {
+  const { liveProjection: _liveProjection, ...columns } =
+    getTableColumns(evalRuns);
   const [run] = await db
-    .select()
+    .select({
+      ...columns,
+      caseVersion: selection
+        ? sql<
+            string | null
+          >`${evalRuns.liveProjection}->'attempts'->${JSON.stringify([selection.caseId, selection.repetition])}->'summary'->>'evidenceVersion'`
+        : sql<null>`NULL`,
+      ...(selection
+        ? {
+            result: sql<EvalRunResult | null>`CASE WHEN ${evalRuns.result} IS NULL THEN NULL ELSE jsonb_set(${evalRuns.result}, '{cases}', coalesce((SELECT jsonb_agg(item) FROM jsonb_array_elements(${evalRuns.result}->'cases') item WHERE item->>'caseId'=${selection.caseId} AND (item->>'repetition')::integer=${selection.repetition}), '[]'::jsonb)) END`,
+          }
+        : {}),
+    })
     .from(evalRuns)
     .where(and(scopeWhere(scope), eq(evalRuns.id, id)))
     .limit(1);
@@ -94,17 +129,25 @@ export async function getEvalRun(db: TelemetryDb, scope: Scope, id: string) {
         eq(evalRunEvents.organizationId, scope.organizationId),
         eq(evalRunEvents.projectId, scope.projectId),
         eq(evalRunEvents.runId, id),
+        selection
+          ? sql`(${evalRunEvents.event}->>'caseId'=${selection.caseId} AND (${evalRunEvents.event}->>'repetition')::integer=${selection.repetition} OR ${evalRunEvents.event}->'result'->>'caseId'=${selection.caseId} AND (${evalRunEvents.event}->'result'->>'repetition')::integer=${selection.repetition})`
+          : undefined,
       ),
     )
     .orderBy(asc(evalRunEvents.id))
     .limit(5000);
-  const { leaseOwner: _, leaseExpiresAt: __, ...publicRun } = run;
+  const { leaseOwner: _, leaseExpiresAt: __, caseVersion, ...publicRun } = run;
   const costs = await loadEvalCosts(db, scope, [{ ...publicRun, events }]);
   return {
     ...publicRun,
     resolvedSettings: run.request.resolvedSettings,
     events,
     ...costs.get(id),
+    ...(selection
+      ? {
+          caseVersion: caseVersion ?? undefined,
+        }
+      : {}),
   };
 }
 export async function requestEvalCancellation(
@@ -305,6 +348,19 @@ export async function appendEvalProgress(
       projectId: run.projectId,
       event,
     });
+    await maintainEvalProjection(
+      tx as TelemetryDb,
+      run,
+      async (projectionDb, projection) => {
+        const key = projectEvalProgress(projection, event);
+        if (
+          key &&
+          event.type !== "case-progress" &&
+          event.type !== "case-dispatch"
+        )
+          await priceEvalProjection(projectionDb, run, projection, [key]);
+      },
+    );
     await notifyStudioChange(tx, { ...run, resources: ["evals"] });
   });
 }
@@ -346,6 +402,17 @@ export async function finishEvalRun(
       .returning();
     if (!run)
       throw new Error("Eval completion lost its lease or was not persisted.");
+    await maintainEvalProjection(
+      tx as TelemetryDb,
+      run,
+      async (projectionDb, projection) => {
+        if (run.liveProjection) {
+          for (const result of run.result?.cases ?? [])
+            projectEvalProgress(projection, { type: "case-completed", result });
+          await priceEvalProjection(projectionDb, run, projection);
+        }
+      },
+    );
     await notifyStudioChange(tx, { ...run, resources: ["evals"] });
   });
 }

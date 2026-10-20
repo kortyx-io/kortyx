@@ -10,6 +10,8 @@ import {
 import {
   enqueueEvalRun,
   ensureProjectEnvironmentAllowed,
+  getEvalLiveRun,
+  getEvalLiveState,
   getEvalRun,
   getEvalSettings,
   listEvalRuns,
@@ -52,6 +54,9 @@ export function registerEvalRoutes(
     : fetchEvalManifest;
   app.use("/v1/studio/evals/runs", bodyLimit({ maxSize: 16_384 }));
   app.use("/v1/studio/evals/runs/*", bodyLimit({ maxSize: 16_384 }));
+  app.get("/v1/studio/evals/capabilities", async (c) =>
+    c.json({ canRun: await canApiAction(c, "eval:run") }),
+  );
   app.get("/v1/studio/evals/targets", async (c) => {
     const auth = c.get("principal");
     const available = (adapter ? await adapter.list(auth) : targets).filter(
@@ -146,6 +151,47 @@ export function registerEvalRoutes(
     return c.json({
       run: await c.get("withTenantDatabase")((db) =>
         getEvalRun(db, c.get("principal"), id.data),
+      ),
+    });
+  });
+  app.get("/v1/studio/evals/runs/:id/live", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const id = z.uuid().safeParse(c.req.param("id"));
+    const after = c.req.query("after");
+    if (!id.success || (after !== undefined && !/^[a-f0-9]{64}$/.test(after)))
+      return c.json({ error: "Invalid eval live query." }, 400);
+    if (after !== undefined) {
+      const state = await c.get("withTenantDatabase")((db) =>
+        getEvalLiveState(db, c.get("principal"), id.data),
+      );
+      return c.json({
+        version: state.version,
+        run: after === state.version ? null : state,
+      });
+    }
+    return c.json({
+      run: await c.get("withTenantDatabase")((db) =>
+        getEvalLiveRun(db, c.get("principal"), id.data),
+      ),
+    });
+  });
+  app.get("/v1/studio/evals/runs/:id/case", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const parsed = z
+      .object({
+        id: z.uuid(),
+        caseId: z.string().min(1).max(200),
+        repetition: z.coerce.number().int().min(1).max(20),
+      })
+      .safeParse({ ...c.req.query(), id: c.req.param("id") });
+    if (!parsed.success)
+      return c.json({ error: "Invalid eval case query." }, 400);
+    return c.json({
+      run: await c.get("withTenantDatabase")((db) =>
+        getEvalRun(db, c.get("principal"), parsed.data.id, {
+          caseId: parsed.data.caseId,
+          repetition: parsed.data.repetition,
+        }),
       ),
     });
   });

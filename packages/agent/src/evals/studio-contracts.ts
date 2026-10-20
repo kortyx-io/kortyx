@@ -114,6 +114,7 @@ export const StudioEvalHistorySchema = z.object({
 });
 export const StudioEvalDetailSchema = z.object({
   run: StudioEvalRunSummarySchema.extend({
+    caseVersion: z.string().optional(),
     caseCosts: z.record(z.string(), EvalCostsSchema).optional(),
     request: z
       .object({
@@ -139,3 +140,42 @@ export type StudioEvalHistory = z.infer<typeof StudioEvalHistorySchema>;
 export type StudioEvalDetail = z.infer<typeof StudioEvalDetailSchema>["run"];
 
 export type StudioEvalRunSummary = z.infer<typeof StudioEvalRunSummarySchema>;
+
+/** Table facts only. Conversation inputs, outputs and judge evidence are read separately. */
+export const StudioEvalCaseSummarySchema = z.object({
+  evidenceVersion: z.string().optional(),
+  caseId: z.string(),
+  repetition: z.number().int().positive(),
+  status: z.string(),
+  sessionId: z.string().optional(),
+  durationMs: z.number().nonnegative().optional(),
+  completedSteps: z.number().int().nonnegative(),
+  criteriaPassed: z.number().int().nonnegative(),
+  criteriaTotal: z.number().int().nonnegative(),
+  failures: z.array(z.string()),
+  errors: z.array(EvalIssueSchema),
+  phase: z.string().optional(),
+  phaseDurationsMs: z.record(z.string(), z.number()).optional(),
+  retryAt: z.string().optional(),
+  httpStatus: z.number().optional(),
+  costs: EvalCostsSchema.optional(),
+});
+export type StudioEvalCaseSummary = z.infer<typeof StudioEvalCaseSummarySchema>;
+export const StudioEvalLiveStateSchema = StudioEvalRunSummarySchema.extend({
+  version: z.string(),
+  cases: z.array(StudioEvalCaseSummarySchema),
+  errors: z.array(EvalIssueSchema),
+});
+export const StudioEvalLiveDetailSchema = z.object({
+  run: StudioEvalLiveStateSchema.extend({
+    suite: EvalSuiteSchema,
+    request: StudioEvalDetailSchema.shape.run.shape.request,
+  }),
+});
+export const StudioEvalLiveUpdateSchema = z.object({
+  version: z.string(),
+  run: StudioEvalLiveStateSchema.nullable(),
+});
+export type StudioEvalLiveDetail = z.infer<
+  typeof StudioEvalLiveDetailSchema
+>["run"];

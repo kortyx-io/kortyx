@@ -144,6 +144,8 @@ export function EvalsPageClient({
   const live = useLiveRefresh({
     enabled: query.live,
     resource: "evals",
+    minRefreshIntervalMs: 1_000,
+    refreshOnEnable: false,
     relatedResources: ["runs"],
     refresh: async () => {
       const value = await evalRequest(

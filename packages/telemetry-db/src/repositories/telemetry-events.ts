@@ -2,9 +2,11 @@ import type {
   KortyxTelemetryEvent,
   StudioChangeResource,
 } from "@kortyx/telemetry-contracts";
+import { sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryForbiddenError } from "../errors";
 import { telemetryEvents } from "../schema";
+import { refreshEvalBilling } from "./eval-live";
 import { ensureProjectEnvironmentAllowed } from "./projects";
 import { notifyStudioChange } from "./studio-changes";
 import { refreshStudioProjectionScopes } from "./studio-projections";
@@ -142,6 +144,15 @@ export const ingestTelemetryEvents = async (
   );
 
   const inserted = await db.transaction(async (transaction) => {
+    // Price the inserted batch once, in run-id lock order. The compatibility
+    // trigger only dirties prices for writers that do not use this ingestion path.
+    const managesBilling = input.events.some(
+      (event) => event.type === "generation.completed",
+    );
+    if (managesBilling)
+      await transaction.execute(
+        sql`select set_config('kortyx.managed_eval_billing', 'true', true)`,
+      );
     const rows = await transaction
       .insert(telemetryEvents)
       .values(values)
@@ -153,8 +164,32 @@ export const ingestTelemetryEvents = async (
         sessionId: telemetryEvents.sessionId,
         type: telemetryEvents.type,
       });
+    if (managesBilling)
+      await transaction.execute(
+        sql`select set_config('kortyx.managed_eval_billing', 'false', true)`,
+      );
 
     if (rows.length > 0) {
+      const billingIds = new Set(
+        rows
+          .filter((row) => row.type === "generation.completed")
+          .map((row) => row.eventId),
+      );
+      await refreshEvalBilling(
+        transaction as TelemetryDb,
+        input,
+        input.events
+          .filter((event) => billingIds.has(event.eventId))
+          .map((event) => ({
+            environment: event.environment,
+            ...(typeof event.payload.evalAttemptId === "string"
+              ? { attemptId: event.payload.evalAttemptId }
+              : {}),
+            ...(event.correlation.sessionId
+              ? { sessionId: event.correlation.sessionId }
+              : {}),
+          })),
+      );
       await refreshStudioProjectionScopes(transaction as TelemetryDb, {
         organizationId: input.organizationId,
         projectId: input.projectId,

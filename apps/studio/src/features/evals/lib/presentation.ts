@@ -3,6 +3,7 @@ import type {
   EvalCosts,
   EvalIssue,
   EvalStepResult,
+  StudioEvalLiveDetail,
 } from "@kortyx/agent/evals";
 import type { EvalDetail } from "../schema";
 
@@ -19,6 +20,10 @@ export type CaseRow = {
   sessionId?: string;
   durationMs?: number;
   steps: EvalStepResult[];
+  completedSteps?: number;
+  criteriaPassed?: number;
+  criteriaTotal?: number;
+  failures?: string[];
   expectedSteps: number;
   errors: EvalIssue[];
   retryAt?: string;
@@ -29,14 +34,15 @@ export const isActive = (status?: string) =>
 export const displayName = (id: string) =>
   id.replace(/[-_]/g, " ").replace(/^./, (s) => s.toUpperCase());
 
-export function caseRows(run: EvalDetail): CaseRow[] {
+export function caseRows(run: EvalDetail | StudioEvalLiveDetail): CaseRow[] {
+  const result = "result" in run ? run.result : null;
   const rows = new Map<string, CaseRow>();
   const definitions = new Map(run.suite.cases.map((item) => [item.id, item]));
   const request = run.request;
   const selected = request?.caseIds ?? run.suite.cases.map((item) => item.id);
   const attempts =
     request?.repetitions ??
-    Math.max(1, ...(run.result?.cases.map((item) => item.repetition) ?? []));
+    Math.max(1, ...(result?.cases.map((item) => item.repetition) ?? []));
   const row = (caseId: string, repetition: number): CaseRow => ({
     environment: run.environment,
     key: `${caseId}:${repetition}`,
@@ -51,7 +57,7 @@ export function caseRows(run: EvalDetail): CaseRow[] {
   for (const id of selected)
     for (let attempt = 1; attempt <= attempts; attempt++)
       rows.set(`${id}:${attempt}`, row(id, attempt));
-  for (const { event } of run.events) {
+  for (const { event } of "events" in run ? run.events : []) {
     if (event.type === "case-dispatch") {
       const item = rows.get(`${event.caseId}:${event.repetition}`);
       if (
@@ -93,14 +99,27 @@ export function caseRows(run: EvalDetail): CaseRow[] {
         key: `${event.result.caseId}:${event.result.repetition}`,
       });
   }
-  for (const item of run.result?.cases ?? [])
+  for (const item of result?.cases ?? [])
     rows.set(`${item.caseId}:${item.repetition}`, {
       ...row(item.caseId, item.repetition),
       ...item,
       key: `${item.caseId}:${item.repetition}`,
     });
+  if ("cases" in run)
+    for (const item of run.cases)
+      rows.set(`${item.caseId}:${item.repetition}`, {
+        ...row(item.caseId, item.repetition),
+        ...item,
+        phaseDurationsMs: item.phaseDurationsMs as CaseRow["phaseDurationsMs"],
+        key: `${item.caseId}:${item.repetition}`,
+        steps: [],
+      });
   return [...rows.values()].map((original) => {
-    const item = { ...original, costs: run.caseCosts?.[original.key] };
+    const item = {
+      ...original,
+      costs:
+        "caseCosts" in run ? run.caseCosts?.[original.key] : original.costs,
+    };
     if (isActive(run.status)) return item;
     if (run.termination?.code === "EVAL_RUN_TIMEOUT") {
       const timeoutIssue = {

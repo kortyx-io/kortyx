@@ -20,6 +20,16 @@ vi.mock("@/lib/studio-fetch", () => ({ studioFetch: send }));
 import { evalRequest } from "./client";
 
 afterEach(() => vi.clearAllMocks());
+it("explains proxy outages without exposing an HTML body as a JSON parsing error", async () => {
+  send.mockResolvedValueOnce(
+    new Response("<html>Bad Gateway</html>", { status: 502 }),
+  );
+  await expect(evalRequest("runs/id/live")).rejects.toThrow("HTTP 502");
+  expect(end).toHaveBeenCalledWith("failed", {
+    phase: "http",
+    http_status: "502",
+  });
+});
 it("records launch settings presence without values, target IDs, suites or customer content", async () => {
   send.mockResolvedValueOnce(Response.json({ accepted: true }));
   await evalRequest("evaluations", {

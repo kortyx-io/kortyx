@@ -58,6 +58,7 @@ function child(
     },
     status,
     result: null,
+    liveProjection: null,
     error: null,
     issue: null,
     termination: null,

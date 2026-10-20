@@ -69,8 +69,18 @@ export async function evalRequest(
         phase: "http",
         http_status: String(response.status),
       });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json.error ?? "Eval request failed.");
+    const json = await response.json().catch((error) => {
+      if (signal?.aborted) throw error;
+      return null;
+    });
+    if (!response.ok)
+      throw new Error(
+        typeof json?.error === "string"
+          ? json.error
+          : `Eval service returned HTTP ${response.status}. Try again when the connection recovers.`,
+      );
+    if (json === null)
+      throw new Error("Eval service returned an invalid response.");
     scope.end();
     return json;
   } catch (error) {

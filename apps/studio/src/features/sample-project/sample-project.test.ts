@@ -1,5 +1,7 @@
 import {
   StudioEvalDetailSchema,
+  StudioEvalLiveDetailSchema,
+  StudioEvalLiveUpdateSchema,
   StudioEvalTargetsResponseSchema,
   StudioEvaluationDetailSchema,
 } from "@kortyx/agent/evals";
@@ -200,6 +202,15 @@ it("validates every supported read against its real consumer schema", async () =
     [`prompts/assets/${sample.promptId}`, PromptDetailSchema],
     ["evals/targets", StudioEvalTargetsResponseSchema],
     [`evals/runs/${sample.evalRunId}`, StudioEvalDetailSchema],
+    [`evals/runs/${sample.evalRunId}/live`, StudioEvalLiveDetailSchema],
+    [
+      `evals/runs/${sample.evalRunId}/live?after=${"0".repeat(64)}`,
+      StudioEvalLiveUpdateSchema,
+    ],
+    [
+      `evals/runs/${sample.evalRunId}/case?caseId=${sample.caseId}&repetition=1`,
+      StudioEvalDetailSchema,
+    ],
     [`evals/evaluations/${sample.evaluationId}`, StudioEvaluationDetailSchema],
   ] as const;
   const network = vi.fn(() => {

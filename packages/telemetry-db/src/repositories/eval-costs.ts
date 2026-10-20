@@ -29,11 +29,28 @@ type Source = {
   result: EvalRunResult | null;
   events?: { event: EvalProgress }[];
 };
-type Attempt = {
+export type EvalBillingStep = Pick<
+  EvalStepResult,
+  "index" | "status" | "judgeCalls" | "judgeUsage"
+> & {
+  criteria: readonly unknown[];
+  expectation: { criteria?: readonly unknown[] };
+};
+export type EvalBillingGeneration = Pick<
+  TelemetryEventRecord,
+  | "eventId"
+  | "type"
+  | "occurredAt"
+  | "payload"
+  | "environment"
+  | "sessionId"
+  | "runId"
+>;
+export type EvalBillingAttempt = {
   attemptId?: string | undefined;
   runtimeExecutions?: { sessionId: string; runId: string }[] | undefined;
   sessionId: string;
-  steps: EvalStepResult[];
+  steps: EvalBillingStep[];
   finished: boolean;
 };
 
@@ -119,8 +136,8 @@ function summarize(
   };
 }
 export function calculateEvalAttemptCosts(
-  attempt: Attempt,
-  events: TelemetryEventRecord[],
+  attempt: EvalBillingAttempt,
+  events: EvalBillingGeneration[],
   rates: ModelRateCard[],
 ): EvalCosts {
   const generations = [
@@ -184,8 +201,8 @@ export function calculateEvalAttemptCosts(
   const judge = summarize(judgePrices, missing, attempt.finished);
   return { workflow, judge, total: sumEvalCosts([workflow, judge]) };
 }
-function attempts(source: Source): Map<string, Attempt> {
-  const rows = new Map<string, Attempt>();
+function attempts(source: Source): Map<string, EvalBillingAttempt> {
+  const rows = new Map<string, EvalBillingAttempt>();
   const put = (item: EvalCaseResult) =>
     rows.set(`${item.caseId}:${item.repetition}`, {
       sessionId: item.sessionId,
@@ -234,8 +251,8 @@ function attempts(source: Source): Map<string, Attempt> {
 /** New SDK attempts never fall back to session-wide billing. Historical attempts
  * retain their original session lookup. A reused session/run cannot transfer costs. */
 export function matchesEvalAttempt(
-  attempt: Attempt,
-  event: TelemetryEventRecord,
+  attempt: EvalBillingAttempt,
+  event: EvalBillingGeneration,
 ): boolean {
   return attempt.attemptId
     ? event.payload.evalAttemptId === attempt.attemptId &&
@@ -298,7 +315,7 @@ export async function loadEvalCosts(
     listApplicableModelRateCards(db, scope),
     filters.length
       ? db
-          .select()
+          .select(evalBillingGenerationSelection)
           .from(telemetryEvents)
           .where(
             and(
@@ -363,3 +380,32 @@ export async function loadEvalCosts(
     }),
   );
 }
+
+// Never materialize model responses, prompts or arbitrary provider metadata for billing.
+// Preserve the pricing context used to select rate cards as well as provider charges.
+export const evalBillingGenerationSelection = {
+  eventId: telemetryEvents.eventId,
+  type: telemetryEvents.type,
+  occurredAt: telemetryEvents.occurredAt,
+  environment: telemetryEvents.environment,
+  sessionId: telemetryEvents.sessionId,
+  runId: telemetryEvents.runId,
+  payload: sql<Record<string, unknown>>`jsonb_strip_nulls(jsonb_build_object(
+    'evalAttemptId', ${telemetryEvents.payload}->'evalAttemptId',
+    'provider', ${telemetryEvents.payload}->'provider',
+    'model', ${telemetryEvents.payload}->'model',
+    'usage', ${telemetryEvents.payload}->'usage',
+    'usageItems', ${telemetryEvents.payload}->'usageItems',
+    'pricing', ${telemetryEvents.payload}->'pricing',
+    'providerMetadata', jsonb_build_object(
+      'cost', ${telemetryEvents.payload}->'providerMetadata'->'cost',
+      'isByok', ${telemetryEvents.payload}->'providerMetadata'->'isByok',
+      'costDetails', ${telemetryEvents.payload}->'providerMetadata'->'costDetails',
+      'usage', ${telemetryEvents.payload}->'providerMetadata'->'usage',
+      'serviceTier', ${telemetryEvents.payload}->'providerMetadata'->'serviceTier',
+      'inferenceGeo', ${telemetryEvents.payload}->'providerMetadata'->'inferenceGeo',
+      'region', ${telemetryEvents.payload}->'providerMetadata'->'region',
+      'speed', ${telemetryEvents.payload}->'providerMetadata'->'speed'
+    )
+  ))`,
+};
