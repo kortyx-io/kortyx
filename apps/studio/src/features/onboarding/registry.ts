@@ -236,28 +236,28 @@ export const CHAPTERS = [
         view: { surface: "suite" },
         title: "Start with the expectation",
         content:
-          "This suite defines three conversations about shipment status, delivery estimates, and delivery notes. A suite describes the test; it is not itself proof that a run passed.",
+          "This table lists three conversations about shipment status, delivery estimates, and delivery notes. Select a conversation to inspect its scripted steps in a drawer. This is the current definition, not a recorded result.",
       },
       {
         id: "evaluation-summary",
         view: { surface: "evaluation" },
         title: "Read the saved result",
         content:
-          "This suite run passed all three conversations. Counts summarize the attempts in this run; open a case to inspect its evidence. Finished cases with both assessed passes and failures show Mixed results; errors stay separate. Failed cases in writable projects can be selected for a fresh launch.",
+          "This suite passed all three conversations. All conversations shows every case; selecting a suite filters this table. Each row groups its repetitions. Hover or focus a suite for its summary. Finished cases with assessed passes and failures show Mixed results, with errors separate. Writable projects can rerun failed cases as a fresh evaluation.",
       },
       {
         id: "case-evidence",
         view: { surface: "eval-case" },
         title: "Inspect the grading evidence",
         content:
-          "This criterion states the expected delivery information. Its assessment explains why the recorded answer passed. After the guide, expand Conversation and debugging to inspect the input and answer. Deterministic checks, when present, have separate verdicts before model criteria.",
+          "The assessment explains why the recorded answer passed. Selected repetition metrics appear above it, with the input and answer below. Use the step selector for another turn; expand Assessment details for the criterion, evidence and automatic check results.",
       },
       {
         id: "saved-comparison",
         view: { surface: "eval-comparison" },
-        title: "Compare with a baseline",
+        title: "Understand what improved",
         content:
-          "The baseline answer omitted the delivery status and failed the criterion. The candidate passed the same criterion. After the guide, choose Both runs to compare their saved evidence side by side.",
+          "The earlier answer omitted the delivery status; this run passed the same criterion. Each side has its own Repetition dropdown. The shared step selector aligns assessments and messages. Selected cost and time appear above. See more stats expands both sides together, with this repetition’s details and aggregate statistics below a separator. Recorded differences are evidence, not proof of a cause.",
       },
     ],
   },
@@ -433,8 +433,8 @@ export function resolveView(view: LessonView): {
       };
     case "evaluation":
       return {
-        href: `/evals/runs/${sample.evalRunId}`,
-        target: `[data-eval-run-id="${sample.evalRunId}"] [data-tour-surface="eval-summary"]`,
+        href: `/evals/evaluations/${sample.evaluationId}?suiteRun=${sample.evalRunId}`,
+        target: `[data-eval-run-id="${sample.evalRunId}"] [data-row-key="${sample.evalRunId}:${sample.caseId}"] [data-column="status"]`,
       };
     case "eval-case":
       return {
@@ -444,9 +444,9 @@ export function resolveView(view: LessonView): {
       };
     case "eval-comparison":
       return {
-        href: `/evals/cases/${sample.evalRunId}/${sample.caseId}/compare?baseline=${sample.baselineEvalRunId}&comparisonTab=baseline&expand.baseline-${sample.caseId}:1-0-debug=true`,
+        href: `/evals/evaluations/${sample.evaluationId}?changesSince=${sample.evaluationIds.baseline}&changeCase=${encodeURIComponent(JSON.stringify([sample.suiteId, sample.caseId]))}`,
         target:
-          '[data-detail-tab-content="baseline"] [data-guide-focus="eval-conversation"]',
+          '[data-eval-comparison-modal] [data-comparison-side="Earlier"] [data-guide-focus="eval-conversation"]',
       };
     case "diagnostic":
       return {
@@ -460,12 +460,12 @@ export function resolveView(view: LessonView): {
       };
     case "grading-progress":
       return {
-        href: `/evals/runs/${sample.candidateEvalRunId}`,
-        target: `[data-eval-run-id="${sample.candidateEvalRunId}"] [data-row-key="${sample.gradingCaseId}:1"] [data-column="status"]`,
+        href: `/evals/evaluations/${sample.evaluationIds.candidate}?suiteRun=${sample.candidateEvalRunId}`,
+        target: `[data-eval-run-id="${sample.candidateEvalRunId}"] [data-row-key="${sample.candidateEvalRunId}:${sample.gradingCaseId}"] [data-column="status"]`,
       };
     case "pending-eval-case":
       return {
-        href: `/evals/cases/${sample.candidateEvalRunId}/${sample.gradingCaseId}/1?expand.${sample.gradingCaseId}:1-debug=true`,
+        href: `/evals/cases/${sample.candidateEvalRunId}/${sample.gradingCaseId}/1`,
         target:
           '[data-tour-surface="eval-case-evidence"] [data-guide-focus="eval-conversation"]',
       };

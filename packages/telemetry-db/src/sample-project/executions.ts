@@ -232,13 +232,17 @@ function scenario(
   index: number,
 ): KortyxTelemetryEvent[] {
   const events: KortyxTelemetryEvent[] = [];
-  const offset = -1_500_000 + index * 40_000;
   let clock = 0;
   let sequence = 0;
   const branchId = turn.id;
   const conversation = required(
     SAMPLE_SUPPORT_CONVERSATIONS.find((item) => item.id === sessionId),
   );
+  const offset = conversation.repetition
+    ? -240_000 +
+      (conversation.repetition - 2) * 120_000 +
+      conversation.turns.findIndex((item) => item.id === turn.id) * 60_000
+    : -1_500_000 + index * 40_000;
   const orderReference =
     turn.input.match(/SAMPLE-\d+/)?.[0] ??
     conversation.turns[0]?.input.match(/SAMPLE-\d+/)?.[0] ??

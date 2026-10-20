@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EvalJudgeIdentitySchema } from "../src/evals/contracts";
 import { StudioEvaluationStartRequestSchema } from "../src/evals/evaluation-contracts";
 
 const request = {
@@ -80,4 +81,24 @@ describe("grouped evaluation request contract", () => {
       }).success,
     ).toBe(false);
   });
+});
+
+it("accepts legacy judge identities and bounded optional instruction snapshots", async () => {
+  expect(EvalJudgeIdentitySchema.parse({ id: "custom", version: "1" })).toEqual(
+    { id: "custom", version: "1" },
+  );
+  expect(
+    EvalJudgeIdentitySchema.parse({
+      id: "custom",
+      version: "1",
+      instructions: "Only use evidence.",
+    }).instructions,
+  ).toBe("Only use evidence.");
+  expect(
+    EvalJudgeIdentitySchema.safeParse({
+      id: "custom",
+      version: "1",
+      instructions: "x".repeat(64_001),
+    }).success,
+  ).toBe(false);
 });

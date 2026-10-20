@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { OUTPUT_SUITE } from "./support/eval-output-plan";
 import { EVAL_FIXTURE } from "./support/eval-plan";
 
-test("native workflow outputs are checked, persisted and inspectable through suite and case drawers", async ({
+test("native workflow outputs are checked, persisted and inspectable through suite workspace and case drawers", async ({
   page,
 }) => {
   await page.goto(
@@ -11,21 +11,34 @@ test("native workflow outputs are checked, persisted and inspectable through sui
   await page
     .getByRole("link", { name: "Product output contracts", exact: true })
     .click();
-  const suitePath = `/evals/suites/${EVAL_FIXTURE.targetId}/${OUTPUT_SUITE.id}`;
-  const suite = page.locator(`[data-detail-drawer="${suitePath}"]`);
+  const suite = page.locator("[data-eval-suite-id]");
   // Allow the first Next dev route compilation on the CI runner.
   await expect(
-    suite.getByRole("heading", { name: "Conversation plan" }),
+    suite.getByRole("button", {
+      name: "Product list and summary",
+      exact: true,
+    }),
   ).toBeVisible({ timeout: 15_000 });
-  const requirements = suite.getByRole("region", {
+  await expect(page.locator("[data-row-key]")).toHaveCount(5);
+  await suite
+    .getByRole("button", { name: "Product list and summary", exact: true })
+    .click();
+  const definition = page.getByRole("dialog", {
+    name: "Product list and summary",
+    exact: true,
+  });
+  const requirements = definition.getByRole("region", {
     name: "Required structured outputs",
   });
   // Named sections are regions. First case explicitly requires two independent outputs.
-  await expect(requirements).toHaveCount(5);
+  await expect(requirements).toHaveCount(1);
   await expect(requirements.first()).toContainText("app.product-list");
   await expect(requirements.first()).toContainText("Any version");
   await expect(requirements.first()).toContainText("app.product-summary");
   await expect(requirements.first()).toContainText("v1");
+  await definition
+    .getByRole("button", { name: "Close conversation definition" })
+    .click();
   await suite.getByRole("button", { name: "Run suite", exact: true }).click();
   const launch = page.getByRole("dialog", { name: "Run evaluations" });
   await launch.getByRole("button", { name: "Judge", exact: true }).click();
@@ -39,13 +52,11 @@ test("native workflow outputs are checked, persisted and inspectable through sui
     (url) => /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
     { timeout: 15_000 },
   );
-  await page
-    .getByRole("button", { name: OUTPUT_SUITE.name!, exact: true })
-    .click();
+  await page.getByRole("button", { name: /^Product output contracts/ }).click();
   await expect(page).toHaveURL((url) =>
-    /^\/evals\/runs\/[0-9a-f-]+$/.test(url.pathname),
+    Boolean(url.searchParams.get("suiteRun")),
   );
-  const runPath = new URL(page.url()).pathname;
+  const runId = new URL(page.url()).searchParams.get("suiteRun");
   for (const [id, status] of [
     ["multiple-outputs", "Passed"],
     ["exact-version", "Passed"],
@@ -53,25 +64,25 @@ test("native workflow outputs are checked, persisted and inspectable through sui
     ["missing-output", "Failed"],
     ["partial-only", "Failed"],
   ])
-    await expect(page.locator(`[data-row-key="${id}:1"]`)).toContainText(
+    await expect(page.locator(`[data-row-key$=":${id}"]`)).toContainText(
       status ?? "",
       { timeout: 15_000 },
     );
   await page.reload();
   await expect(
-    page.locator('[data-row-key="multiple-outputs:1"]'),
+    page.locator('[data-row-key$=":multiple-outputs"]'),
   ).toContainText("Passed");
   await page
-    .getByRole("button", { name: "Product list and summary", exact: true })
+    .getByRole("link", { name: "Product list and summary", exact: true })
     .click();
-  const casePath = `/evals/cases/${runPath.split("/").at(-1)}/multiple-outputs/1`;
+  const casePath = `/evals/cases/${runId}/multiple-outputs/1`;
   const inspector = page.locator(`[data-detail-drawer="${casePath}"]`);
+  await inspector
+    .getByRole("button", { name: "Assessment details", exact: true })
+    .click();
   await expect(
     inspector.getByRole("region", { name: "Required structured outputs" }),
   ).toContainText("app.product-summary");
-  await inspector
-    .getByRole("button", { name: "Conversation and debugging", exact: true })
-    .click();
   await inspector
     .getByRole("button", { name: "Structured output", exact: true })
     .click();
@@ -87,9 +98,11 @@ test("native workflow outputs are checked, persisted and inspectable through sui
   await page.reload();
   await expect(page.locator("[data-detail-drawer]")).toHaveCount(0);
   await expect(page.locator("main").last()).toContainText("Blue backpack");
-  await page.getByRole("link", { name: "Eval run", exact: true }).click();
   await page
-    .getByRole("button", {
+    .getByRole("link", { name: "Evaluation results", exact: true })
+    .click();
+  await page
+    .getByRole("link", {
       name: "Obsolete product list contract",
       exact: true,
     })
@@ -107,9 +120,13 @@ test("output requirements remain readable at half width after opening a suite di
 }) => {
   await page.setViewportSize({ width: 760, height: 900 });
   await page.goto(`/evals/suites/${EVAL_FIXTURE.targetId}/${OUTPUT_SUITE.id}`);
+  await expect(page.locator("[data-row-key]")).toHaveCount(5);
+  await page
+    .getByRole("button", { name: "Product list and summary", exact: true })
+    .click();
   await expect(
     page.getByRole("region", { name: "Required structured outputs" }),
-  ).toHaveCount(5);
+  ).toHaveCount(1);
   await expect(
     page.getByText("app.product-summary", { exact: true }).first(),
   ).toBeVisible();

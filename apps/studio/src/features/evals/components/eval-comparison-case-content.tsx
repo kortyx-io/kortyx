@@ -4,19 +4,21 @@ import { StatusPill } from "@/components/detail/detail-primitives";
 import { DetailTabs } from "@/components/detail/detail-tabs";
 import { formatDateTime } from "@/lib/format";
 import { useStudioQueryState } from "@/lib/nuqs";
+import { sumCaseCosts } from "../lib/cost";
 import {
   type CaseRow,
   type ComparisonRow,
   displayName,
+  passLabel,
 } from "../lib/presentation";
 import type { EvalDetail } from "../schema";
 import { EvalConversationStep, EvalVerification } from "./eval-case-inspector";
-import { EvalCostBreakdown } from "./eval-cost";
+import { EvalCost, EvalCostBreakdown } from "./eval-cost";
 import { EvalDropdown } from "./eval-dropdown";
 import { EvalFailure } from "./eval-failure";
 import { EvalStatus } from "./eval-status";
 
-function Attempts({
+function Repetitions({
   rows,
   side,
 }: {
@@ -39,18 +41,33 @@ function Attempts({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <EvalStatus status={row.status} />
         <EvalDropdown
-          label={`${side === "baseline" ? "Baseline" : "Candidate"} attempt`}
-          value={String(attempt)}
+          label={`${side === "baseline" ? "Baseline" : "Candidate"} repetition`}
+          value={String(rows.indexOf(row))}
           options={rows.map((r, index) => ({
             value: String(index),
-            label: `Attempt ${r.repetition}`,
+            label: `Repetition ${r.repetition} · ${displayName(r.status)}`,
           }))}
           onChange={(value) => {
             void setAttempt(Number(value));
           }}
         />
       </div>
-      <EvalCostBreakdown costs={row.costs} />
+      <p className="text-xs text-muted-foreground">
+        {passLabel(rows)} across {rows.length} repetitions
+      </p>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-muted-foreground">All repetitions cost</span>
+        <EvalCost
+          label="All repetitions cost"
+          costs={sumCaseCosts(rows.map((item) => item.costs))}
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="text-xs text-muted-foreground">
+          Selected repetition cost
+        </p>
+        <EvalCostBreakdown costs={row.costs} />
+      </div>
       <EvalVerification verification={row.verification} />
       <div className="min-w-0">
         {row.steps.map((step) => (
@@ -98,7 +115,7 @@ export function EvalComparisonCaseContent({
           )}
         </p>
       </div>
-      <Attempts
+      <Repetitions
         key={`${kind}:${kind === "baseline" ? baseline.id : candidate.id}:${row.id}`}
         side={kind}
         rows={row[kind]}
@@ -111,6 +128,10 @@ export function EvalComparisonCaseContent({
         data-page-help="header"
         className="shrink-0 space-y-2 border-b px-4 py-3"
       >
+        <p className="text-xs text-muted-foreground">
+          Repetitions are independent executions. Select a result on each side;
+          their repetition numbers do not imply a matched pair.
+        </p>
         <p
           className="break-all font-mono text-xs text-muted-foreground"
           translate="no"

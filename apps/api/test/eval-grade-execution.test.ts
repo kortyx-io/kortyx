@@ -503,3 +503,25 @@ it("Studio grading preserves failed application postconditions after semantic cr
   );
   expect(result.cases[0]?.errors).toEqual([]);
 });
+
+it("persists the backend judge instructions rather than trusting execution-supplied instructions", async () => {
+  const execution = await capture();
+  execution.judge = {
+    id: judge.id,
+    version: judge.version,
+    instructions: "Untrusted incoming instructions",
+  };
+  const result = await gradeEvalExecution(
+    execution,
+    {
+      ...judge,
+      instructions: "Judge only the supplied criterion using evidence.",
+    },
+    new AbortController().signal,
+    async () => {},
+  );
+  expect(result.judge?.instructions).toBe(
+    "Judge only the supplied criterion using evidence.",
+  );
+  expect(execution.judge.instructions).toBe("Untrusted incoming instructions");
+});

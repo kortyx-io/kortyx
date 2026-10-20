@@ -1,60 +1,62 @@
 "use client";
 
 import {
-  type StudioEvalRunSummary,
   type StudioEvaluationDetail,
   StudioEvaluationDetailSchema,
 } from "@kortyx/agent/evals";
-import { tablePassRate, tableQueueMs } from "@kortyx/telemetry-contracts";
-import { parseAsBoolean } from "nuqs";
+import { parseAsBoolean, parseAsString } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DataTable, type DataTableColumn } from "@/components/data-table";
-import { columnFilter } from "@/components/data-table/filter-fields";
-import { valueColumn } from "@/components/data-table/value-column";
 import { DetailPage } from "@/components/detail/detail-page";
+import { Metric } from "@/components/detail/detail-primitives";
 import { Button } from "@/components/ui/button";
 import {
   type ErrorNotice,
   ErrorNotices,
 } from "@/features/diagnostics/error-notices";
-import { evalDurationMs } from "@/features/evals/lib/duration";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
 import { useLiveRefresh } from "@/features/telemetry/hooks/use-live-refresh";
-import { formatDateTime, formatDurationMs } from "@/lib/format";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
-import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
+import { studioHelp } from "@/lib/studio-help";
 import { evalRequest } from "../api/client";
-import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
+import {
+  type EvaluationChanges,
+  evaluationSignature,
+} from "../lib/evaluation-changes";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import { isActive } from "../lib/presentation";
-import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
-import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
-import { EvalDuration } from "./eval-duration";
+import { EvalCost } from "./eval-cost";
+import { EvalDetailHeader } from "./eval-detail-header";
+import { EvalEvaluationBodySkeleton } from "./eval-loading";
 import { EvalRerunFailed } from "./eval-rerun-failed";
 import { EvalStatus } from "./eval-status";
-import { EvalSettingsSummary, evalTerminationNotice } from "./eval-termination";
+import { evalTerminationNotice } from "./eval-termination";
+import { EvaluationRunContext } from "./evaluation-run-context";
+import { EvaluationSuiteWorkspace } from "./evaluation-suite-workspace";
 
 export function EvaluationDetail({
   id,
   initial,
   canRun,
+  comparison,
 }: {
   id: string;
   initial: StudioEvaluationDetail | null;
   canRun: boolean;
+  comparison?: EvaluationChanges;
 }) {
   const [run, setRun] = useState(initial);
-  const referenceTime = useEvalReferenceTime();
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const request = useRef<AbortController | null>(null);
+  const serverSignature = useRef(comparison?.signature);
+  serverSignature.current = comparison?.signature;
   const currentId = useRef(id);
   currentId.current = id;
   const router = useRouter();
   const search = useSearchParams();
   const [query, setQuery] = useStudioQueryStates(
-    { live: parseAsBoolean.withDefault(true) },
+    { live: parseAsBoolean.withDefault(true), suiteRun: parseAsString },
     { shallow: true },
   );
   const read = useCallback(
@@ -75,9 +77,14 @@ export function EvaluationDetail({
       if (!activeSignal.aborted && currentId.current === id) {
         setRun(next.run);
         setError("");
+        if (
+          !isActive(next.run.status) &&
+          serverSignature.current !== evaluationSignature(next.run)
+        )
+          router.refresh();
       }
     },
-    [id],
+    [id, router],
   );
   useEffect(() => {
     setRun(initial);
@@ -122,138 +129,6 @@ export function EvaluationDetail({
       setCancelling(false);
     }
   };
-  const columns: DataTableColumn<StudioEvalRunSummary>[] = [
-    {
-      key: "suite",
-      filter: [
-        columnFilter("suite", "Suite", "text", (r) => r.suiteName ?? r.suiteId),
-        columnFilter("id", "Suite run ID", "text", (r) => r.id),
-      ],
-      label: "Suite",
-      defaultWidth: 300,
-      render: (suite) => (
-        <Button
-          variant="link"
-          size="inline"
-          className="max-w-full justify-start"
-          onClick={() => navigate(evalRunHref(suite.id))}
-        >
-          <span className="truncate">{suite.suiteName ?? suite.suiteId}</span>
-        </Button>
-      ),
-    },
-    {
-      key: "status",
-      filter: columnFilter("status", "Status", "enum", (r) => r.status),
-      label: "Status",
-      defaultWidth: 150,
-      render: (suite) => (
-        <div>
-          <EvalStatus status={suite.status} termination={suite.termination} />
-          {suite.status === "running" && suite.phase ? (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {suite.phase === "grading" ? "Grading" : "Executing"}
-            </p>
-          ) : null}
-        </div>
-      ),
-    },
-    {
-      key: "progress",
-      filter: [
-        columnFilter(
-          "graded",
-          "Graded attempts",
-          "number",
-          (r) => r.completedAttempts,
-        ),
-        columnFilter(
-          "total",
-          "Total attempts",
-          "number",
-          (r) => r.totalAttempts,
-        ),
-      ],
-      label: "Progress",
-      defaultWidth: 180,
-      render: (suite) => (
-        <span className="text-xs">
-          {suite.completedAttempts ?? 0}/{suite.totalAttempts ?? 0} recorded
-          outcomes
-        </span>
-      ),
-    },
-    {
-      key: "results",
-      filter: [
-        columnFilter("passed", "Passed", "number", (r) => r.counts?.passed),
-        columnFilter("failed", "Failed", "number", (r) => r.counts?.failed),
-        columnFilter("error", "Errors", "number", (r) => r.counts?.error),
-        columnFilter(
-          "cancelled",
-          "Cancelled",
-          "number",
-          (r) => r.counts?.cancelled,
-        ),
-      ],
-      label: "Results",
-      defaultWidth: 260,
-      render: (suite) => (
-        <div className="text-xs">
-          {suite.counts
-            ? `${suite.counts.passed} passed · ${suite.counts.failed} failed${suite.counts.error ? ` · ${suite.counts.error} errors` : ""}`
-            : isActive(suite.status)
-              ? "Awaiting results"
-              : "No final summary"}
-          {suite.error && !suite.termination ? (
-            <p
-              className="mt-1 truncate text-red-700 dark:text-red-400"
-              title={suite.error}
-            >
-              {suite.error}
-            </p>
-          ) : null}
-        </div>
-      ),
-    },
-    {
-      key: "cost",
-      filter: columnFilter("cost", "Cost", "number", (r) =>
-        evalFilterCost(r.costs),
-      ),
-      label: "Cost",
-      defaultWidth: 100,
-      render: (suite) => <EvalCost costs={suite.costs} />,
-    },
-    {
-      key: "duration",
-      filter: columnFilter("duration", "Duration (ms)", "number", (r) =>
-        evalDurationMs(r, referenceTime ?? Date.now()),
-      ),
-      label: "Duration",
-      defaultWidth: 110,
-      render: (suite) => (
-        <span className="text-xs">
-          <EvalDuration run={suite} />
-        </span>
-      ),
-    },
-
-    valueColumn<StudioEvalRunSummary>({
-      key: "passRate",
-      label: "Pass rate (%)",
-      kind: "number",
-      read: (r) => tablePassRate(r.counts),
-      format: (v) => `${Number(v).toFixed(1)}%`,
-    }),
-    valueColumn<StudioEvalRunSummary>({
-      key: "queueMs",
-      label: "Queue time (ms)",
-      kind: "number",
-      read: (r) => tableQueueMs(r.createdAt, r.startedAt),
-      format: (v) => formatDurationMs(Number(v)),
-    }),
-  ];
   return (
     <DetailPage
       title="Evaluation run"
@@ -281,6 +156,7 @@ export function EvaluationDetail({
           <>
             <EvalDetailHeader
               title={run.name}
+              help={null}
               description={`${run.targetName} · ${run.environment} · ${run.metadata.source}`}
               backLabel="Back to evaluation runs"
               onBack={() => navigate("/evals/runs")}
@@ -290,43 +166,6 @@ export function EvaluationDetail({
                     status={run.status}
                     termination={run.termination}
                   />
-                  <EvalSettingsSummary
-                    settings={run.resolvedSettings}
-                    startedAt={run.startedAt}
-                  >
-                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 pb-2 text-xs text-muted-foreground">
-                      <span>
-                        {run.selection === "all"
-                          ? "All suites"
-                          : "Selected suites"}
-                      </span>
-                      <span>Created {formatDateTime(run.createdAt)}</span>
-                      {run.startedAt ? (
-                        <span>
-                          Duration <EvalDuration run={run} />
-                        </span>
-                      ) : null}
-                      {run.metadata.commit ? (
-                        <span className="font-mono">
-                          Commit {run.metadata.commit}
-                        </span>
-                      ) : null}
-                      {run.metadata.deploymentUrl ? (
-                        <a
-                          className="underline"
-                          href={run.metadata.deploymentUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Deployment / CI job
-                        </a>
-                      ) : null}
-                      <span>
-                        Judge {run.judge?.id} · {run.judge?.version}
-                      </span>
-                    </div>
-                    <EvalCostBreakdown costs={run.costs} />
-                  </EvalSettingsSummary>
                   <LiveRefreshButton
                     enabled={query.live}
                     status={live.status}
@@ -334,7 +173,9 @@ export function EvaluationDetail({
                       void setQuery({ live: !query.live });
                     }}
                   />
-                  <EvalRerunFailed run={run} canRun={canRun} />
+                  {!query.suiteRun ? (
+                    <EvalRerunFailed run={run} canRun={canRun} />
+                  ) : null}
                   {canRun && isActive(run.status) ? (
                     <Button
                       variant="secondary"
@@ -380,45 +221,65 @@ export function EvaluationDetail({
                     ),
                 ]}
               />
-              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs">
-                <EvalSummaryMetric
+              <div
+                className="mt-2 flex min-w-0 gap-0 overflow-x-auto rounded-md border bg-muted/20"
+                data-tour-surface="evaluation-metrics"
+              >
+                <Metric
                   label="Suites finished"
                   value={`${run.completedSuites - (run.interruptedSuites ?? 0)}/${run.suiteCount}`}
+                  help={studioHelp.evalResults}
                 />
-                <EvalSummaryMetric
+                <Metric
                   label="Recorded outcomes"
                   value={`${run.completedAttempts}/${run.totalAttempts}`}
+                  help={studioHelp.evalResults}
                 />
-                <EvalSummaryMetric label="Passed" value={run.counts.passed} />
-                <EvalSummaryMetric label="Failed" value={run.counts.failed} />
-                <EvalSummaryMetric label="Errors" value={run.counts.error} />
+                <Metric
+                  label="Passed"
+                  value={run.counts.passed}
+                  help={studioHelp.evalResults}
+                />
+                <Metric
+                  label="Failed"
+                  value={run.counts.failed}
+                  help={studioHelp.evalResults}
+                />
+                <Metric
+                  label="Errors"
+                  value={run.counts.error}
+                  help={studioHelp.evalResults}
+                />
                 {Boolean(run.interruptedSuites) && (
-                  <EvalSummaryMetric
+                  <Metric
                     label="Suites interrupted"
                     value={run.interruptedSuites ?? 0}
+                    help={studioHelp.evalResults}
                   />
                 )}
-                <EvalSummaryMetric
+                <Metric
                   label="Cancelled"
                   value={run.counts.cancelled}
+                  help={studioHelp.evalResults}
                 />
+                <Metric
+                  label="Total cost"
+                  value={<EvalCost costs={run.costs} />}
+                  help={studioHelp.evalCost}
+                />
+                <EvaluationRunContext run={run} />
               </div>
             </EvalDetailHeader>
             <div className="min-h-0 flex-1">
-              <DataTable
-                help={{ filters: studioHelp.filters, views: studioHelp.views }}
-                columns={withStudioColumnHelp(columns, "evals")}
-                tableId="evaluation-suites"
-                className="rounded-none border-0 shadow-none"
-                data={run.suites}
-                getRowKey={(suite) => suite.id}
-                onRowClick={(suite) => navigate(evalRunHref(suite.id))}
-                emptyState={
-                  <p className="p-6 text-xs">No suite results available.</p>
-                }
+              <EvaluationSuiteWorkspace
+                evaluation={run}
+                canRun={canRun}
+                comparison={comparison}
               />
             </div>
           </>
+        ) : !error ? (
+          <EvalEvaluationBodySkeleton />
         ) : (
           <p className="p-6 text-sm">
             {error

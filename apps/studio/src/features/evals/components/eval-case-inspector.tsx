@@ -1,16 +1,21 @@
 "use client";
 import { createEvalIssue, type EvalStepResult } from "@kortyx/agent/evals";
 import { ArrowUpRight, MessageSquare, Reply } from "lucide-react";
+import { parseAsInteger } from "nuqs";
+import type { ReactNode } from "react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
+import { useStudioQueryState } from "@/lib/nuqs";
+import { sumCaseCosts } from "../lib/cost";
 import type { CaseRow } from "../lib/presentation";
-import { EvalCostBreakdown } from "./eval-cost";
-import { EvalDeterministicChecks } from "./eval-deterministic-checks";
+import { EvalConversationStats } from "./eval-conversation-stats";
 import { EvalDisclosure } from "./eval-disclosure";
 import { EvalFailure } from "./eval-failure";
-import { EvalOutputRequirements } from "./eval-output-requirements";
+import { EvalMessage } from "./eval-message";
 import { EvalPayloadViewer } from "./eval-payload-viewer";
 import { EvalStatus } from "./eval-status";
+import { EvalStepAssessment } from "./eval-step-assessment";
+import { EvalStepNavigation } from "./eval-step-navigation";
 
 function PayloadSection({
   label,
@@ -27,102 +32,22 @@ function PayloadSection({
     </EvalDisclosure>
   );
 }
-function StepEvaluation({
-  step,
-  scope,
-}: {
-  step: EvalStepResult;
-  scope: string;
-}) {
-  return (
-    <section className="min-w-0 space-y-4 border-t border-foreground/15 pt-5 first:border-t-0 first:pt-0">
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 px-3 py-2">
-        <h4 className="text-sm font-semibold">
-          Step {step.index + 1} evaluation
-        </h4>
-        <EvalStatus status={step.status} />
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Expected {step.expectation.type} · Observed {step.observation.type}
-      </p>
-      <EvalOutputRequirements outputs={step.expectation.outputs} />
-      <EvalDeterministicChecks
-        checks={step.expectation.checks}
-        results={step.checks ?? []}
-        scope={scope}
-      />
-      {step.reason ? (
-        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs text-red-700 dark:text-red-400">
-          {step.reason}
-        </p>
-      ) : null}
-      {step.criteria.map((criterion, index) => (
-        <div
-          key={criterion.id}
-          data-guide-focus="eval-criterion"
-          className="min-w-0 space-y-3 border-t border-foreground/10 pt-3"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-medium text-muted-foreground">
-              Pass criterion{step.criteria.length > 1 ? ` ${index + 1}` : ""}
-            </p>
-            <EvalStatus status={criterion.passed ? "passed" : "failed"} />
-          </div>
-          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-foreground/80">
-            {criterion.text}
-          </p>
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">
-              Assessment
-            </p>
-            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed">
-              {criterion.reason}
-            </p>
-          </div>
-          {criterion.evidence.length ? (
-            <EvalDisclosure
-              scope={`${scope}-evidence-${criterion.id}`}
-              label={`Supporting evidence (${criterion.evidence.length})`}
-            >
-              {criterion.evidence.map((text, index) => (
-                <blockquote
-                  key={`${index}:${text}`}
-                  className="mt-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] border-l pl-3 text-xs leading-relaxed text-muted-foreground"
-                >
-                  {text}
-                </blockquote>
-              ))}
-            </EvalDisclosure>
-          ) : null}
-        </div>
-      ))}
-      {step.observation.runId ? (
-        <Button variant="secondary" size="xs" asChild>
-          <DetailLink
-            href={`/runs/${encodeURIComponent(step.observation.runId)}`}
-          >
-            Inspect workflow
-            <ArrowUpRight aria-hidden="true" />
-          </DetailLink>
-        </Button>
-      ) : null}
-    </section>
-  );
-}
-function StepDebug({
+export function EvalStepTranscript({
   step,
   scope,
   environment,
+  actions,
 }: {
   step: EvalStepResult;
   scope: string;
   environment?: string;
+  actions?: ReactNode;
 }) {
   const interrupt = step.observation.interrupt;
   return (
     <section
       data-guide-focus="eval-conversation"
-      className="min-w-0 space-y-4 border-t border-foreground/15 pt-5 first:border-t-0 first:pt-0"
+      className="flex min-w-0 flex-col gap-4"
     >
       <p className="text-xs font-medium text-muted-foreground">
         Step {step.index + 1} conversation
@@ -174,7 +99,7 @@ function StepDebug({
           />
         );
       })}
-      <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="rounded-lg border-l-2 border-info/30 bg-info/5 p-3">
         <p className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
           {"message" in step.input ? (
             <>
@@ -199,16 +124,19 @@ function StepDebug({
           />
         )}
       </div>
-      <div className="min-w-0 space-y-3 rounded-lg border p-3">
+      <div className="flex min-w-0 flex-col gap-3 rounded-lg bg-muted/20 p-3">
         <p className="text-xs font-medium text-muted-foreground">
           {interrupt ? "Agent requested input" : "Agent answer"}
         </p>
         {step.observation.text ? (
-          <EvalPayloadViewer
-            scope={`${scope}-answer`}
-            value={step.observation.text}
-            defaultMode="markdown"
-          />
+          <>
+            <EvalMessage text={step.observation.text} />
+            <PayloadSection
+              scope={`${scope}-answer`}
+              label="Response data"
+              value={step.observation.text}
+            />
+          </>
         ) : null}
         {interrupt ? (
           <>
@@ -265,6 +193,22 @@ function StepDebug({
           />
         ) : null}
       </div>
+      <div
+        className="flex flex-wrap items-center gap-2"
+        data-eval-inspection-actions
+      >
+        {step.observation.runId ? (
+          <Button variant="outline" size="sm" asChild>
+            <DetailLink
+              href={`/runs/${encodeURIComponent(step.observation.runId)}`}
+            >
+              Inspect workflow
+              <ArrowUpRight aria-hidden="true" />
+            </DetailLink>
+          </Button>
+        ) : null}
+        {actions}
+      </div>
       {step.reference !== undefined ? (
         <PayloadSection
           scope={`${scope}-reference`}
@@ -279,18 +223,26 @@ export function EvalConversationStep({
   step,
   scope,
   environment,
+  verification,
+  actions,
 }: {
   step: EvalStepResult;
   scope: string;
   environment?: string;
+  verification?: CaseRow["verification"];
+  actions?: ReactNode;
 }) {
   const key = `${scope}-${step.index}`;
   return (
     <div className="min-w-0 space-y-4 border-t border-foreground/15 py-5 first:border-t-0 first:pt-0 last:pb-0">
-      <StepEvaluation step={step} scope={key} />
-      <EvalDisclosure scope={`${key}-debug`} label="Conversation and debugging">
-        <StepDebug step={step} scope={key} environment={environment} />
-      </EvalDisclosure>
+      <EvalStepAssessment step={step} scope={key} />
+      <EvalVerification verification={verification} />
+      <EvalStepTranscript
+        step={step}
+        scope={key}
+        environment={environment}
+        actions={actions}
+      />
     </div>
   );
 }
@@ -319,42 +271,50 @@ export function EvalVerification({
     </section>
   ) : null;
 }
-export function EvalCaseContent({ row }: { row: CaseRow }) {
+export function EvalCaseContent({
+  row,
+  repetitions = [row],
+  judgeInstructions,
+}: {
+  row: CaseRow;
+  repetitions?: CaseRow[];
+  judgeInstructions?: ReactNode;
+}) {
+  const [selection, setSelection] = useStudioQueryState(
+    "caseStep",
+    parseAsInteger.withOptions({ shallow: true }),
+  );
+  const focused =
+    row.steps.find((step) => step.index === selection) ??
+    row.steps.find((step) => ["failed", "error"].includes(step.status)) ??
+    row.steps[0];
+  const summary = {
+    runId: row.key,
+    passed: repetitions.filter((item) => item.status === "passed").length,
+    total: repetitions.length,
+    repetitions: repetitions.map((item) => ({
+      repetition: item.repetition,
+      status: item.status,
+    })),
+    costs: sumCaseCosts(repetitions.map((item) => item.costs)),
+    durationMs: repetitions.every((item) => item.durationMs !== undefined)
+      ? repetitions.reduce((sum, item) => sum + (item.durationMs ?? 0), 0)
+      : undefined,
+  };
   return (
-    <div className="data-table-body-scroll h-full min-h-0 space-y-5 overflow-y-auto p-4">
-      <p
-        className="break-all font-mono text-xs text-muted-foreground"
-        translate="no"
-      >
-        {row.caseId}
-      </p>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          Attempt {row.repetition}
-        </p>
-        <EvalStatus status={row.status} />
-      </div>
-      <EvalCostBreakdown costs={row.costs} />
-      {row.phaseDurationsMs ? (
-        <dl className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg border bg-muted/10 p-3">
-          {Object.entries(row.phaseDurationsMs).map(([phase, milliseconds]) => (
-            <div key={phase}>
-              <dt className="text-[10px] capitalize text-muted-foreground">
-                {phase}
-              </dt>
-              <dd className="mt-0.5 font-mono text-xs">{milliseconds} ms</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-      <EvalVerification verification={row.verification} />
-      {row.steps.map((step) => (
-        <StepEvaluation
-          key={step.index}
-          step={step}
-          scope={`${row.key}-${step.index}`}
-        />
-      ))}
+    <div className="data-table-body-scroll flex h-full min-h-0 flex-col gap-5 overflow-y-auto p-4">
+      <EvalConversationStats
+        summary={summary}
+        row={row}
+        loading={false}
+        scope={`case-${row.caseId}`}
+      />
+
+      <EvalStepNavigation
+        steps={row.steps}
+        selected={focused?.index ?? 0}
+        onSelect={(index) => void setSelection(index)}
+      />
       {row.errors.map((issue, index) => (
         <EvalFailure
           key={`${index}:${issue.code}`}
@@ -363,35 +323,36 @@ export function EvalCaseContent({ row }: { row: CaseRow }) {
           scope={`${row.key}-issue-${index}`}
         />
       ))}
-      {row.steps.length ? (
-        <EvalDisclosure
-          scope={`${row.key}-debug`}
-          label="Conversation and debugging"
-        >
-          {row.steps.map((step) => (
-            <StepDebug
-              key={step.index}
-              step={step}
-              scope={`${row.key}-${step.index}`}
-              environment={row.environment}
-            />
-          ))}
-        </EvalDisclosure>
+      {focused ? (
+        <EvalConversationStep
+          key={focused.index}
+          step={focused}
+          scope={`${row.key}-${focused.index}`}
+          environment={row.environment}
+          verification={row.verification}
+          actions={judgeInstructions}
+        />
       ) : (
-        <p className="p-6 text-center text-sm text-muted-foreground">
+        <p className="py-4 text-sm text-muted-foreground">
           {row.status === "retrying"
             ? `${row.httpStatus === 429 || row.httpStatus === 503 ? "Consumer busy." : "Consumer connection interrupted."} Retrying${row.retryAt ? ` at ${new Date(row.retryAt).toISOString().slice(11, 19)} UTC` : " shortly"}.`
             : row.status === "reconnecting"
               ? "Reconnecting to the accepted execution. Captured evidence is retained."
               : row.status === "unknown"
-                ? "Execution status is unknown. Inspect the consumer before running this attempt again."
+                ? "Execution status is unknown. Inspect the consumer before running this repetition again."
                 : row.status === "queued"
-                  ? "This attempt has not started."
+                  ? "This repetition has not started."
                   : row.status === "running"
                     ? "Waiting for the first recorded step."
                     : "No conversation steps were recorded."}
         </p>
       )}
+      {!focused ? (
+        <>
+          <EvalVerification verification={row.verification} />
+          {judgeInstructions}
+        </>
+      ) : null}
     </div>
   );
 }

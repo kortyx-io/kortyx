@@ -75,8 +75,11 @@ it("uses a prompt label until the detail title is available instead of exposing 
 it.each([
   ["/evals/runs", "runs"],
   ["/evals/evaluations/evaluation-id", "runs"],
+  ["/evals/evaluations/evaluation-id/compare", "runs"],
   ["/evals/cases/run-id/case-id/1", "runs"],
   ["/evals/suites", "suites"],
+  ["/evals/judges/target/app", "suites"],
+  ["/evals/judges/run/run-id", "runs"],
   ["/evals/suites/suite-id", "suites"],
 ])("keeps the eval section switch active on %s and preserves environment scope", (pathname, active) => {
   route.pathname = pathname;
@@ -99,4 +102,11 @@ it("does not show eval section navigation outside evaluations", () => {
   expect(renderToStaticMarkup(<WorkspaceNavigation />)).not.toContain(
     'aria-label="Eval navigation"',
   );
+});
+
+it("gives judge instruction readers a useful breadcrumb without invalid source ancestors", () => {
+  route.pathname = "/evals/judges/target/app";
+  const html = renderToStaticMarkup(<WorkspaceNavigation />);
+  expect(html).toContain("Judge instructions</span>");
+  expect(html).not.toContain('href="/evals/judges/target"');
 });

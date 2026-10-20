@@ -122,7 +122,7 @@ export const PAGE_GUIDES = {
     overview:
       "Evaluation runs execute conversation suites against an application target. Progress counts recorded outcomes; a running evaluation can already contain completed, failed, and ungraded attempts.",
     content:
-      "After the guide, open an evaluation to inspect suite progress, then a suite and conversation for criteria and evidence. Pass rate summarizes graded outcomes, not proof of production reliability.",
+      "The Changes column names the earlier reference run. Click a change count or the comparison icon to inspect saved evidence in a modal. Open an evaluation to filter its conversation table by suite; Comparison baseline chooses the earlier run. Open a conversation row for its normal detail drawer. Pass rate summarizes graded outcomes, not proof of production reliability.",
     example: "/evals/runs",
   },
   "eval-suites": {
@@ -131,7 +131,7 @@ export const PAGE_GUIDES = {
     overview:
       "Suites define conversations and expectations exposed by an application target. A definition describes what to test; it is not itself a recorded test result.",
     content:
-      "After the guide, open a suite to inspect inputs, steps, and criteria. Check the target and revision when comparing results from different points in time.",
+      "Open a suite to browse its conversations in a searchable table. Select a conversation to inspect its steps and expectations in a drawer. Current definitions are separate from saved run snapshots.",
     example: "/evals/suites",
   },
   "eval-suite": {
@@ -140,7 +140,7 @@ export const PAGE_GUIDES = {
     overview:
       "This suite defines conversation cases, their steps, and expected observations. The suite revision identifies the exact definition used by an evaluation.",
     content:
-      "Read case inputs, deterministic checks, and expectations before reviewing scores. Saved results retain their suite and grader context so comparisons can distinguish changed tests from changed outcomes.",
+      "Open a conversation for its message and Expected behavior: criteria and automatic checks. The header shows its ID. Use the step selector and Previous/Next to browse. View workflow opens topology. Judge instructions opens the configured default judge. Case definition shows this case’s data. Saved runs keep their own definitions.",
     example: `/evals/suites/${sample.targetId}/${sample.suiteId}`,
   },
   evaluation: {
@@ -149,35 +149,35 @@ export const PAGE_GUIDES = {
     overview:
       "This evaluation groups suite executions for one target. Finished suites and recorded case outcomes are separate progress counts; unfinished grading has no final verdict yet. In connected projects, Live keeps progress and costs current.",
     content:
-      "Live keeps suite progress and costs current. After the guide, open a suite to inspect conversations. Check errors, cancellations and pending grading before interpreting the outcome. Rerun failed cases selects recorded failures and errors once each for a fresh launch against current deployed definitions.",
+      "All conversations shows one row per case across suites. Selecting a suite filters the same table; All conversations clears that filter. Run totals stay above, with a cost breakdown on the amount. Open a conversation for individual repetitions. Hover or focus a suite for its summary.",
     example: `/evals/evaluations/${sample.evaluationId}`,
   },
   "eval-run": {
     title: "Suite run results",
     kind: "detail",
     overview:
-      "This is one execution of a conversation suite. Counts summarize attempts; a case's criterion results and recorded observations explain the evidence behind its outcome. In connected projects, Live keeps progress and costs current.",
+      "This is one execution of a conversation suite. Counts summarize repetitions; a case's criterion results and recorded observations explain the evidence behind its outcome.",
     content:
-      "Live keeps progress and costs current. Open a conversation to load step evidence and workflow links. Configuration and Suite definition explain the run; Compare uses a saved baseline. Mixed results marks recorded passes and failures, with errors counted separately. Rerun failed cases prepares a fresh launch against current deployed definitions.",
+      "Each row groups all repetitions. Hover or focus the selected suite for its summary. Open a conversation for evidence and workflow links; Suite details shows the saved suite snapshot and execution settings without repeating every conversation. Mixed results requires recorded passes and failures. Rerun failed cases prepares a fresh launch.",
     example: `/evals/runs/${sample.evalRunId}`,
   },
   "eval-case": {
     title: "Conversation evaluation",
     kind: "detail",
     overview:
-      "This view explains one conversation attempt. Step results connect expected behavior, the observed response, grading criteria, and execution evidence.",
+      "This drawer explains one conversation, with a Repetition dropdown for each independent execution. Step results connect expected behavior, the observed response, grading criteria, and execution evidence.",
     content:
-      "Inspect each step's deterministic check results separately from model criteria. Missing check verdicts are Not assessed. Awaiting evaluation means grading is unfinished. Workflow links show what actually ran; conversation details retain the inputs and responses.",
+      "Select a repetition for its outcome, time and cost, then inspect the assessment and messages by step. Assessment details groups the criterion, evidence and automatic checks. See more stats expands the summary’s gray footer: this repetition first, all repetitions below a separator. Judge instructions opens the saved snapshot. Workflow links show what ran.",
     example: `/evals/cases/${sample.evalRunId}/${sample.caseId}/1`,
   },
   "eval-comparison": {
-    title: "Evaluation comparison",
+    title: "Compare evaluation runs",
     kind: "detail",
     overview:
-      "This view compares a saved suite run with a baseline. Inputs, definitions, reference facts, and grader context determine whether a score change is comparable.",
+      "Compare two saved evaluations across their suites. Cases match by suite and conversation identity. Choosing a baseline does not rerun either evaluation.",
     content:
-      "Inspect improved, regressed, and incomparable cases separately. A score delta does not establish that a prompt change caused the difference. Open case evidence to investigate.",
-    example: `/evals/runs/${sample.evalRunId}/compare?baseline=${sample.baselineEvalRunId}`,
+      "Use All suites or choose a suite, then filter for regressions, improvements, or results that are not comparable. Change cells open a modal with independent Earlier and This run Repetition dropdowns. Rows group repetitions. Older comparison pages remain readable; their cost deltas require fully priced comparable results.",
+    example: `/evals/evaluations/${sample.evaluationId}/compare`,
   },
   "eval-case-comparison": {
     title: "Conversation comparison",
@@ -241,6 +241,8 @@ export function pageGuideId(path: string): PageGuideId {
   if (/^\/evals\/cases\/[^/]+\/[^/]+\/compare$/.test(path))
     return "eval-case-comparison";
   if (/^\/evals\/cases\/[^/]+\/[^/]+\/[^/]+$/.test(path)) return "eval-case";
+  if (/^\/evals\/evaluations\/[^/]+\/compare$/.test(path))
+    return "eval-comparison";
   if (/^\/evals\/runs\/[^/]+\/compare$/.test(path)) return "eval-comparison";
   if (/^\/evals\/runs\/[^/]+$/.test(path)) return "eval-run";
   if (/^\/evals\/evaluations\/[^/]+$/.test(path)) return "evaluation";
@@ -339,7 +341,7 @@ export const DETAIL_TAB_HELP = {
   },
   "eval-run": {
     cases:
-      "Each conversation attempt has step outcomes, criteria, and evidence. Awaiting grading is unfinished work. After the guide, open a case to inspect why it passed, failed, or could not be evaluated.",
+      "Each row represents one conversation across all requested repetitions. A mixed result includes different outcomes. Awaiting grading is unfinished work. Open a row, then use the Repetition dropdown to inspect each execution, its cost, and evidence.",
     context:
       "Configuration records the target, grading setup, selected cases, and execution settings used for this suite run. These facts matter when reproducing or comparing results.",
     definition:
@@ -381,7 +383,7 @@ export const PAGE_DOCUMENTATION = {
   evaluation: studioHelp.evalResults,
   "eval-run": studioHelp.evalResults,
   "eval-case": studioHelp.evalResults,
-  "eval-comparison": studioHelp.evalResults,
+  "eval-comparison": studioHelp.evalComparison,
   "eval-case-comparison": studioHelp.evalResults,
   diagnostic: studioHelp.trace,
   settings: studioHelp.configuration,

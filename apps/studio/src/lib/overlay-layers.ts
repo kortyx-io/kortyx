@@ -9,7 +9,7 @@
 export const OVERLAY_LAYERS = {
   detailBackdrop: 45,
   detailDrawerBase: 50,
-  detailDrawerStep: 10,
+  detailDrawerStep: 20,
   inspectorBackdropOffset: 5,
   inspectorSurfaceOffset: 10,
   modalBackdrop: 400,

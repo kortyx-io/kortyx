@@ -185,7 +185,8 @@ export function DetailSurfaceProvider({ children }: { children: ReactNode }) {
       value={{
         closing: false,
         isMobile,
-        layerZIndex: OVERLAY_LAYERS.detailDrawerBase,
+        layerZIndex:
+          OVERLAY_LAYERS.detailDrawerBase - OVERLAY_LAYERS.detailDrawerStep,
         presentation: "route",
         supportsSplitInspector: true,
         ...nestedInspector,
@@ -405,7 +406,7 @@ function DetailDrawerSurface({
         {!customHeader && (
           <header
             className={cn(
-              "flex h-14 shrink-0 items-center gap-3 border-b px-4",
+              "flex h-16 shrink-0 items-center gap-3 border-b px-4",
               expandedView && "h-0 overflow-hidden border-0 p-0",
             )}
           >

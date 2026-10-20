@@ -5,10 +5,8 @@ import { EvalSuitePageClient } from "./eval-suite-page-client";
 
 export async function EvalSuitePage({
   params,
-  drawer = false,
 }: {
   params: Promise<{ targetId: string; suiteId: string }>;
-  drawer?: boolean;
 }) {
   const { targetId: encodedTargetId, suiteId: encodedSuiteId } = await params;
   const targetId = studioRouteId(encodedTargetId);
@@ -18,11 +16,6 @@ export async function EvalSuitePage({
   const suite = target?.manifest?.suites.find((s) => s.id === suiteId);
   if (!target || !suite) notFound();
   return (
-    <EvalSuitePageClient
-      targets={targets}
-      target={target}
-      suite={suite}
-      drawer={drawer}
-    />
+    <EvalSuitePageClient targets={targets} target={target} suite={suite} />
   );
 }

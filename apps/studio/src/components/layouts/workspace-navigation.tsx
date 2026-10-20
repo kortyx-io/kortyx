@@ -15,6 +15,7 @@ const labels: Record<string, string> = {
   interrupts: "Interrupts",
   evals: "Evals",
   suites: "Suites",
+  judges: "Judge instructions",
   cases: "Cases",
   compare: "Compare",
   settings: "Settings",
@@ -57,6 +58,8 @@ export function WorkspaceNavigation({
   const params = useSearchParams();
   const workspaceLabels = useWorkspaceLabels();
   const segments = pathname.split("/").filter(Boolean);
+  const instructionReader = segments[0] === "evals" && segments[1] === "judges";
+  const breadcrumbs = instructionReader ? segments.slice(0, 2) : segments;
   const environment = params.get("env");
   const evaluationRun =
     segments[0] === "evals" && segments[1] === "evaluations";
@@ -85,8 +88,8 @@ export function WorkspaceNavigation({
             </span>
           ))}
         <ol className="flex min-w-0 items-center gap-2 overflow-hidden">
-          {segments.map((segment, index) => {
-            const last = index === segments.length - 1;
+          {breadcrumbs.map((segment, index) => {
+            const last = index === breadcrumbs.length - 1;
             const path =
               evaluationRun && index === 1
                 ? "/evals/runs"
@@ -147,7 +150,11 @@ export function WorkspaceNavigation({
           >
             {(["runs", "suites"] as const).map((view) => {
               const active =
-                view === (segments[1] === "suites" ? "suites" : "runs");
+                view ===
+                (segments[1] === "suites" ||
+                (instructionReader && segments[2] === "target")
+                  ? "suites"
+                  : "runs");
               const href = `/evals/${view}${environment ? `?env=${encodeURIComponent(environment)}` : ""}`;
               return (
                 <Link

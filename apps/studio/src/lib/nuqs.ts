@@ -40,6 +40,16 @@ export const filterPanelParser = parseAsBoolean.withDefault(false);
 
 const detailUiParamKeys = [
   "filterPanel",
+  "suiteCase",
+  "definitionStep",
+  "caseStep",
+  "changeStep",
+  "changeRun",
+  "changeCase",
+  "changeBaseline",
+  "changeGroup",
+  "earlierRepetition",
+  "currentRepetition",
   "tab",
   "trace",
   "event",

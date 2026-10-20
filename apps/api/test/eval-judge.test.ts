@@ -431,3 +431,32 @@ it("does not enqueue an absent App judge or an unsupported Studio capture protoc
   }
   expect(auth.enqueue).not.toHaveBeenCalled();
 });
+
+it("discovers instructions through the authenticated judge identity", async () => {
+  const response = await app({
+    ...judge,
+    instructions: "Use tool evidence.",
+  }).request(
+    "/v1/studio/evals/judge?environment=development&includeInstructions=true",
+    {
+      headers: { authorization: "Bearer execute" },
+    },
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    instructions: "Use tool evidence.",
+  });
+});
+
+it("keeps instruction metadata out of legacy discovery and grading responses", async () => {
+  const api = app({ ...judge, instructions: "Use tool evidence." });
+  const discovery = await api.request(
+    "/v1/studio/evals/judge?environment=development",
+    { headers: { authorization: "Bearer execute" } },
+  );
+  expect(await discovery.json()).toEqual(identity);
+  expect(await (await request(api)).json()).toEqual({
+    judge: identity,
+    verdict,
+  });
+});

@@ -46,6 +46,7 @@ const DETAIL_BASE_PATHS = [
   "/runs",
   "/interrupts",
   "/evals/cases",
+  "/evals/judges",
   "/evals/suites",
   "/prompts",
 ] as const;
@@ -450,6 +451,16 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       {children}
     </DetailStackContext.Provider>
   );
+}
+
+/** A route drawer can cover a page-owned inspector without unmounting it. */
+export function useCoveringDetailLayer(zIndex: number) {
+  const stack = useContext(DetailStackContext);
+  const top = stack?.layers.filter((layer) => !layer.closing).at(-1);
+  const index = top ? (stack?.layers.indexOf(top) ?? -1) : -1;
+  return top && detailDrawerZIndex(index) > zIndex
+    ? { close: () => stack?.closeTop(top.id) }
+    : undefined;
 }
 
 export function usePrepareDetailNavigation() {

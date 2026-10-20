@@ -2,6 +2,7 @@ import {
   CheckCircle2,
   Circle,
   CircleAlert,
+  CircleDashed,
   CirclePause,
   Clock3,
   LoaderCircle,
@@ -19,6 +20,11 @@ export function EvalStatus({
     status = "timed-out";
   const neutral = "text-muted-foreground";
   const meta = {
+    mixed: {
+      label: "Mixed results",
+      icon: CircleDashed,
+      className: "text-muted-foreground",
+    },
     passed: {
       label: "Passed",
       icon: CheckCircle2,

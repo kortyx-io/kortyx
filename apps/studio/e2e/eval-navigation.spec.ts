@@ -23,7 +23,7 @@ test.describe("Eval route and drawer navigation", () => {
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
     const sections = page.getByRole("navigation", { name: "Eval navigation" });
     await expect(
-      page.getByRole("heading", { name: "Evals", exact: true }),
+      page.getByRole("heading", { name: "Evaluation runs", exact: true }),
     ).toBeVisible();
     await expect(
       sections.getByRole("link", { name: "Runs", exact: true }),
@@ -58,37 +58,32 @@ test.describe("Eval route and drawer navigation", () => {
     await page.goBack();
     await expect(page).toHaveURL(/\/evals\/runs$/);
   });
-  test("restores case selection and keeps evaluation above debugging", async ({
+  test("restores case selection with its recorded conversation", async ({
     page,
   }) => {
     await page.goto(runPath);
     await page
-      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
-    await expect(page).toHaveURL(/case=ambiguity%3A1/);
+    await expect(page).toHaveURL((url) => url.pathname === casePath);
     await page.reload();
     const inspector = page.locator("main").last();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await expect(inspector.getByText("Step 1 evaluation")).toBeVisible();
+    await expect(inspector.getByText("Step 1 assessment")).toBeVisible();
     await expect(
-      inspector.getByRole("button", {
-        name: "Conversation and debugging",
-        exact: true,
-      }),
-    ).toHaveAttribute("aria-expanded", "false");
-    await inspector
-      .getByRole("button", { name: "Conversation and debugging", exact: true })
-      .click();
-    await expect(page).toHaveURL(/expand\./);
+      inspector.getByText(/^Agent (answer|requested input)$/),
+    ).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await inspector
-      .getByRole("link", { name: "Eval run", exact: true })
+      .getByRole("link", { name: "Evaluation results", exact: true })
       .click();
     await expect(page).toHaveURL(
       new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),
     );
     await page.goBack();
-    await expect(page.getByText("Step 1 evaluation")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Step 1 assessment", exact: true }),
+    ).toBeVisible();
   });
   test("keeps comparison mounted through workflow inspection, close, Back and Forward", async ({
     page,
@@ -143,7 +138,7 @@ test.describe("Eval route and drawer navigation", () => {
   }) => {
     await page.goto(runPath);
     await page
-      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
     const inspector = page.locator(`[data-detail-drawer="${casePath}"]`);
     await inspector.getByRole("link", { name: "Inspect workflow" }).click();
@@ -157,13 +152,13 @@ test.describe("Eval route and drawer navigation", () => {
       .getByRole("button", { name: "Close detail", exact: true })
       .click();
     await expect(workflow).toHaveCount(0);
-    await expect(inspector.getByText("Step 1 evaluation")).toBeVisible();
+    await expect(inspector.getByText("Step 1 assessment")).toBeVisible();
     await inspector.getByRole("button", { name: "Close detail" }).click();
     await expect(inspector).toHaveCount(0);
     await page
-      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
-    await expect(inspector.getByText("Step 1 evaluation")).toBeVisible();
+    await expect(inspector.getByText("Step 1 assessment")).toBeVisible();
   });
   test("persists comparison filters and attempts in URL", async ({ page }) => {
     await page.goto(comparePath);
@@ -183,10 +178,10 @@ test.describe("Eval route and drawer navigation", () => {
       .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Candidate attempt", exact: true })
+      .getByRole("button", { name: "Candidate repetition", exact: true })
       .click();
     await expect(
-      page.getByRole("menuitemradio", { name: "Attempt 1" }),
+      page.getByRole("menuitemradio", { name: /^Repetition 1 ·/ }),
     ).toBeVisible();
   });
 });
@@ -201,53 +196,38 @@ test.describe("Eval drawer hardening", () => {
     await page.getByRole("link", { name, exact: true }).click();
   };
 
-  test("suite drawer preserves its list, expands to route bounds and restores Back/Forward", async ({
+  test("suite workspace preserves list filters through Back and Forward", async ({
     page,
   }) => {
     await openSuite(page);
-    const suite = surface(page, suitePath);
+    await expect(page).toHaveURL((url) => url.pathname === suitePath);
+    await expect(page.locator("[data-detail-drawer]")).toHaveCount(0);
     await expect(
-      suite.getByRole("heading", { name: "Conversation plan" }),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole("dialog")).toHaveCount(1);
-    const list = await page
-      .locator('[data-table-ready="true"]')
-      .elementHandle();
-    await suite
-      .getByRole("button", { name: "Expand detail", exact: true })
-      .click();
-    await expect(page).toHaveURL(/detailView=expanded/);
-    await expect
-      .poll(async () => {
-        const a = await suite.boundingBox();
-        const b = await page
-          .locator('main[data-slot="sidebar-inset"]')
-          .boundingBox();
-        return a && b ? Math.abs(a.x - b.x) : Infinity;
-      })
-      .toBeLessThanOrEqual(2);
+      page.getByRole("button", { name: "Ambiguous role", exact: true }),
+    ).toBeVisible();
     await page.goBack();
-    await expect(page).toHaveURL((url) => url.pathname === "/evals/suites");
-    await expect(suite).toHaveCount(0);
-    await page.goForward();
-    await expect(page).toHaveURL(/detailView=expanded/);
-    await expect(suite).toHaveAttribute("data-state", "open");
-    // Expanded surfaces hide the compact drawer header; Escape dismisses them.
-    await page.keyboard.press("Escape");
-    await expect(suite).toHaveCount(0);
-    expect(await list?.evaluate((node) => node.isConnected)).toBe(true);
     await expect(page).toHaveURL(
       (url) =>
         url.pathname === "/evals/suites" &&
         url.searchParams.get("q") === "E2E job conversations",
     );
+    await page.goForward();
+    await expect(
+      page.getByRole("button", { name: "Ambiguous role", exact: true }),
+    ).toBeVisible();
   });
 
   test("suite definition details and payload preferences survive reload as a full page", async ({
     page,
   }) => {
     await openSuite(page);
-    const suite = surface(page, suitePath);
+    await page
+      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .click();
+    const suite = page.getByRole("dialog", {
+      name: "Ambiguous role",
+      exact: true,
+    });
     const details = suite.getByRole("button", {
       name: "Details for Ambiguous role",
       exact: true,
@@ -255,7 +235,7 @@ test.describe("Eval drawer hardening", () => {
     await details.click();
     await expect(details).toHaveAttribute("aria-expanded", "true");
     await suite
-      .getByRole("button", { name: "Raw suite definition", exact: true })
+      .getByRole("button", { name: "Case definition", exact: true })
       .click();
     await expect(page).toHaveURL(/expand\.suite-definition-raw=true/);
     const viewer = suite.locator("[data-payload-viewer]").last();
@@ -278,6 +258,16 @@ test.describe("Eval drawer hardening", () => {
       "data-mode",
       "yaml",
     );
+    await page
+      .getByRole("button", {
+        name: "Close conversation definition",
+        exact: true,
+      })
+      .click();
+    await page
+      .getByRole("button", { name: "Choose between cities", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Next step", exact: true }).click();
     await expect(
       page.getByRole("heading", {
         name: "Step 2 Respond to human input",
@@ -290,7 +280,7 @@ test.describe("Eval drawer hardening", () => {
     page,
   }) => {
     await openSuite(page);
-    const suite = surface(page, suitePath);
+    const suite = page.locator("[data-eval-suite-id]");
     await suite.getByRole("button", { name: "Run suite", exact: true }).click();
     const launch = page.getByRole("dialog", { name: "Run evaluations" });
     await expect(launch).toBeVisible();
@@ -333,7 +323,8 @@ test.describe("Eval drawer hardening", () => {
     page,
   }) => {
     await openSuite(page);
-    await surface(page, suitePath)
+    await page
+      .locator("[data-eval-suite-id]")
       .getByRole("button", { name: "Run suite", exact: true })
       .click();
     const launch = page.getByRole("dialog", { name: "Run evaluations" });
@@ -398,39 +389,37 @@ test.describe("Eval drawer hardening", () => {
     await expect(page).toHaveURL((url) =>
       /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
     );
-    await page
-      .getByRole("button", { name: EVAL_SUITE.name!, exact: true })
-      .click();
+    await page.getByRole("button", { name: /^E2E job conversations/ }).click();
     await expect(
-      page.getByRole("button", { name: "Ambiguous role", exact: true }),
+      page.getByRole("link", { name: "Ambiguous role", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("1 / 1", { exact: false }).first(),
+      page.getByText("1 of 1 passed", { exact: true }).first(),
     ).toBeVisible();
-    await expect(page.locator('[data-row-key="ambiguity:1"]')).toContainText(
+    await expect(page.locator('[data-row-key$=":ambiguity"]')).toContainText(
       "Passed",
       { timeout: 15000 },
     );
-    await expect(page.locator('[data-row-key="repeated-role:1"]')).toHaveCount(
+    await expect(page.locator('[data-row-key$=":repeated-role"]')).toHaveCount(
       0,
     );
     await page
-      .getByRole("button", { name: "Configuration", exact: true })
+      .getByRole("button", { name: "Suite details", exact: true })
       .click();
     await expect(
       page
-        .getByRole("tabpanel")
+        .getByRole("dialog", { name: "Suite details", exact: true })
         .getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
     // nuqs updates the visible tab before its batched URL write completes.
     // Reload only after the state being tested is actually in the URL.
     await expect(page).toHaveURL(
-      (url) => url.searchParams.get("evalTab") === "context",
+      (url) => url.searchParams.get("evalTab") === "definition",
     );
     await page.reload();
     await expect(
       page
-        .getByRole("tabpanel")
+        .getByRole("dialog", { name: "Suite details", exact: true })
         .getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
   });
@@ -446,7 +435,7 @@ test.describe("Eval drawer hardening", () => {
             : `${comparePath}&change=improved`,
         );
         await page
-          .getByRole(origin === "case" ? "button" : "link", {
+          .getByRole("link", {
             name: "Ambiguous role",
             exact: true,
           })
@@ -508,7 +497,7 @@ test.describe("Eval drawer hardening", () => {
   }) => {
     await page.goto(runPath);
     await page
-      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
     const parent = surface(page, casePath);
     await parent
@@ -559,11 +548,9 @@ test.describe("Eval drawer hardening", () => {
       .getByRole("button", { name: "Candidate", exact: true })
       .click();
     await comparison
-      .getByRole("button", { name: "Candidate attempt", exact: true })
+      .getByRole("button", { name: "Candidate repetition", exact: true })
       .click();
-    await page
-      .getByRole("menuitemradio", { name: "Attempt 2", exact: true })
-      .click();
+    await page.getByRole("menuitemradio", { name: /^Repetition 2 ·/ }).click();
     await expect(page).toHaveURL(/candidateAttempt=1/);
     await expect(comparison).toContainText("missing");
     await page.goBack();
@@ -575,12 +562,14 @@ test.describe("Eval drawer hardening", () => {
     await page.reload();
     await expect(page.locator("[data-detail-drawer]")).toHaveCount(0);
     await expect(
-      page.getByRole("button", { name: "Candidate attempt", exact: true }),
-    ).toContainText("Attempt 2");
+      page.getByRole("button", { name: "Candidate repetition", exact: true }),
+    ).toContainText("Repetition 2");
     await expect(
-      page.getByText("The selected role description is missing.", {
-        exact: true,
-      }),
+      page
+        .getByRole("tabpanel")
+        .getByText("The selected role description is missing.", {
+          exact: true,
+        }),
     ).toBeVisible();
   });
 
@@ -594,9 +583,7 @@ test.describe("Eval drawer hardening", () => {
       .getByRole("button", { name: "E2E job conversations", exact: true })
       .click();
     await expect(page).toHaveURL((url) => url.pathname === runPath);
-    await page
-      .getByRole("button", { name: "Suite definition", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Definition", exact: true }).click();
     await expect(page).toHaveURL(/evalTab=definition/);
     await page
       .getByRole("button", { name: "Configuration", exact: true })
@@ -629,7 +616,7 @@ test.describe("Eval opaque IDs and shareable links", () => {
       }) => {
         await page.goto(kind === "result" ? runPath : comparePath);
         const expected = `/evals/cases/${EVAL_FIXTURE.candidate}/${encodeURIComponent(item.id)}/${kind === "result" ? "1" : "compare"}`;
-        const control = page.getByRole(kind === "result" ? "button" : "link", {
+        const control = page.getByRole("link", {
           name: item.name,
           exact: true,
         });
@@ -670,16 +657,9 @@ test.describe("Eval opaque IDs and shareable links", () => {
     });
     await expect(link).toHaveAttribute("href", `${href}?q=Opaque`);
     await link.click();
-    const drawer = page.locator(`[data-detail-drawer="${href}"]`);
-    await expect(
-      drawer.getByRole("heading", {
-        name: "Opaque suite identifiers",
-        exact: true,
-      }),
-    ).toBeVisible();
-    await drawer
-      .getByRole("button", { name: "Expand detail", exact: true })
-      .click();
+    await expect(page).toHaveURL((url) => url.pathname === href);
+    await expect(page.locator("[data-eval-suite-id]")).toBeVisible();
+    await expect(page.locator("[data-detail-drawer]")).toHaveCount(0);
     await page.reload();
     await expect(page.locator("[data-detail-drawer]")).toHaveCount(0);
     await expect(
@@ -696,7 +676,7 @@ test.describe("Eval opaque IDs and shareable links", () => {
   }) => {
     await page.goto(runPath);
     await page
-      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
     const parent = page.locator(`[data-detail-drawer="${casePath}"]`);
     await expect(page).toHaveURL((url) => url.pathname === casePath);
@@ -726,7 +706,9 @@ test.describe("Eval opaque IDs and shareable links", () => {
         url.pathname === casePath &&
         url.searchParams.get("outcome") === "passed",
     );
-    await expect(page.getByText("Step 1 evaluation")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Step 1 assessment", exact: true }),
+    ).toBeVisible();
     await page.goto(
       `/evals?run=${EVAL_FIXTURE.candidate}&compare=${EVAL_FIXTURE.baseline}&case=ambiguity&change=improved`,
     );
@@ -755,6 +737,9 @@ test.describe("Eval opaque IDs and shareable links", () => {
     await page.goto(
       `/evals/suites/${EVAL_FIXTURE.targetId}/${EVAL_FIXTURE.suiteId}`,
     );
+    await page
+      .getByRole("button", { name: "Choose between cities", exact: true })
+      .click();
     const conversation = page.getByRole("region", {
       name: "Choose between cities",
       exact: true,
@@ -762,6 +747,7 @@ test.describe("Eval opaque IDs and shareable links", () => {
     await expect(
       conversation.getByRole("heading", { name: /Step 1 User message/ }),
     ).toBeVisible();
+    await page.getByRole("button", { name: "Next step", exact: true }).click();
     await expect(
       conversation.getByRole("heading", {
         name: /Step 2 Respond to human input/,
@@ -791,24 +777,22 @@ test.describe("Eval adversarial state transitions", () => {
       `[data-detail-drawer="/evals/cases/${EVAL_FIXTURE.repeatedCandidate}/repeated-role/compare"]`,
     );
     await parent
-      .getByRole("button", { name: "Candidate attempt", exact: true })
+      .getByRole("button", { name: "Candidate repetition", exact: true })
       .click();
     await expect(
-      page.getByRole("menuitemradio", { name: "Attempt 2", exact: true }),
+      page.getByRole("menuitemradio", { name: /^Repetition 2 ·/ }),
     ).toBeVisible();
     const original = page.url();
     await page.keyboard.press("Escape");
     await expect(
-      page.getByRole("menuitemradio", { name: "Attempt 2", exact: true }),
+      page.getByRole("menuitemradio", { name: /^Repetition 2 ·/ }),
     ).toHaveCount(0);
     await expect(parent).toHaveAttribute("data-state", "open");
     await expect(page).toHaveURL(original);
     await parent
-      .getByRole("button", { name: "Candidate attempt", exact: true })
+      .getByRole("button", { name: "Candidate repetition", exact: true })
       .click();
-    await page
-      .getByRole("menuitemradio", { name: "Attempt 2", exact: true })
-      .click();
+    await page.getByRole("menuitemradio", { name: /^Repetition 2 ·/ }).click();
     await expect(parent).toContainText(
       "The selected role description is missing.",
     );

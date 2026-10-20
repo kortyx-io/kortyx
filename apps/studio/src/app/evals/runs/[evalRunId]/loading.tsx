@@ -1,1 +1,1 @@
-export { DetailPageSkeleton as default } from "@/components/detail/detail-skeleton";
+export { EvalRunPageSkeleton as default } from "@/features/evals/components/eval-loading";

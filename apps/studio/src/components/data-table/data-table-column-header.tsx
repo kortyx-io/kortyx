@@ -111,12 +111,23 @@ export function DataTableColumnHeader<T, S extends string>({
         onMenuOpenChange(true);
       }}
     >
-      <div className="flex min-w-0 items-center gap-1 pr-4">
+      <div
+        className={cn(
+          "flex min-w-0 items-center gap-1 group-hover:pr-5 group-focus-within:pr-5",
+          menuOpen && "pr-5",
+        )}
+      >
         <div
           {...(canDrag ? attributes : {})}
           {...(canDrag ? listeners : {})}
+          // Help triggers stop bubbling to protect row actions. Activate the
+          // drag sensor in capture so explained headers remain draggable.
+          onPointerDown={undefined}
+          onPointerDownCapture={(event) => {
+            if (canDrag) listeners?.onPointerDown?.(event);
+          }}
           className={cn(
-            "min-w-0 overflow-hidden",
+            "min-w-0 flex-1 overflow-hidden",
             canDrag && "cursor-grab touch-none active:cursor-grabbing",
           )}
         >

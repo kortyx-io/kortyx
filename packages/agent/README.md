@@ -81,6 +81,14 @@ Use `createEvalJudge({ model })` to grade in the app, or
 backend's configured judge. Both fit the same `createEvals({ ..., judge })`
 slot. Provider credentials stay where the judge runs.
 
+`createEvalJudge` publishes its static instructions in the judge identity and
+saved results for Studio inspection. Custom judges can provide optional
+`instructions` (1–64,000 characters): only the static instructions actually used,
+without secrets or per-case data. Change the judge version when they change.
+Older/custom results without this field remain readable. Upgrade API and Studio
+together before SDK consumers that publish instruction snapshots; older strict
+readers do not support the added identity field.
+
 ## Documentation
 
 - [Conversation evals: SDK runner](https://github.com/kortyx-io/kortyx/blob/main/docs/evals/sdk-runner.md)

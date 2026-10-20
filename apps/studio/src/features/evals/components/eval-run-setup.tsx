@@ -516,6 +516,23 @@ export function EvalRunSetup({
           )}
         </fieldset>
         <div className="space-y-2">
+          <EvalSettingsFields
+            fields={["repetitions"]}
+            resolved={resolved}
+            overrides={overrides}
+            disabled={working}
+            onChange={(_, value) =>
+              void setQuery({
+                launchAttempts: value === undefined ? null : String(value),
+              })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Every conversation runs this many times, including passed cases.
+            Each repetition uses an independent session.
+          </p>
+        </div>
+        <div className="space-y-2">
           <div className="flex items-center gap-1">
             <p className="text-xs font-medium">Judge</p>
             <HelpCircle help={studioHelp.evalJudge} />
@@ -558,12 +575,13 @@ export function EvalRunSetup({
                 : "No judge is available for this application environment."}
           </p>
         </div>
-        <details className="rounded-lg border p-3" open>
+        <details className="rounded-lg border p-3">
           <summary className="cursor-pointer text-sm font-medium">
             Execution settings
           </summary>
           <div className="mt-4 space-y-3">
             <EvalSettingsFields
+              fields={["concurrency", "caseTimeoutMs", "runTimeoutMs"]}
               resolved={resolved}
               overrides={overrides}
               disabled={working}
@@ -605,14 +623,14 @@ export function EvalRunSetup({
           </div>
         </details>
         <p className="text-xs text-muted-foreground">
-          Each attempt uses an independent session. Up to 100 attempts per suite
-          and 1,000 per evaluation.
+          Up to 100 conversation executions per suite and 1,000 per evaluation,
+          including all repetitions.
         </p>
         {!valid && selected.length > 0 ? (
           <output className="block text-xs text-muted-foreground">
             {!promptValid
               ? "Choose a compatible prompt version or test group."
-              : "Select at least one conversation and use the attempt limits above."}
+              : "Select at least one conversation and stay within the execution limits above."}
           </output>
         ) : null}
         {!targets.canRun ? (
@@ -624,7 +642,7 @@ export function EvalRunSetup({
       <div className="flex flex-wrap items-center justify-between gap-3 border-t p-5">
         <p className="text-xs text-muted-foreground">
           {selected.length} suites · {count} conversations ·{" "}
-          {Number.isFinite(total) ? total : "—"} attempts
+          {Number.isFinite(total) ? total : "—"} executions
         </p>
         <Button
           disabled={working || !targets.canRun || !valid || !judgeAvailable}

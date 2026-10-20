@@ -6,6 +6,7 @@ import {
 import { studioPathname } from "@/lib/studio-routing";
 import {
   DETAIL_TAB_HELP,
+  PAGE_DOCUMENTATION,
   type PageGuideId,
   pageGuide,
   pageGuideId,
@@ -39,8 +40,94 @@ export interface PageHelpPlan {
 
 /** Capture only element references and authored copy. Never read customer content. */
 export function createPageHelpPlan(url: URL): PageHelpPlan {
+  const instructions = document.querySelector<HTMLElement>(
+    "[data-judge-instructions]",
+  );
+  if (instructions && isLessonTargetAvailable(instructions)) {
+    const targets: [PageHelpStepId, string, string, string][] = [
+      [
+        "overview",
+        "Judge instructions",
+        "Instructions describe how the judge applies each step’s pass criteria. Current definitions show the configured judge; saved executions show only their recorded instructions. An unavailable snapshot is never replaced with today’s configuration.",
+        "[data-judge-instructions-context]",
+      ],
+      [
+        "controls",
+        "Find a passage",
+        "Search highlights literal matches in yellow. Clear the search to read the full instructions without highlights.",
+        'input[type="search"]',
+      ],
+      [
+        "content",
+        "Read the instructions",
+        "These are static judge instructions. Per-step pass criteria, conversation inputs and execution evidence are supplied separately for grading. Close this drawer to return to the same conversation and step.",
+        '[aria-label="Judge instruction text"]',
+      ],
+    ];
+    return {
+      id: "eval-case",
+      title: "Judge instructions",
+      url: url.href,
+      empty: false,
+      documentationUrl: PAGE_DOCUMENTATION["eval-case"].documentationUrl,
+      steps: targets.flatMap(([id, title, content, selector]) => {
+        const target = instructions.querySelector<HTMLElement>(selector);
+        return target && isLessonTargetAvailable(target)
+          ? [{ id, title, content, target }]
+          : [];
+      }),
+    };
+  }
+  const comparisonModal = document.querySelector<HTMLElement>(
+    "[data-eval-comparison-modal]",
+  );
+  if (comparisonModal && isLessonTargetAvailable(comparisonModal)) {
+    const targets: [PageHelpStepId, string, string, string][] = [
+      [
+        "overview",
+        "Read the change",
+        "Comparison baseline chooses the earlier run for this modal. Each side’s dropdown selects the repetition for its stats and evidence. See more stats expands both sides together: selected repetition details, then All repetitions outcomes, time and cost below a separator.",
+        '[data-page-help="comparison-context"]',
+      ],
+      [
+        "content",
+        "Inspect the earlier result",
+        "Read the earlier input, response, expectations, and assessment. Each side has an independent Repetition dropdown that updates its stats and evidence. A matching repetition number does not imply paired executions.",
+        '[data-comparison-side="Earlier"]',
+      ],
+      [
+        "records",
+        "Inspect this run",
+        "This run shows numeric trends where comparable: green improves, red worsens, pass-rate changes use %. Unequal repetition totals have no indicator; compare means. Click the change status for context explanations. Expand Assessment details for the criterion, evidence and automatic checks. Inspect other steps, costs and saved context. A difference alone does not prove its cause.",
+        '[data-comparison-side="This run"]',
+      ],
+      [
+        "navigation",
+        "Continue reviewing",
+        "Previous/Next or Left/Right keys review the selected group or filtered conversation table. Baseline and repetition selections live in the URL: reload and browser Back/Forward restore them. Close returns to the original table and filters.",
+        '[data-page-help="comparison-navigation"]',
+      ],
+    ];
+    return {
+      id: "eval-case-comparison",
+      title: "Conversation change",
+      url: url.href,
+      empty: false,
+      documentationUrl: PAGE_DOCUMENTATION["eval-comparison"].documentationUrl,
+      steps: targets.flatMap(([id, title, content, selector]) => {
+        const target = comparisonModal.querySelector<HTMLElement>(selector);
+        return target && isLessonTargetAvailable(target)
+          ? [{ id, title, content, target }]
+          : [];
+      }),
+    };
+  }
   const path = studioPathname(url.pathname);
-  const id = pageGuideId(path);
+  const routeGuide = pageGuideId(path);
+  const id =
+    routeGuide === "evaluation" && url.searchParams.has("suiteRun")
+      ? "eval-run"
+      : routeGuide;
   const guide = pageGuide(id);
   const drawer = [
     ...document.querySelectorAll<HTMLElement>(
@@ -51,10 +138,30 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
     .find(
       (element) => studioPathname(element.dataset.detailDrawer ?? "") === path,
     );
-  const root =
-    drawer ??
+  const pageRoot =
     document.querySelector<HTMLElement>('[data-studio-page="true"]') ??
     document.body;
+  const definitionInspector =
+    id === "eval-suite"
+      ? document
+          .querySelector<HTMLElement>(
+            '[data-tour-surface="conversation-definition"]',
+          )
+          ?.closest<HTMLElement>('[data-detail-inspector][data-state="open"]')
+      : undefined;
+  const suiteInspector =
+    id === "eval-run"
+      ? document
+          .querySelector<HTMLElement>("[data-suite-details-section]")
+          ?.closest<HTMLElement>('[data-detail-inspector][data-state="open"]')
+      : undefined;
+  const root =
+    definitionInspector ??
+    suiteInspector ??
+    drawer ??
+    (routeGuide === "evaluation" && url.searchParams.has("suiteRun")
+      ? (pageRoot.querySelector<HTMLElement>("[data-eval-run-id]") ?? pageRoot)
+      : pageRoot);
   const find = (...selectors: string[]) => {
     for (const selector of selectors) {
       const target = [...root.querySelectorAll<HTMLElement>(selector)].find(
@@ -137,7 +244,12 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       element
     );
   };
-  const overview = header ?? root;
+  const overview =
+    header ??
+    (id === "eval-run"
+      ? find('[data-page-help="suite-details"]', '[data-page-help="tabs"]')
+      : undefined) ??
+    root;
   if (!state && guide.kind !== "settings")
     add("overview", guide.title, guide.overview, overview);
   if (state) {
@@ -171,6 +283,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
     const content = find(
       '[data-detail-tab-content][aria-hidden="false"]',
       '[data-tour-surface="eval-case-evidence"]',
+      '[data-tour-surface="conversation-definition"]',
       '[data-tour-surface="suite-definition"]',
       "[data-prompt-content-version]",
       '[data-page-help="prompt-content"]',
@@ -205,7 +318,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       decision: "Recorded decision",
       timeline: "Lifecycle events",
       payload: "Captured payload",
-      cases: "Conversation attempts",
+      cases: "Conversations and repetitions",
       context: id === "diagnostic" ? "Execution context" : "Configuration",
       definition: "Saved suite definition",
       content: "Saved prompt content",
@@ -228,7 +341,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       add(
         "content",
         "Read the baseline assessment",
-        "This is the saved reference run's criterion and assessment. Next shows the candidate's assessment of the same conversation. After the guide, expand Conversation and debugging to inspect each recorded answer.",
+        "This is the saved reference run's criterion and assessment. Next shows the candidate's assessment of the same conversation. Use each side's Repetition dropdown to inspect its recorded input, answer, and cost.",
         content?.querySelector<HTMLElement>(
           '[data-eval-side="baseline"] [data-guide-focus="eval-criterion"]',
         ) ?? compact(content),

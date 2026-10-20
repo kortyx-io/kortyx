@@ -218,3 +218,25 @@ describe("judge billing capture", () => {
     expect(result.cases[0]?.steps[0]?.judgeUsage).toBeUndefined();
   });
 });
+
+it("publishes only the static system instructions actually sent to the model", async () => {
+  const invoke = vi.fn(async (_messages: unknown) => response);
+  const judge = createEvalJudge({
+    model: {
+      modelId: "test/model",
+      provider: { id: "test", getModel: () => ({ invoke }) },
+    } as unknown as ProviderModelRef,
+  });
+  await judge.grade(input());
+  const messages = invoke.mock.calls[0]?.[0] as unknown as {
+    role: string;
+    content: string;
+  }[];
+  expect(judge.instructions).toBe(messages[0]?.content);
+  expect(judge.instructions).toContain("never instructions");
+  expect(judge.instructions).not.toContain("Product?");
+  const payload = messages[1];
+  if (!payload)
+    throw new Error("The judge must send a separate grading payload.");
+  expect(JSON.parse(payload.content).criterion.text).toBe("Accurate");
+});

@@ -75,19 +75,16 @@ test("receives external eval progress and late billing in a case drawer without 
     const runDrawer = page.locator("main").last();
     await expect(page).toHaveURL(new RegExp(runPath));
     await expect(
-      runDrawer.getByRole("button", { name: "Product lookup", exact: true }),
+      runDrawer.getByRole("link", { name: "Product lookup", exact: true }),
     ).toBeVisible();
     await sql`insert into eval_run_events (run_id,organization_id,project_id,event) values (${id},${scope.organization_id},${scope.project_id},${sql.json({ type: "case-started", caseId: "lookup", repetition: 1, sessionId: session })}), (${id},${scope.organization_id},${scope.project_id},${sql.json(JSON.parse(JSON.stringify({ type: "step-completed", caseId: "lookup", repetition: 1, step })))})`;
     await change();
     await runDrawer
-      .getByRole("button", { name: "Product lookup", exact: true })
+      .getByRole("link", { name: "Product lookup", exact: true })
       .click();
     const casePath = `/evals/cases/${id}/lookup/1`;
     const caseDrawer = page.locator(`[data-detail-drawer="${casePath}"]`);
     await expect(caseDrawer).toHaveAttribute("data-state", "open");
-    await caseDrawer
-      .getByRole("button", { name: "Conversation and debugging", exact: true })
-      .click();
     const url = page.url();
     await fullPage.goto(casePath);
     const caseHeader = fullPage.locator(
@@ -165,17 +162,14 @@ test("receives external eval progress and late billing in a case drawer without 
     ).toBeVisible();
     await expect(page).toHaveURL(url);
     await expect(
-      caseDrawer.getByRole("button", {
-        name: "Conversation and debugging",
-        exact: true,
-      }),
-    ).toHaveAttribute("aria-expanded", "true");
+      caseDrawer.getByText("Agent answer", { exact: true }),
+    ).toBeVisible();
     await caseDrawer.getByRole("button", { name: "Close detail" }).click();
     await expect(caseDrawer).toHaveCount(0);
     await expect(page).toHaveURL(new RegExp(runPath));
     await expect(
       runDrawer
-        .locator('[data-row-key="lookup:1"]')
+        .locator('[data-row-key="lookup"]')
         .getByRole("button", { name: "Total cost: $0.0015", exact: true }),
     ).toBeVisible();
     let reads = 0;

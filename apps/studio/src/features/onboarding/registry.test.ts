@@ -106,7 +106,11 @@ it("finds the orientation run independently of saved sort order and page size", 
   expect(response.status).toBe(200);
   expect(
     (await response.json()).runs.map((run: { id: string }) => run.id),
-  ).toEqual([sample.runs.success]);
+  ).toEqual([
+    sample.runs.success,
+    `${sample.runs.success}-repetition-2`,
+    `${sample.runs.success}-repetition-3`,
+  ]);
 });
 it("opens the actual failed Trace operation without waiting on a background tab", () => {
   const events = StudioDetailEventSchema.array().parse(

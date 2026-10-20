@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
+import { useCoveringDetailLayer } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import {
@@ -10,6 +11,7 @@ import {
   SheetClose,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -24,6 +26,7 @@ export function DetailInspectorDrawer({
   badges,
   closeLabel,
   bodyClassName,
+  footer,
   children,
 }: {
   open: boolean;
@@ -33,6 +36,7 @@ export function DetailInspectorDrawer({
   badges?: ReactNode;
   closeLabel: string;
   bodyClassName?: string;
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const detailSurface = useDetailDrawer();
@@ -45,6 +49,7 @@ export function DetailInspectorDrawer({
     children,
     description,
     title,
+    footer,
   });
   const [selfClosing, setSelfClosing] = useState(false);
   closeRef.current = onClose;
@@ -55,10 +60,11 @@ export function DetailInspectorDrawer({
       children,
       description,
       title,
+      footer,
     };
   }
   const retained = open
-    ? { badges, bodyClassName, children, description, title }
+    ? { badges, bodyClassName, children, description, title, footer }
     : retainedContentRef.current;
 
   useEffect(
@@ -99,6 +105,7 @@ export function DetailInspectorDrawer({
   const closing =
     detailSurface.closing || detailSurface.nestedClosing || selfClosing;
   const inspectorLayers = detailInspectorZIndex(detailSurface.layerZIndex);
+  const coveringLayer = useCoveringDetailLayer(inspectorLayers.surface);
 
   return (
     <Sheet
@@ -116,7 +123,13 @@ export function DetailInspectorDrawer({
         overlayClassName="pointer-events-none bg-overlay/45"
         overlayStyle={{ zIndex: inspectorLayers.backdrop }}
         onInteractOutside={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => event.stopPropagation()}
+        onEscapeKeyDown={(event) => {
+          if (coveringLayer) {
+            event.preventDefault();
+            coveringLayer.close();
+          }
+          event.stopPropagation();
+        }}
         onCloseAutoFocus={() => {
           // FocusScope releases the portal after Presence completes its exit.
           // Keep the close latched across intermediate URL state reconciliation.
@@ -126,7 +139,7 @@ export function DetailInspectorDrawer({
         style={{ zIndex: inspectorLayers.surface }}
         className="top-12 right-1 bottom-1 left-4 h-auto w-auto gap-0 rounded-xl border p-0 data-[state=closed]:[animation-fill-mode:forwards] sm:left-auto sm:w-[30rem] sm:max-w-none"
       >
-        <SheetHeader className="h-14 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
+        <SheetHeader className="h-16 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2">
               <SheetTitle
@@ -164,6 +177,11 @@ export function DetailInspectorDrawer({
         >
           {retained.children}
         </div>
+        {retained.footer ? (
+          <SheetFooter className="h-14 shrink-0 justify-center border-t px-4 py-0">
+            {retained.footer}
+          </SheetFooter>
+        ) : null}
       </SheetContent>
     </Sheet>
   );

@@ -151,7 +151,7 @@ export const studioHelp = {
   ),
   evalResults: help(
     "Evaluation results",
-    "Shows which test conversations passed, failed, or could not be checked. A conversation can run successfully and still fail a quality check.",
+    "Each conversation row groups all repetitions, including passed, failed, and unfinished outcomes. Open a row and choose a Repetition for its evidence and cost. A successful execution can still fail a quality check.",
     "evals#read-results-and-compare",
   ),
   evalRerun: help(
@@ -161,13 +161,23 @@ export const studioHelp = {
   ),
   evalMixedResults: help(
     "Mixed results",
-    "A finished case has at least one assessed pass and one assessed failure. The count includes only passed and failed attempts; errors and unassessed attempts are separate. Differences can come from the application, data, or judge.",
+    "A finished case has at least one assessed pass and one assessed failure. Assessed counts include passed and failed repetitions; errors and unassessed repetitions are separate. Differences can come from the application, data, or judge.",
     "evaluation-results#mixed-results-across-repetitions",
   ),
   evalChecks: help(
     "Deterministic checks",
     "Built-in assertions inspect the current captured answer, tool calls, or completed structured outputs before model judging. All checks must pass. Missing tool evidence cannot satisfy a tool assertion.",
     "judging#deterministic-checks",
+  ),
+  evalRepetitions: help(
+    "Repetitions",
+    "Each selected conversation runs this many times, even if it passes. One table row groups its repetitions; open it to select an individual result. Repetitions measure consistency, not retries after a failed check.",
+    "evaluation-results#repetitions",
+  ),
+  evalComparison: help(
+    "Evaluation comparison",
+    "Changes use the latest earlier completed evaluation of the same application and environment in recent history. Comparison baseline chooses another earlier run in the table or modal. Dropdowns select each side’s repetition stats and evidence. All repetitions totals/averages appear separately below a separator. Green arrows mean improvement: higher pass rate, fewer failures, lower time/cost. Unequal repetition totals have no trend indicator; compare per-repetition means. Changed context or incomplete grading has no score delta.",
+    "evaluation-results#compare-saved-runs",
   ),
   evalTiming: help(
     "Evaluation timing",
@@ -498,7 +508,7 @@ const resourceColumnDescriptions: Record<string, Record<string, string>> = {
     baseline: "The earlier test result used as the comparison point.",
     candidate: "The test result you are comparing with the baseline.",
     change:
-      "How this result differs from the baseline. Compare the same conversations and settings for a useful result.",
+      "How this conversation differs from the named earlier evaluation. Click the change or comparison icon to inspect both sides in a modal. Changed context and unfinished grading have no score delta.",
     suite: "A group of test conversations run together.",
     cases: "The example conversations included in this test.",
     attempt: "Which repeat of the same test conversation this is.",

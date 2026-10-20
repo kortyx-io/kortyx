@@ -24,3 +24,29 @@ it("does not invent deltas for context changes, incomplete evidence or missing c
   ).toBeUndefined();
   expect(comparisonMetric(row, "cost")).toBeUndefined();
 });
+
+it("compares mean cost instead of total spend when repetition counts differ", () => {
+  const priced = (amount: number, currency = "USD", status = "complete") =>
+    ({
+      ...attempt("passed"),
+      costs: { total: { amount, currency, status } },
+    }) as CaseRow;
+  const pricedRow = {
+    ...row,
+    baseline: [priced(0.1), priced(0.3)],
+    candidate: [priced(0.25)],
+  };
+  expect(comparisonMetric(pricedRow, "cost")).toBeCloseTo(0.05);
+  expect(
+    comparisonMetric(
+      { ...pricedRow, candidate: [priced(0.25, "EUR")] },
+      "cost",
+    ),
+  ).toBeUndefined();
+  expect(
+    comparisonMetric(
+      { ...pricedRow, candidate: [priced(0.25, "USD", "partial")] },
+      "cost",
+    ),
+  ).toBeUndefined();
+});

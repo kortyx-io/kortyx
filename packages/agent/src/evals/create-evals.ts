@@ -237,6 +237,9 @@ export function createEvals<
         ...(options.judge
           ? {
               judge: {
+                ...(options.judge.instructions
+                  ? { instructions: options.judge.instructions }
+                  : {}),
                 id: options.judge.id,
                 version: options.judge.version,
                 ...(options.judge.location
@@ -343,6 +346,9 @@ export function createEvals<
           ...(selectedJudge
             ? {
                 judge: {
+                  ...(selectedJudge.instructions
+                    ? { instructions: selectedJudge.instructions }
+                    : {}),
                   id: selectedJudge.id,
                   version: selectedJudge.version,
                   ...(selectedJudge.location

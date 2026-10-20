@@ -150,3 +150,41 @@ it("leaves modified link clicks and cancelled actions to their own handlers", as
   await click("[data-cancelled]");
   expect(openRow).not.toHaveBeenCalled();
 });
+
+it("keeps the actual columns and footer while loading, without announcing empty results", async () => {
+  await act(() =>
+    root.render(
+      <DataTable
+        tableId="loading-table"
+        loading
+        loadingRowHeight={73}
+        columns={[
+          {
+            key: "name",
+            label: "Conversation",
+            defaultWidth: 300,
+            filter: false,
+            render: () => "Should not render",
+          },
+        ]}
+        data={[]}
+        getRowKey={() => ""}
+        emptyState="No conversations"
+      />,
+    ),
+  );
+  const frame = container.querySelector("[data-table-ready]");
+  expect(frame?.getAttribute("aria-busy")).toBe("true");
+  expect(frame?.hasAttribute("inert")).toBe(true);
+  expect(container.querySelector("thead")?.textContent).toContain(
+    "Conversation",
+  );
+  expect(container.querySelectorAll("tbody tr")).toHaveLength(6);
+  expect(container.querySelector("tbody td")?.getAttribute("style")).toContain(
+    "height: 73px",
+  );
+  expect(container.textContent).not.toContain("No conversations");
+  expect(container.textContent).not.toContain("No results");
+  expect(container.textContent).not.toContain("Should not render");
+  expect(container.querySelector('[aria-label="Next page"]')).not.toBeNull();
+});

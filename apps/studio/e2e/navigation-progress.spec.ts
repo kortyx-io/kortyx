@@ -3,7 +3,7 @@ import { EVAL_FIXTURE } from "./support/eval-fixture";
 
 const runPath = `/evals/runs/${EVAL_FIXTURE.candidate}`;
 
-test("standard Next links show progress while a suite drawer response is delayed", async ({
+test("standard Next links show progress while a suite workspace response is delayed", async ({
   page,
 }) => {
   const suitePath = `/evals/suites/${EVAL_FIXTURE.targetId}/${encodeURIComponent(EVAL_FIXTURE.suiteId)}`;
@@ -33,8 +33,8 @@ test("standard Next links show progress while a suite drawer response is delayed
   }
   await expect(
     page
-      .locator(`[data-detail-drawer="${suitePath}"]`)
-      .getByRole("heading", { name: "Conversation plan" }),
+      .locator("[data-eval-suite-id]")
+      .getByRole("button", { name: "Ambiguous role", exact: true }),
   ).toBeVisible();
   await expect(page.locator(".bprogress")).toHaveCount(0);
 });
@@ -44,12 +44,12 @@ for (const clickTarget of ["row", "button"] as const) {
     page,
   }) => {
     if (clickTarget === "row") {
-      await page.goto(`${runPath}?live=false`);
+      await page.goto(`${runPath}?live=false&q=${EVAL_FIXTURE.candidate}`);
       await page
         .getByRole("button", { name: "Run history", exact: true })
         .click();
     } else {
-      await page.goto("/evals/runs?live=false");
+      await page.goto(`/evals/runs?live=false&q=${EVAL_FIXTURE.candidate}`);
     }
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
     const row = page.locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`);
@@ -94,9 +94,14 @@ for (const clickTarget of ["row", "button"] as const) {
     } finally {
       release();
     }
-    await expect(page).toHaveURL(`${runPath}?live=false`);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === runPath &&
+        url.searchParams.get("live") === "false" &&
+        url.searchParams.get("q") === EVAL_FIXTURE.candidate,
+    );
     await expect(
-      page.getByRole("button", { name: "Ambiguous role", exact: true }),
+      page.getByRole("link", { name: "Ambiguous role", exact: true }),
     ).toBeVisible();
     await expect(page.locator(".bprogress")).toHaveCount(0);
     expect(requests).toBe(1);
@@ -106,7 +111,7 @@ for (const clickTarget of ["row", "button"] as const) {
 test("a newer navigation wins while an eval row navigation is still pending", async ({
   page,
 }) => {
-  await page.goto("/evals/runs?live=false");
+  await page.goto(`/evals/runs?live=false&q=${EVAL_FIXTURE.candidate}`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   let release!: () => void;
   const blocked = new Promise<void>((resolve) => {
@@ -147,7 +152,7 @@ test("a newer navigation wins while an eval row navigation is still pending", as
 test("returning to the current list cancels pending detail navigation and clears progress", async ({
   page,
 }) => {
-  await page.goto("/evals/runs");
+  await page.goto(`/evals/runs?q=${EVAL_FIXTURE.candidate}`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   let release = () => {};
   const blocked = new Promise<void>((resolve) => {
@@ -179,9 +184,8 @@ test("returning to the current list cancels pending detail navigation and clears
     release();
   }
   await expect(page).toHaveURL(/\/evals\/runs$/);
-  await expect(
-    page.locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`),
-  ).toBeVisible();
+  await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+  await expect(page.locator("[data-row-key]").first()).toBeVisible();
 });
 
 test("an unavailable eval refresh shows its failure without trapping navigation", async ({
