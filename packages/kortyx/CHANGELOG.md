@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.32.3](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.32.2...kortyx-v0.32.3) (2026-10-20)
+
+
+### Bug Fixes
+
+* **telemetry:** default SDK and topology ingestion to Cloud ([103f298](https://github.com/kortyx-io/kortyx/commit/103f2989e735ef7efeaca49b206911d0584cecb0))
+* **telemetry:** default SDK and topology ingestion to Cloud ([e9ea1f1](https://github.com/kortyx-io/kortyx/commit/e9ea1f143c6a8608e40dfdb359bb560480d21efc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.40.2
+    * @kortyx/cli bumped to 0.22.2
+
 ## [0.32.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.32.1...kortyx-v0.32.2) (2026-10-18)
 
 

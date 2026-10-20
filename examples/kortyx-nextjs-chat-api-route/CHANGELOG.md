@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.26.2](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.26.1...example-nextjs-chat-api-route-v0.26.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **examples:** default telemetry content capture to true ([6b5c615](https://github.com/kortyx-io/kortyx/commit/6b5c61516a886e7d8c2517b30808a607e70381fb))
+* **examples:** default telemetry content capture to true ([fdcadf4](https://github.com/kortyx-io/kortyx/commit/fdcadf4160e644dd2b68750ee71bbd666f701eb6))
+* **telemetry:** default SDK and topology ingestion to Cloud ([103f298](https://github.com/kortyx-io/kortyx/commit/103f2989e735ef7efeaca49b206911d0584cecb0))
+* **telemetry:** default SDK and topology ingestion to Cloud ([e9ea1f1](https://github.com/kortyx-io/kortyx/commit/e9ea1f143c6a8608e40dfdb359bb560480d21efc))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.32.3
+    * @kortyx/telemetry bumped to 0.17.3
+
 ## [0.26.1](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-api-route-v0.26.0...example-nextjs-chat-api-route-v0.26.1) (2026-10-18)
 
 

@@ -8,6 +8,14 @@
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
 
+## [0.40.2](https://github.com/kortyx-io/kortyx/compare/agent-v0.40.1...agent-v0.40.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **evals:** keep live updates off full-result reads ([301d690](https://github.com/kortyx-io/kortyx/commit/301d69087167ce6086c45ec4c7efe4679bb5604b))
+* **evals:** keep live updates off full-result reads ([76f846b](https://github.com/kortyx-io/kortyx/commit/76f846bdc86c1f9b3e4ff1ff593f86c8e3f7ba98))
+
 ## [0.40.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.40.0...agent-v0.40.1) (2026-10-18)
 
 
