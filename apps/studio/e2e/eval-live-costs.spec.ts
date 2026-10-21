@@ -67,7 +67,8 @@ test("receives external eval progress and late billing in a case drawer without 
     await sql`insert into eval_runs (id,organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,requested_by,status) values (${id},${scope.organization_id},${scope.project_id},'development','e2e-live-costs','Billing fixture',${suite.id},${getEvalSuiteRevision(suite)},${sql.json(suite)},${sql.json({ suiteId: suite.id, suiteRevision: getEvalSuiteRevision(suite), repetitions: 1 })},'e2e','running')`;
     await change();
     const historyRow = page.locator(`[data-row-key="${id}"]`);
-    await expect(historyRow).toBeVisible();
+    // History refreshes are coalesced to five seconds; allow the window plus transport.
+    await expect(historyRow).toBeVisible({ timeout: 15_000 });
     await historyRow
       .getByRole("button", { name: suite.name, exact: true })
       .click();

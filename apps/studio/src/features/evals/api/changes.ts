@@ -70,12 +70,9 @@ export async function readEvaluationChanges(
   );
   // Resolve auth on every request, including cache hits. Scope by the complete
   // credential selection so tenants, environments and sample data never share cells.
-  const credential = await studioAuth.getApiCredential(request);
-  const cacheScope = [
-    process.env.KORTYX_API_URL,
-    credential,
-    await isSampleProject(request),
-  ];
+  const sample = await isSampleProject(request);
+  const credential = sample ? null : await studioAuth.getApiCredential(request);
+  const cacheScope = [process.env.KORTYX_API_URL, credential, sample];
   const keys = new Map<string, string>();
   let bytes = 0;
   const pending = ready.filter((value) => {
