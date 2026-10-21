@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.24.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.24.0...studio-v0.24.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **studio:** bound comparison memory and load summaries asynchronously ([221087a](https://github.com/kortyx-io/kortyx/commit/221087ac4340ea078b8c9145a6bb1a51f9dab7c0))
+* **studio:** bound evaluation comparison memory ([8403bd2](https://github.com/kortyx-io/kortyx/commit/8403bd2e910d115c9d0393f2fb28dcf3e1bb972d))
+* **studio:** cache bounded completed change summaries ([a593dba](https://github.com/kortyx-io/kortyx/commit/a593dbaf8e4ffc27e21876a5314adfdf43e5a9db))
+* **studio:** preserve sample isolation with cached comparisons ([e5291c0](https://github.com/kortyx-io/kortyx/commit/e5291c07414532738a403019685f5a1998345c93))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.41.1
+    * kortyx bumped to 0.33.1
+
 ## [0.24.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.23.3...studio-v0.24.0) (2026-10-21)
 
 

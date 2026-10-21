@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.54.1](https://github.com/kortyx-io/kortyx/compare/website-v0.54.0...website-v0.54.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **studio:** bound comparison memory and load summaries asynchronously ([221087a](https://github.com/kortyx-io/kortyx/commit/221087ac4340ea078b8c9145a6bb1a51f9dab7c0))
+* **studio:** bound evaluation comparison memory ([8403bd2](https://github.com/kortyx-io/kortyx/commit/8403bd2e910d115c9d0393f2fb28dcf3e1bb972d))
+
 ## [0.54.0](https://github.com/kortyx-io/kortyx/compare/website-v0.53.2...website-v0.54.0) (2026-10-21)
 
 
