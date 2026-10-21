@@ -52,7 +52,10 @@ test("definition instructions stack above the conversation, search, expand and r
   await page.goForward();
   await expect(reader).toBeInViewport();
   await definition.click({ position: { x: 12, y: 35 } });
-  await expect(page).toHaveURL((url) => url.pathname === suite && url.searchParams.get("definitionStep") === "1");
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === suite && url.searchParams.get("definitionStep") === "1",
+  );
 });
 
 test("saved instructions open from a conversation and survive reload", async ({

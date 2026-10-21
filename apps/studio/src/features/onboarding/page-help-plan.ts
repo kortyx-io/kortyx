@@ -275,7 +275,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
           : "Search narrows the list. Filters opens scope and field conditions; Match all/any combines them. Numeric and date fields accept minimum and maximum bounds. Columns controls order, visibility, and pins. Views saves filters, search, sorting, and layout. An empty filtered list does not mean the project has no data. " +
               (isSamplePath(url.pathname)
                 ? "Sample table choices stay in this browser, separately from real projects."
-                : "Authenticated projects refresh saved preferences in the background. Cloud views belong to you in this project; self-hosted views are shared by the project. If Preferences not saved appears, open Views to retry or reload the saved preferences."),
+                : "Authenticated projects refresh saved preferences in the background. Cloud views belong to you in this project; self-hosted views are shared by the project. Open Views to check save status and retry or reload preferences when saving fails."),
         find("[data-table-controls]", '[data-tour-surface="workflow-toolbar"]'),
       );
     if (guide.kind === "list")
