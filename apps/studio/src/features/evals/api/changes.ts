@@ -4,6 +4,8 @@ import {
   type StudioEvaluationComparison,
   type StudioEvaluationSummary,
 } from "@kortyx/agent/evals";
+import { studioAuth } from "@studio/auth";
+import { isSampleProject } from "@/features/sample-project/server";
 import {
   type EvaluationChanges,
   earlierEvaluations,
@@ -11,6 +13,7 @@ import {
   summarizeSnapshotChanges,
 } from "../lib/evaluation-changes";
 import { isActive } from "../lib/presentation";
+import { changesCache, changesCacheKey } from "./changes-cache";
 import { readEvaluationComparison } from "./server";
 
 let activeReads = 0;
@@ -65,6 +68,33 @@ export async function readEvaluationChanges(
   const ready = Object.values(changes).filter(
     (v) => v.state === "ready" && v.earlier,
   );
+  // Resolve auth on every request, including cache hits. Scope by the complete
+  // credential selection so tenants, environments and sample data never share cells.
+  const credential = await studioAuth.getApiCredential(request);
+  const cacheScope = [
+    process.env.KORTYX_API_URL,
+    credential,
+    await isSampleProject(request),
+  ];
+  const keys = new Map<string, string>();
+  let bytes = 0;
+  const pending = ready.filter((value) => {
+    const earlier = history.find((run) => run.id === value.earlier?.id);
+    if (!earlier || !credential) return true;
+    const key = changesCacheKey(cacheScope, [
+      value.signature,
+      evaluationSignature(earlier),
+    ]);
+    keys.set(value.candidate.id, key);
+    const cached = changesCache.get(key);
+    if (!cached) return true;
+    const size = Buffer.byteLength(JSON.stringify(cached));
+    if (bytes + size > EVAL_COMPARISON_LIMITS.responseBytes) return true;
+    value.rows = cached;
+    bytes += size;
+    return false;
+  });
+  if (!pending.length) return changes;
   const unavailable = (value: EvaluationChanges) => {
     value.state = "error";
     value.message =
@@ -72,7 +102,7 @@ export async function readEvaluationChanges(
   };
   // Reject overload instead of queuing requests and multiplying retained memory.
   if (activeReads >= 2) {
-    for (const value of ready) unavailable(value);
+    for (const value of pending) unavailable(value);
     return changes;
   }
   activeReads++;
@@ -92,9 +122,8 @@ export async function readEvaluationChanges(
     values.set(id, result.run);
     return result.run;
   };
-  let bytes = 0;
   try {
-    for (const value of ready) {
+    for (const value of pending) {
       if (!value.earlier) continue;
       if (bytes >= EVAL_COMPARISON_LIMITS.responseBytes) {
         unavailable(value);
@@ -112,6 +141,8 @@ export async function readEvaluationChanges(
         }
         value.rows = rows;
         bytes += size;
+        const key = keys.get(value.candidate.id);
+        if (key) changesCache.set(key, rows);
       } catch {
         request?.signal.throwIfAborted();
         unavailable(value);

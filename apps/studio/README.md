@@ -7,6 +7,13 @@ Lightweight status refreshes are coalesced; comparisons reload on completion or
 explicit refresh. Snapshot reads have cardinality and 2 MiB response limits,
 two admitted requests per process, and a two-entry request-local cache. Overload
 returns an explicit unavailable state instead of retaining an unbounded queue.
+Completed Changes cells are cached across page loads for up to 30 minutes in a
+process-local LRU capped at 128 comparisons and 8 MiB of serialized cells. Keys
+include both result versions, API credentials, project/environment selection and
+sample mode. Changing a baseline or result version causes a miss; failures are
+never cached. History and authorization are still checked for every request.
+Cache entries contain only derived comparison cells, never reports or snapshots;
+restarts and separate Studio replicas may recompute a bounded cold read.
 
 Kortyx Studio is the source-available Studio shell for the Kortyx plugin ecosystem.
 

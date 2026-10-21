@@ -84,11 +84,11 @@ it("forwards grouped run launch, results and cancellation through the same authe
     ["evaluations"],
     ["evaluations", id, "cancel"],
     ["evaluations", id, "results"],
+    ["evaluations", id, "comparison"],
   ]) {
-    const req =
-      parts.at(-1) === "results"
-        ? new Request("http://localhost:7340/api/studio/evals/evaluations")
-        : request();
+    const req = ["results", "comparison"].includes(parts.at(-1)!)
+      ? new Request("http://localhost:7340/api/studio/evals/evaluations")
+      : request();
     expect((await proxyEvalRequest(req, parts)).status).toBe(200);
     expect(fetch.mock.calls.at(-1)?.[0]).toBe(
       `http://api:6400/v1/studio/evals/${parts.join("/")}`,

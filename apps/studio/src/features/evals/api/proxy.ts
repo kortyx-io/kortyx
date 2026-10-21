@@ -1,7 +1,9 @@
 import { sampleRequestResponse } from "@/features/sample-project/server";
 import "server-only";
+import { EVAL_COMPARISON_LIMITS } from "@kortyx/agent/evals";
 import { redactDiagnosticText } from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
+import { readBoundedJson } from "@/lib/read-bounded-json";
 
 export async function proxyEvalRequest(request: Request, parts: string[]) {
   const denial = await studioAuth.authorize(request);
@@ -10,7 +12,7 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
   if (sample) return sample;
   const path = parts.join("/");
   if (
-    !/^(settings|targets|capabilities|evaluations(?:\/table|\/[a-f0-9-]{36}(?:\/(?:cancel|results))?)?|runs(?:\/[a-f0-9-]{36}(?:\/(?:cancel|live|case))?)?)$/.test(
+    !/^(settings|targets|capabilities|evaluations(?:\/table|\/[a-f0-9-]{36}(?:\/(?:cancel|results|comparison))?)?|runs(?:\/[a-f0-9-]{36}(?:\/(?:cancel|live|case))?)?)$/.test(
       path,
     )
   )
@@ -85,10 +87,15 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
         { status: response.status },
       );
     }
-    return Response.json(await response.json(), {
-      status: response.status,
-      headers: { "cache-control": "no-store" },
-    });
+    return Response.json(
+      path.endsWith("/comparison")
+        ? await readBoundedJson(response, EVAL_COMPARISON_LIMITS.responseBytes)
+        : await response.json(),
+      {
+        status: response.status,
+        headers: { "cache-control": "no-store" },
+      },
+    );
   } catch {
     return Response.json(
       { error: "Eval service is unavailable." },

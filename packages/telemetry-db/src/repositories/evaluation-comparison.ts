@@ -7,7 +7,7 @@ import type { TelemetryDb } from "../client";
 import { TelemetryNotFoundError, TelemetryValidationError } from "../errors";
 import { evalRuns, evaluationRuns } from "../schema";
 import { getEvalLiveSummaries } from "./eval-live";
-import { getEvaluation } from "./evaluations";
+import { summarizeLiveEvaluation } from "./evaluations";
 
 type Scope = {
   organizationId: string;
@@ -38,7 +38,7 @@ export async function getEvaluationComparison(
   id: string,
 ): Promise<StudioEvaluationComparison> {
   const [parent] = await db
-    .select({ id: evaluationRuns.id })
+    .select()
     .from(evaluationRuns)
     .where(
       and(
@@ -86,38 +86,57 @@ export async function getEvaluationComparison(
     );
   const suites: Suite[] = [];
   let bytes = 0;
-  // Release each suite's read model before loading the next; retain compact comparison facts only.
-  for (const size of sizes) {
-    const [row] = await db
-      .select({
-        id: evalRuns.id,
-        suiteId: evalRuns.suiteId,
-        targetId: evalRuns.targetId,
-        environment: evalRuns.environment,
-        name: sql<string>`left(coalesce(${evalRuns.suite}->>'name',${evalRuns.suiteId}),512)`,
-        selected: sql<string[] | null>`${evalRuns.request}->'caseIds'`,
-        repetitions: sql<number>`coalesce((${evalRuns.request}->>'repetitions')::integer,1)`,
-        judge: sql<
-          string | null
-        >`CASE WHEN NULLIF(${evalRuns.result}->'judge','null'::jsonb) IS NULL THEN NULL ELSE encode(sha256(convert_to((${evalRuns.result}->'judge')::text,'UTF8')),'hex') END`,
-        definitions: bounded<Suite["definitions"]>(definitions),
-        contexts:
-          bounded<
-            {
-              caseId: string;
-              repetition: number;
-              contexts: Suite["cases"][number]["contexts"];
-            }[]
-          >(cases),
-      })
-      .from(evalRuns)
-      .where(and(where, eq(evalRuns.id, size.id)))
-      .limit(1);
+  // One bounded projection and one batched live read, regardless of suite count.
+  // The combined byte gate runs in PostgreSQL before any comparison JSON reaches Node.
+  type ProjectedSuite = Pick<
+    Suite,
+    | "id"
+    | "suiteId"
+    | "targetId"
+    | "environment"
+    | "name"
+    | "judge"
+    | "definitions"
+  > & {
+    selected: string[] | null;
+    repetitions: number;
+    contexts: {
+      caseId: string;
+      repetition: number;
+      contexts: Suite["cases"][number]["contexts"];
+    }[];
+  };
+  const [projected] = await db
+    .select({
+      rows: bounded<ProjectedSuite[]>(sql`coalesce(jsonb_agg(jsonb_build_object(
+    'id', ${evalRuns.id}, 'suiteId', ${evalRuns.suiteId}, 'targetId', ${evalRuns.targetId},
+    'environment', ${evalRuns.environment},
+    'name', left(coalesce(${evalRuns.suite}->>'name',${evalRuns.suiteId}),512),
+    'selected', ${evalRuns.request}->'caseIds',
+    'repetitions', coalesce((${evalRuns.request}->>'repetitions')::integer,1),
+    'judge', CASE WHEN NULLIF(${evalRuns.result}->'judge','null'::jsonb) IS NULL THEN NULL
+      ELSE encode(sha256(convert_to((${evalRuns.result}->'judge')::text,'UTF8')),'hex') END,
+    'definitions', ${definitions}, 'contexts', ${cases}
+  ) ORDER BY ${evalRuns.id}), '[]'::jsonb)`),
+    })
+    .from(evalRuns)
+    .where(where);
+  if (!projected?.rows)
+    throw new TelemetryValidationError(
+      "Comparison exceeds the automatic comparison limit.",
+    );
+  const liveSummaries = await getEvalLiveSummaries(
+    db,
+    scope,
+    sizes.map((size) => size.id),
+  );
+  const byId = new Map(liveSummaries.map((live) => [live.id, live]));
+  for (const row of projected.rows) {
     if (!row || !row.definitions || !row.contexts)
       throw new TelemetryValidationError(
         "Comparison exceeds the automatic comparison limit.",
       );
-    const [live] = await getEvalLiveSummaries(db, scope, [row.id]);
+    const live = byId.get(row.id);
     if (!live) throw new TelemetryNotFoundError("Eval run not found.");
     const contexts = new Map(
       row.contexts.map((c) => [
@@ -160,7 +179,7 @@ export async function getEvaluationComparison(
       );
     suites.push(suite);
   }
-  const { suites: _, ...summary } = await getEvaluation(db, scope, id);
+  const summary = summarizeLiveEvaluation(parent, liveSummaries);
   const result = { ...summary, suites };
   if (Buffer.byteLength(JSON.stringify({ run: result })) > limits.responseBytes)
     throw new TelemetryValidationError(
