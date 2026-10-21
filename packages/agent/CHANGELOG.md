@@ -8,6 +8,14 @@
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
 
+## [0.41.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.41.0...agent-v0.41.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **studio:** bound comparison memory and load summaries asynchronously ([221087a](https://github.com/kortyx-io/kortyx/commit/221087ac4340ea078b8c9145a6bb1a51f9dab7c0))
+* **studio:** bound evaluation comparison memory ([8403bd2](https://github.com/kortyx-io/kortyx/commit/8403bd2e910d115c9d0393f2fb28dcf3e1bb972d))
+
 ## [0.41.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.40.2...agent-v0.41.0) (2026-10-21)
 
 
