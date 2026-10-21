@@ -22,6 +22,7 @@ import {
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
+import { snapshotEvalJudge } from "../evals/judge";
 import { freezeEvalPrompts } from "../evals/prompts";
 import {
   evalInstallationSettings,
@@ -346,13 +347,7 @@ export function registerEvalRoutes(
           ...(promptSnapshot ? { promptSnapshot } : {}),
           ...(promptGroupName ? { promptGroupName } : {}),
           grading: request.judge,
-          judge: {
-            id: selectedJudge.id,
-            version: selectedJudge.version,
-            ...(selectedJudge.location
-              ? { location: selectedJudge.location }
-              : {}),
-          },
+          judge: snapshotEvalJudge(selectedJudge),
           suiteId: request.suiteId,
           suiteRevision: request.suiteRevision,
           repetitions: request.repetitions,

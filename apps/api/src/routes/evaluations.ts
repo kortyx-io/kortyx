@@ -24,6 +24,7 @@ import {
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
+import { snapshotEvalJudge } from "../evals/judge";
 import { freezeEvalPrompts } from "../evals/prompts";
 import { evalInstallationSettings } from "../evals/settings";
 import { type EvalTarget, fetchEvalManifest } from "../evals/targets";
@@ -273,30 +274,52 @@ export function registerEvaluationRoutes(
           },
           400,
         );
-      const judge =
-        request.judge === "studio"
-          ? studioJudge && {
-              ...(studioJudge.instructions
-                ? { instructions: studioJudge.instructions }
-                : {}),
-              id: studioJudge.id,
-              version: studioJudge.version,
-              location: "studio" as const,
-            }
-          : manifest.judge;
+      const judged = selected.map(({ selection, suite }) => ({
+        selection,
+        suite: suite!,
+        judge:
+          request.judge === "studio"
+            ? studioJudge && {
+                ...(studioJudge.instructions
+                  ? { instructions: studioJudge.instructions }
+                  : {}),
+                ...(studioJudge.promptTemplates
+                  ? { promptTemplates: true as const }
+                  : {}),
+                ...(suite!.judge?.prompt
+                  ? { prompt: suite!.judge.prompt }
+                  : studioJudge.prompt
+                    ? { prompt: studioJudge.prompt }
+                    : {}),
+                id: studioJudge.id,
+                version: studioJudge.version,
+                location: "studio" as const,
+              }
+            : (suite!.judge ?? manifest.judge),
+      }));
       if (request.judge === "studio" && !manifest.studioJudging)
         return c.json(
+          { error: "Update the consumer SDK to support Studio judging." },
+          409,
+        );
+      if (
+        request.judge === "studio" &&
+        selected.some(({ suite }) => suite!.judge?.prompt) &&
+        !studioJudge?.promptTemplates
+      )
+        return c.json(
           {
-            error: "Update the consumer SDK to support Studio judging.",
+            error:
+              "The configured Studio judge does not support suite prompt templates.",
           },
           409,
         );
-      if (!judge)
+      if (judged.some(({ judge }) => !judge))
         return c.json(
           {
             error:
               request.judge === "app"
-                ? "No App judge configured by this application."
+                ? "No App judge configured for one or more selected suites."
                 : "Studio judge is not configured.",
           },
           503,
@@ -336,7 +359,7 @@ export function registerEvaluationRoutes(
             requestHash: hash,
             idempotencyKey: request.idempotencyKey,
           },
-          selected.map(({ selection, suite }) => ({
+          judged.map(({ selection, suite, judge }) => ({
             ...scope,
             suiteId: suite!.id,
             suiteRevision: selection.suiteRevision,
@@ -347,11 +370,7 @@ export function registerEvaluationRoutes(
               suiteId: suite!.id,
               suiteRevision: selection.suiteRevision,
               grading: request.judge,
-              judge: {
-                id: judge.id,
-                version: judge.version,
-                ...(judge.location ? { location: judge.location } : {}),
-              },
+              judge: snapshotEvalJudge(judge!),
               repetitions: request.repetitions,
               concurrency: request.concurrency,
               runTimeoutMs: request.runTimeoutMs,

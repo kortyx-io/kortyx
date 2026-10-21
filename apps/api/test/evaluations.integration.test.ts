@@ -7,10 +7,14 @@ import { promisify } from "node:util";
 import {
   createEvalRouteHandler,
   createEvals,
+  defineJudgePrompt,
+  defineSuite,
+  type EvalJson,
   type EvalSuite,
   getEvalSuiteRevision,
 } from "@kortyx/agent";
 import {
+  StudioEvalDetailSchema,
   StudioEvaluationDetailSchema,
   StudioEvaluationResultsSchema,
 } from "@kortyx/agent/evals";
@@ -65,6 +69,7 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
   };
   let api: ReturnType<typeof createApiApp>;
   let worker: ReturnType<typeof createEvalWorker>;
+  let handler: ReturnType<typeof createEvalRouteHandler>;
   beforeAll(async () => {
     const parsed = new URL(url!);
     if (
@@ -109,7 +114,7 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
         }),
       },
     });
-    const handler = createEvalRouteHandler({ evals, serviceKey });
+    handler = createEvalRouteHandler({ evals, serviceKey });
     server = createServer(async (req, res) => {
       let body = "";
       for await (const part of req) body += part;
@@ -305,6 +310,103 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
       ),
     ).rejects.toThrow("not found");
   });
+  it("preserves each suite's judge and prompt through grouped and single-suite execution", async () => {
+    const original = handler;
+    const judgeWorker = createEvalWorker(client.db, [target]);
+    const bound = suites.map((suite) =>
+      defineSuite<EvalJson>({
+        ...suite,
+        cases: suite.cases.map((item) => ({
+          ...item,
+          params: item.params ?? null,
+        })),
+        judge: {
+          id: `judge/${suite.id}`,
+          version: "2",
+          location: "app",
+          promptTemplates: true,
+          prompt: defineJudgePrompt({
+            id: `prompt/${suite.id}`,
+            messages: [
+              { role: "system", content: "Use the supplied evidence." },
+              { role: "user", content: "{{criterion.text}}\n{{observation}}" },
+            ],
+          }),
+          grade: async () => ({
+            passed: true,
+            reason: "Suite-specific judge",
+            evidence: [],
+          }),
+        },
+      }),
+    );
+    handler = createEvalRouteHandler({
+      serviceKey,
+      evals: createEvals({
+        agent: {} as never,
+        suites: bound,
+        execute: async () => ({
+          observation: { type: "answer", text: "answer", structured: [] },
+        }),
+      }),
+    });
+    try {
+      const response = await start(
+        request({
+          suites: bound.map((suite) => ({
+            suiteId: suite.id,
+            suiteRevision: getEvalSuiteRevision(suite),
+          })),
+        }),
+      );
+      expect(response.status).toBe(202);
+      const { id } = z.object({ id: z.uuid() }).parse(await response.json());
+      judgeWorker.start();
+      await vi.waitFor(
+        async () =>
+          expect((await getEvaluation(client.db, scope, id)).status).toBe(
+            "passed",
+          ),
+        { timeout: 10000 },
+      );
+      const result = StudioEvaluationResultsSchema.parse(
+        await (
+          await api.request(`/v1/studio/evals/evaluations/${id}/results`)
+        ).json(),
+      ).run;
+      for (const child of result.suites) {
+        const suite = bound.find((suite) => suite.id === child.suiteId)!;
+        expect(child.result?.judge).toEqual(suite.judge);
+        const single = await api.request("/v1/studio/evals/runs", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            targetId: target.id,
+            suiteId: suite.id,
+            suiteRevision: getEvalSuiteRevision(suite),
+            judge: "app",
+            repetitions: 1,
+          }),
+        });
+        expect(single.status).toBe(202);
+        const run = z.object({ id: z.uuid() }).parse(await single.json());
+        const read = async () =>
+          StudioEvalDetailSchema.parse(
+            await (await api.request(`/v1/studio/evals/runs/${run.id}`)).json(),
+          ).run;
+        expect((await read()).request?.judge).toEqual(suite.judge);
+        judgeWorker.start();
+        await vi.waitFor(
+          async () => expect((await read()).status).toBe("passed"),
+          { timeout: 10000 },
+        );
+        expect((await read()).result?.judge).toEqual(suite.judge);
+      }
+    } finally {
+      await judgeWorker.stop();
+      handler = original;
+    }
+  }, 30000);
   it("cancels queued child suites together and preserves completed work", async () => {
     const { id } = z
       .object({ id: z.uuid() })
