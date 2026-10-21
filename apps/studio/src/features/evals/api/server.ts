@@ -5,13 +5,15 @@ import {
 } from "@/features/sample-project/server";
 import "server-only";
 import {
+  EVAL_COMPARISON_LIMITS,
   StudioEvalLiveDetailSchema,
+  StudioEvaluationComparisonSchema,
   StudioEvaluationDetailSchema,
   StudioEvaluationHistorySchema,
-  StudioEvaluationResultsSchema,
 } from "@kortyx/agent/evals";
 import { studioAuth } from "@studio/auth";
 import { z } from "zod";
+import { readBoundedJson } from "@/lib/read-bounded-json";
 import {
   EvalDetailSchema,
   EvalHistorySchema,
@@ -22,6 +24,7 @@ async function read<T>(
   path: string,
   schema: z.ZodType<T>,
   request?: Request,
+  maxBytes?: number,
 ): Promise<T> {
   if (await isSampleProject(request)) {
     if (request && !(await readSampleProjectPreference()).visible)
@@ -59,7 +62,11 @@ async function read<T>(
     throw new Error(
       "Eval service is unavailable. Check the API version and connection.",
     );
-  return schema.parse(await response.json());
+  return schema.parse(
+    maxBytes
+      ? await readBoundedJson(response, maxBytes)
+      : await response.json(),
+  );
 }
 export const readEvalTargets = () => read("targets", EvalTargetsResponseSchema);
 export const readEvalHistory = (latestPerSuite = false) =>
@@ -75,11 +82,12 @@ export const readEvaluationDetail = (id: string, request?: Request) =>
     StudioEvaluationDetailSchema,
     request,
   );
-export const readEvaluationResults = (id: string, request?: Request) =>
+export const readEvaluationComparison = (id: string, request?: Request) =>
   read(
-    `evaluations/${encodeURIComponent(id)}/results`,
-    StudioEvaluationResultsSchema,
+    `evaluations/${encodeURIComponent(id)}/comparison`,
+    StudioEvaluationComparisonSchema,
     request,
+    EVAL_COMPARISON_LIMITS.responseBytes,
   );
 
 export const readEvaluationTable = (

@@ -54,6 +54,7 @@ export {
   listEvalRuns,
   requestEvalCancellation,
 } from "./repositories/evals";
+export { getEvaluationComparison } from "./repositories/evaluation-comparison";
 export { listEvaluationTable } from "./repositories/evaluation-table";
 export {
   cancelEvaluation,

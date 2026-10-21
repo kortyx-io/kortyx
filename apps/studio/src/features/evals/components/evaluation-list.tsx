@@ -28,12 +28,11 @@ import { evalRequest } from "../api/client";
 import { useComparisonQuery } from "../hooks/use-comparison-query";
 import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { useEvalSetup } from "../hooks/use-eval-setup";
+import { useEvaluationChanges } from "../hooks/use-evaluation-changes";
 import { openComparisonQuery } from "../lib/comparison-query";
-import {
-  type EvaluationChanges,
-  evaluationSignature,
-} from "../lib/evaluation-changes";
+import { evaluationSignature } from "../lib/evaluation-changes";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
+import { isActive } from "../lib/presentation";
 import type { EvalTargets } from "../schema";
 import { EvaluationChangeCell } from "./eval-change-cell";
 import { EvalChangeModal } from "./eval-change-modal";
@@ -41,13 +40,11 @@ import { EvalRunSetup } from "./eval-run-setup";
 import { createEvaluationColumns } from "./evaluation-table-columns";
 
 export function EvaluationList({
-  initialChanges,
   initialTotalCount,
   initialTargets,
   initialHistory,
   initialError,
 }: {
-  initialChanges: Record<string, EvaluationChanges>;
   initialTotalCount: number;
   initialTargets: EvalTargets;
   initialHistory: StudioEvaluationSummary[];
@@ -55,6 +52,8 @@ export function EvaluationList({
 }) {
   const [targets, setTargets] = useState(initialTargets);
   const [runs, setRuns] = useState(initialHistory);
+  const [comparisonRefresh, setComparisonRefresh] = useState(0);
+  const { changes, loadingIds } = useEvaluationChanges(runs, comparisonRefresh);
   const [, setComparisonQuery] = useComparisonQuery();
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   useEffect(() => {
@@ -90,17 +89,9 @@ export function EvaluationList({
     setRuns(next.runs);
     setTotalCount(next.totalCount);
     setError("");
-    if (
-      next.runs.some(
-        (run) =>
-          !initialChanges[run.id] ||
-          initialChanges[run.id].state === "error" ||
-          initialChanges[run.id].signature !== evaluationSignature(run),
-      )
-    )
-      router.refresh();
   };
   const refresh = async () => {
+    setComparisonRefresh((value) => value + 1);
     setRefreshing(true);
     try {
       await read();
@@ -120,7 +111,7 @@ export function EvaluationList({
   const live = useLiveRefresh({
     enabled: query.live,
     resource: "evals",
-    minRefreshIntervalMs: 1_000,
+    minRefreshIntervalMs: 5_000,
     refreshOnEnable: false,
     relatedResources: ["runs"],
     refresh: read,
@@ -146,27 +137,31 @@ export function EvaluationList({
       defaultWidth: 290,
       filter: false,
       help: studioHelp.evalComparison,
-      render: (run) => (
-        <EvaluationChangeCell
-          comparison={
-            initialChanges[run.id]?.signature === evaluationSignature(run)
-              ? initialChanges[run.id]
-              : undefined
-          }
-          onInspect={(rows) => {
-            const comparison = initialChanges[run.id];
-            if (!comparison) return;
-            studioFeature("studio.inspect", {
-              surface: "evals",
-              action: "compare",
-              tab: "results",
-            });
-            void setComparisonQuery(
-              openComparisonQuery(comparison, rows, true),
-            );
-          }}
-        />
-      ),
+      render: (run) =>
+        isActive(run.status) ? (
+          <span className="text-xs text-muted-foreground">Still running</span>
+        ) : (
+          <EvaluationChangeCell
+            loading={loadingIds.has(run.id)}
+            comparison={
+              changes[run.id]?.signature === evaluationSignature(run)
+                ? changes[run.id]
+                : undefined
+            }
+            onInspect={(rows) => {
+              const comparison = changes[run.id];
+              if (!comparison) return;
+              studioFeature("studio.inspect", {
+                surface: "evals",
+                action: "compare",
+                tab: "results",
+              });
+              void setComparisonQuery(
+                openComparisonQuery(comparison, rows, true),
+              );
+            }}
+          />
+        ),
     },
     ...baseColumns.slice(4),
   ];
@@ -291,7 +286,7 @@ export function EvaluationList({
           )}
         />
       </div>
-      <EvalChangeModal comparisons={initialChanges} />
+      <EvalChangeModal comparisons={changes} />
       <EvalRunSetup targets={targets} matchPath="/evals/runs" />
     </div>
   );

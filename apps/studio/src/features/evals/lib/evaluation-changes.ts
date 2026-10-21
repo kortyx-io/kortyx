@@ -1,9 +1,11 @@
 import {
   EvalCostsSchema,
+  type StudioEvaluationComparison,
   type StudioEvaluationSummary,
 } from "@kortyx/agent/evals";
 import { z } from "zod";
 import type { EvaluationResults } from "../schema";
+import { compareEvaluationSnapshots } from "./comparison-snapshot";
 import { sumCaseCosts } from "./cost";
 import { compareEvaluations } from "./evaluation-comparison";
 import { type CaseRow, isActive } from "./presentation";
@@ -93,7 +95,38 @@ export function summarizeChanges(
   earlier: EvaluationResults,
   current: EvaluationResults,
 ): ConversationChange[] {
-  const side = (rows: CaseRow[], runId?: string): ChangeSide => ({
+  return summarizeRows(compareEvaluations(earlier, current));
+}
+
+export function summarizeSnapshotChanges(
+  earlier: StudioEvaluationComparison,
+  current: StudioEvaluationComparison,
+): ConversationChange[] {
+  return summarizeRows(compareEvaluationSnapshots(earlier, current));
+}
+
+function summarizeRows(
+  rows: Array<{
+    key: string;
+    id: string;
+    name: string;
+    suiteId: string;
+    suiteName: string;
+    baselineRunId?: string | undefined;
+    candidateRunId?: string | undefined;
+    baseline: Pick<CaseRow, "status" | "repetition" | "durationMs" | "costs">[];
+    candidate: Pick<
+      CaseRow,
+      "status" | "repetition" | "durationMs" | "costs"
+    >[];
+    change: "improved" | "regressed" | "unchanged" | "incomplete" | "changed";
+    reason?: string | undefined;
+  }>,
+): ConversationChange[] {
+  const side = (
+    rows: Pick<CaseRow, "status" | "repetition" | "durationMs" | "costs">[],
+    runId?: string,
+  ): ChangeSide => ({
     runId,
     passed: rows.filter((row) => row.status === "passed").length,
     total: rows.length,
@@ -108,7 +141,7 @@ export function summarizeChanges(
       status: row.status,
     })),
   });
-  return compareEvaluations(earlier, current).map((row) => {
+  return rows.map((row) => {
     const a = side(row.baseline, row.baselineRunId),
       b = side(row.candidate, row.candidateRunId);
     const kind: ChangeKind =

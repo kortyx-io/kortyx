@@ -176,7 +176,7 @@ export const studioHelp = {
   ),
   evalComparison: help(
     "Evaluation comparison",
-    "Changes use the latest earlier completed evaluation of the same application and environment in recent history. Comparison baseline chooses another earlier run in the table or modal. Dropdowns select each side’s repetition stats and evidence. All repetitions totals/averages appear separately below a separator. Green arrows mean improvement: higher pass rate, fewer failures, lower time/cost. Unequal repetition totals have no trend indicator; compare per-repetition means. Changed context or incomplete grading has no score delta.",
+    "Changes load in the background and update after a run finishes or you refresh. They use the latest earlier completed evaluation of the same application and environment in recent history. Comparison baseline chooses another earlier run in the table or modal. Dropdowns select each side’s repetition stats and evidence. All repetitions totals/averages appear separately below a separator. Green arrows mean improvement: higher pass rate, fewer failures, lower time/cost. Unequal repetition totals have no trend indicator; compare per-repetition means. Changed context or incomplete grading has no score delta.",
     "evaluation-results#compare-saved-runs",
   ),
   evalTiming: help(

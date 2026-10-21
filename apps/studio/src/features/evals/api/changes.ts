@@ -1,23 +1,27 @@
 import "server-only";
-import type { StudioEvaluationSummary } from "@kortyx/agent/evals";
+import {
+  EVAL_COMPARISON_LIMITS,
+  type StudioEvaluationComparison,
+  type StudioEvaluationSummary,
+} from "@kortyx/agent/evals";
 import {
   type EvaluationChanges,
   earlierEvaluations,
   evaluationSignature,
-  summarizeChanges,
+  summarizeSnapshotChanges,
 } from "../lib/evaluation-changes";
 import { isActive } from "../lib/presentation";
-import type { EvaluationResults } from "../schema";
-import { readEvaluationResults } from "./server";
+import { readEvaluationComparison } from "./server";
 
-/** Compute on the server; never ship transcripts with the table's change cells.
- * Results are deduplicated within this request and reads have bounded concurrency.
- */
+let activeReads = 0;
+
+/** Bounded snapshots and a two-entry request cache, never full saved results. */
 export async function readEvaluationChanges(
   runs: StudioEvaluationSummary[],
   history: StudioEvaluationSummary[],
   requested?: string,
   request?: Request,
+  includeChoices = true,
 ): Promise<Record<string, EvaluationChanges>> {
   const changes: Record<string, EvaluationChanges> = {};
   for (const run of runs) {
@@ -33,11 +37,13 @@ export async function readEvaluationChanges(
         name: earlier.name,
         createdAt: earlier.createdAt,
       },
-      choices: choices.map(({ id, name, createdAt }) => ({
-        id,
-        name,
-        createdAt,
-      })),
+      choices: (includeChoices ? choices : []).map(
+        ({ id, name, createdAt }) => ({
+          id,
+          name,
+          createdAt,
+        }),
+      ),
       rows: [],
       state: run.legacy
         ? "none"
@@ -56,39 +62,64 @@ export async function readEvaluationChanges(
         : {}),
     };
   }
-  const ids = [
-    ...new Set(
-      Object.values(changes).flatMap((value) =>
-        value.state === "ready" && value.earlier
-          ? [value.candidate.id, value.earlier.id]
-          : [],
-      ),
-    ),
-  ];
-  const values = new Map<string, EvaluationResults>();
-  let index = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(4, ids.length) }, async () => {
-      while (index < ids.length) {
-        const id = ids[index++];
-        try {
-          const result = await readEvaluationResults(id, request);
-          if (result.run.id === id) values.set(id, result.run);
-        } catch {
-          /* Each affected cell has its own unavailable state. */
-        }
-      }
-    }),
+  const ready = Object.values(changes).filter(
+    (v) => v.state === "ready" && v.earlier,
   );
-  for (const value of Object.values(changes)) {
-    if (value.state !== "ready" || !value.earlier) continue;
-    const a = values.get(value.earlier.id),
-      b = values.get(value.candidate.id);
-    if (a && b) value.rows = summarizeChanges(a, b);
-    else {
-      value.state = "error";
-      value.message = "Changes could not be loaded. Refresh to retry.";
+  const unavailable = (value: EvaluationChanges) => {
+    value.state = "error";
+    value.message =
+      "Changes could not be loaded. Refresh to retry or inspect individual conversations.";
+  };
+  // Reject overload instead of queuing requests and multiplying retained memory.
+  if (activeReads >= 2) {
+    for (const value of ready) unavailable(value);
+    return changes;
+  }
+  activeReads++;
+  const values = new Map<string, StudioEvaluationComparison>();
+  const read = async (id: string) => {
+    const cached = values.get(id);
+    if (cached) {
+      values.delete(id);
+      values.set(id, cached);
+      return cached;
     }
+    request?.signal.throwIfAborted();
+    const result = await readEvaluationComparison(id, request);
+    if (result.run.id !== id) throw new Error("Unexpected evaluation.");
+    const oldest = values.keys().next().value;
+    if (values.size >= 2 && oldest !== undefined) values.delete(oldest);
+    values.set(id, result.run);
+    return result.run;
+  };
+  let bytes = 0;
+  try {
+    for (const value of ready) {
+      if (!value.earlier) continue;
+      if (bytes >= EVAL_COMPARISON_LIMITS.responseBytes) {
+        unavailable(value);
+        continue;
+      }
+      try {
+        // Newest-first pages reuse the preceding row as the next row's candidate.
+        const b = await read(value.candidate.id),
+          a = await read(value.earlier.id);
+        const rows = summarizeSnapshotChanges(a, b);
+        const size = Buffer.byteLength(JSON.stringify(rows));
+        if (bytes + size > EVAL_COMPARISON_LIMITS.responseBytes) {
+          unavailable(value);
+          continue;
+        }
+        value.rows = rows;
+        bytes += size;
+      } catch {
+        request?.signal.throwIfAborted();
+        unavailable(value);
+      }
+    }
+  } finally {
+    values.clear();
+    activeReads--;
   }
   return changes;
 }

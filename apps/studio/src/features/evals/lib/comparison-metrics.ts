@@ -1,8 +1,14 @@
 import { evalFilterCost } from "./cost";
 import type { CaseRow, ComparisonRow } from "./presentation";
 
+type MetricCase = Pick<CaseRow, "status" | "durationMs" | "costs">;
+
 export function comparisonMetric(
-  row: ComparisonRow,
+  row: {
+    change: ComparisonRow["change"];
+    baseline: MetricCase[];
+    candidate: MetricCase[];
+  },
   metric: "passRate" | "duration" | "cost",
 ) {
   if (row.change === "changed" || row.change === "incomplete") return undefined;
@@ -17,7 +23,7 @@ export function comparisonMetric(
     )
       return undefined;
   }
-  const read = (r: CaseRow) =>
+  const read = (r: MetricCase) =>
     metric === "passRate"
       ? r.status === "passed"
         ? 100
@@ -25,7 +31,7 @@ export function comparisonMetric(
       : metric === "duration"
         ? r.durationMs
         : evalFilterCost(r.costs);
-  const mean = (rows: CaseRow[]) => {
+  const mean = (rows: MetricCase[]) => {
     const values = rows.map(read);
     return values.some((v) => v == null || !Number.isFinite(v))
       ? undefined

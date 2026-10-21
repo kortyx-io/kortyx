@@ -54,7 +54,9 @@ export async function proxy(request: NextRequest): Promise<Response> {
   if (
     browserSample &&
     request.method === "GET" &&
-    request.nextUrl.pathname === "/api/studio/evals/comparison"
+    ["/api/studio/evals/comparison", "/api/studio/evals/changes"].includes(
+      request.nextUrl.pathname,
+    )
   )
     return NextResponse.next();
   if (browserSample) {

@@ -54,7 +54,10 @@ it("only reads selected data, exposes recoverable errors, and does not refetch c
   const host = document.createElement("div");
   const root = createRoot(host);
   let value: ReturnType<typeof useModalComparison>;
-  const seed = comparison("a");
+  const seed = {
+    ...comparison("a"),
+    choices: [{ id: "a", name: "a", createdAt: "2026-01-01" }],
+  };
   function View({ run, baseline }: { run?: string; baseline: string }) {
     value = useModalComparison(run, baseline, seed);
     return null;

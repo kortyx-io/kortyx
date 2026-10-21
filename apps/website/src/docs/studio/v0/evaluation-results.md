@@ -58,6 +58,16 @@ hover or focus it to read its full name and timestamp. Searching, sorting, or
 paging the table does not choose a different reference. Legacy suite runs and
 runs without an earlier reference say so explicitly.
 
+The list loads before its change counts. Changes load in the background on page
+load, after an evaluation finishes, or when you refresh. Live progress updates
+use lightweight status reads and do not repeatedly reload saved conversations.
+Opening an output reads the selected conversation separately.
+
+Automatic comparisons have a limit of 100 suites, 2,000 attempts, 100 recorded
+steps per attempt, and 2 MiB of summary data per evaluation. Oversized or busy
+comparisons show an unavailable state; refresh to retry or inspect individual
+conversations. Results are never silently truncated or presented as zero changes.
+
 Click a change count to inspect that group, or use the comparison icon on its
 right (**Open comparison**) to review all groups. The shared modal shows the
 conversation, named Earlier and This run evaluations, aggregate passed/total

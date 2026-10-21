@@ -405,3 +405,38 @@ test("modal changes its baseline, keeps the conversation and recovers from a fai
     row.getByRole("button", { name: "Started failing", exact: true }),
   ).toBeVisible();
 });
+
+test("the runs table loads before background comparisons finish", async ({
+  page,
+}) => {
+  let release = () => {};
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested = false;
+  await page.route("**/api/studio/evals/changes?*", async (route) => {
+    requested = true;
+    await pending;
+    await route.continue();
+  });
+  try {
+    await page.goto("/sample/evals/runs", { waitUntil: "domcontentloaded" });
+    await expect(
+      page.getByRole("heading", { name: "Evaluation runs", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Support quality — recorded sample",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect.poll(() => requested).toBe(true);
+    await expect(page.getByText("Loading changes…").first()).toBeVisible();
+    release();
+    await expect(
+      page.getByRole("button", { name: "2 improved", exact: true }).first(),
+    ).toBeVisible();
+  } finally {
+    release();
+  }
+});

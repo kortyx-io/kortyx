@@ -1,5 +1,13 @@
 # Kortyx Studio
 
+Evaluation tables and comparison overviews load compact comparison snapshots in
+the background. PostgreSQL selects status, costs, and SHA-256 context fingerprints
+without transferring transcripts, progress events, or judge evidence to Studio.
+Lightweight status refreshes are coalesced; comparisons reload on completion or
+explicit refresh. Snapshot reads have cardinality and 2 MiB response limits,
+two admitted requests per process, and a two-entry request-local cache. Overload
+returns an explicit unavailable state instead of retaining an unbounded queue.
+
 Kortyx Studio is the source-available Studio shell for the Kortyx plugin ecosystem.
 
 ## License

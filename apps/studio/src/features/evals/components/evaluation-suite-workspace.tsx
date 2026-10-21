@@ -54,7 +54,7 @@ export function EvaluationSuiteWorkspace({
     {
       suiteRun: parseAsString,
       evalTab: parseAsString,
-      changesSince: parseAsString.withOptions({ shallow: false }),
+      changesSince: parseAsString,
     },
     { shallow: true, startTransition },
   );

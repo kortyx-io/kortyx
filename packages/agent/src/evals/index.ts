@@ -1,5 +1,6 @@
 export { EvalCheckSchema } from "./check-contracts";
 export { evalChecks } from "./checks";
+export * from "./comparison-contracts";
 export {
   EvalConfigurationError,
   EvalIssueSchema,

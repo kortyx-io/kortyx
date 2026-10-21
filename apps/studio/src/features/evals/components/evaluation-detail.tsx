@@ -19,10 +19,7 @@ import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioHelp } from "@/lib/studio-help";
 import { evalRequest } from "../api/client";
-import {
-  type EvaluationChanges,
-  evaluationSignature,
-} from "../lib/evaluation-changes";
+import { useEvaluationChanges } from "../hooks/use-evaluation-changes";
 import { evalNavigationHref, evalRunHref } from "../lib/navigation";
 import { isActive } from "../lib/presentation";
 import { EvalCost } from "./eval-cost";
@@ -38,27 +35,34 @@ export function EvaluationDetail({
   id,
   initial,
   canRun,
-  comparison,
 }: {
   id: string;
   initial: StudioEvaluationDetail | null;
   canRun: boolean;
-  comparison?: EvaluationChanges;
 }) {
   const [run, setRun] = useState(initial);
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const request = useRef<AbortController | null>(null);
-  const serverSignature = useRef(comparison?.signature);
-  serverSignature.current = comparison?.signature;
+  const [comparisonRefresh, setComparisonRefresh] = useState(0);
   const currentId = useRef(id);
   currentId.current = id;
   const router = useRouter();
   const search = useSearchParams();
   const [query, setQuery] = useStudioQueryStates(
-    { live: parseAsBoolean.withDefault(true), suiteRun: parseAsString },
+    {
+      live: parseAsBoolean.withDefault(true),
+      suiteRun: parseAsString,
+      changesSince: parseAsString,
+    },
     { shallow: true },
   );
+  const { changes } = useEvaluationChanges(
+    run ? [run] : [],
+    comparisonRefresh,
+    { baseline: query.changesSince, includeChoices: true },
+  );
+  const comparison = changes[id];
   const read = useCallback(
     async (signal?: AbortSignal) => {
       request.current?.abort();
@@ -77,14 +81,9 @@ export function EvaluationDetail({
       if (!activeSignal.aborted && currentId.current === id) {
         setRun(next.run);
         setError("");
-        if (
-          !isActive(next.run.status) &&
-          serverSignature.current !== evaluationSignature(next.run)
-        )
-          router.refresh();
       }
     },
-    [id, router],
+    [id],
   );
   useEffect(() => {
     setRun(initial);
@@ -106,7 +105,7 @@ export function EvaluationDetail({
   const live = useLiveRefresh({
     enabled: query.live,
     resource: "evals",
-    minRefreshIntervalMs: 1_000,
+    minRefreshIntervalMs: 5_000,
     refreshOnEnable: false,
     refreshKey: id,
     relatedResources: ["runs"],
@@ -173,6 +172,16 @@ export function EvaluationDetail({
                       void setQuery({ live: !query.live });
                     }}
                   />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setComparisonRefresh((value) => value + 1);
+                      void live.refreshNow();
+                    }}
+                  >
+                    Refresh
+                  </Button>
                   {!query.suiteRun ? (
                     <EvalRerunFailed run={run} canRun={canRun} />
                   ) : null}

@@ -1,10 +1,8 @@
 import { cookies } from "next/headers";
 import { parseListTablePreferences } from "@/features/telemetry/lib/table-preferences";
-import { readEvaluationChanges } from "../api/changes";
 import {
   readEvalHistory,
   readEvalTargets,
-  readEvaluationHistory,
   readEvaluationTable,
 } from "../api/server";
 import { EvalsPageClient } from "./evals-page-client";
@@ -17,21 +15,12 @@ export async function EvalsListPage({
   query?: Record<string, string | string[] | undefined>;
 }) {
   if (view === "runs") {
-    const [targets, history, comparisons] = await Promise.allSettled([
+    const [targets, history] = await Promise.allSettled([
       readEvalTargets(),
       readEvaluationTable(query),
-      readEvaluationHistory(),
     ]);
-    const changes =
-      history.status === "fulfilled" && comparisons.status === "fulfilled"
-        ? await readEvaluationChanges(
-            history.value.runs,
-            comparisons.value.runs,
-          )
-        : {};
     return (
       <EvaluationList
-        initialChanges={changes}
         initialTotalCount={
           history.status === "fulfilled" ? history.value.totalCount : 0
         }

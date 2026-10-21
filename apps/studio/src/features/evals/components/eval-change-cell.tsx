@@ -91,13 +91,19 @@ export function EvalChangeCell({
 export function EvaluationChangeCell({
   comparison,
   onInspect,
+  loading = false,
 }: {
   comparison?: EvaluationChanges;
   onInspect: (rows: ConversationChange[]) => void;
+  loading?: boolean;
 }) {
   if (!comparison)
     return (
-      <span className="text-xs text-muted-foreground">Changes unavailable</span>
+      <span className="text-xs text-muted-foreground">
+        {loading
+          ? "Loading changes…"
+          : "Changes unavailable · refresh to retry"}
+      </span>
     );
   if (comparison.state !== "ready")
     return (

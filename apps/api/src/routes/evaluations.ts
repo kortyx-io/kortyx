@@ -15,6 +15,7 @@ import {
   findIdempotentEvaluation,
   getEvalSettings,
   getEvaluation,
+  getEvaluationComparison,
   listEvaluations,
   listEvaluationTable,
   TelemetryNotFoundError,
@@ -95,6 +96,29 @@ export function registerEvaluationRoutes(
         getEvaluation(db, c.get("principal"), id.data, true),
       ),
     });
+  });
+  let comparisons = 0;
+  app.get(`${path}/:id/comparison`, async (c) => {
+    const id = z.uuid().safeParse(c.req.param("id"));
+    if (!id.success) return c.json({ error: "Invalid evaluation ID." }, 400);
+    // Admission control, not an unbounded queue of requests retaining tenant contexts.
+    if (comparisons >= 2) {
+      c.header("Retry-After", "2");
+      return c.json(
+        { error: "Comparison capacity is busy. Retry shortly." },
+        429,
+      );
+    }
+    comparisons++;
+    try {
+      return c.json({
+        run: await c.get("withTenantDatabase")((db) =>
+          getEvaluationComparison(db, c.get("principal"), id.data),
+        ),
+      });
+    } finally {
+      comparisons--;
+    }
   });
   app.post(path, async (c) => {
     await requireApiAction(c, "eval:run");

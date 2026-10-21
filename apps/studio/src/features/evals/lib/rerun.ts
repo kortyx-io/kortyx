@@ -2,9 +2,19 @@ import type { EvalSettings } from "@kortyx/agent/evals";
 import type { EvalDetail, EvalTargets } from "../schema";
 import { isActive, recordedCaseResults } from "./presentation";
 
+type CompactRerunRun = Pick<
+  EvalDetail,
+  "suiteId" | "targetId" | "environment" | "resolvedSettings"
+> & {
+  status: string;
+  cases: readonly { caseId: string; status: string }[];
+  request?: EvalDetail["request"];
+  result?: EvalDetail["result"];
+};
+
 /** Prepare a fresh launch, never replay historical continuations or mutate saved results. */
 export function failedRerunQuery(
-  runs: readonly EvalDetail[],
+  runs: readonly (EvalDetail | CompactRerunRun)[],
   targets: EvalTargets,
   settings?: EvalSettings,
 ) {
@@ -32,9 +42,9 @@ export function failedRerunQuery(
     );
   const selections = new Map<string, Set<string>>();
   for (const run of runs) {
-    const failed = [...recordedCaseResults(run).values()].filter(
-      (item) => item.status === "failed" || item.status === "error",
-    );
+    const failed = [
+      ...("cases" in run ? run.cases : recordedCaseResults(run).values()),
+    ].filter((item) => item.status === "failed" || item.status === "error");
     if (!failed.length) continue;
     const suite = target.manifest.suites.find(
       (item) => item.id === run.suiteId,
