@@ -61,7 +61,12 @@ runs without an earlier reference say so explicitly.
 The list loads before its change counts. Changes load in the background on page
 load, after an evaluation finishes, or when you refresh. Live progress updates
 use lightweight status reads and do not repeatedly reload saved conversations.
-Opening an output reads the selected conversation separately.
+Opening an output reads the selected conversation separately. Completed Changes
+cells are reused across page loads for up to 30 minutes when both result versions
+and the baseline match. A changed result or baseline requests a new comparison;
+failed reads are retried on refresh. This cache is local to each Studio process,
+limited to 128 comparisons and 8 MiB of serialized cells, and scoped to the API
+credentials and selected project/environment. It never stores full saved reports.
 
 Automatic comparisons have a limit of 100 suites, 2,000 attempts, 100 recorded
 steps per attempt, and 2 MiB of summary data per evaluation. Oversized or busy

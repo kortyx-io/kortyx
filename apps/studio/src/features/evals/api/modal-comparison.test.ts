@@ -2,7 +2,12 @@ import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@studio/auth", () => ({ studioAuth: { authorize: vi.fn() } }));
+vi.mock("@studio/auth", () => ({
+  studioAuth: { authorize: vi.fn(), getApiCredential: vi.fn(async () => null) },
+}));
+vi.mock("@/features/sample-project/server", () => ({
+  isSampleProject: vi.fn(async () => false),
+}));
 vi.mock("./server", () => ({
   readEvaluationDetail: vi.fn(),
   readEvaluationHistory: vi.fn(),
