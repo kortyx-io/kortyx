@@ -20,8 +20,14 @@ test("definition instructions stack above the conversation, search, expand and r
     exact: true,
   });
   await expect(reader).toBeInViewport();
+  // The parent must remain visibly offset behind its child, not fully covered.
+  const parentBounds = await definition.boundingBox();
+  const childBounds = await reader.boundingBox();
+  if (!parentBounds || !childBounds) throw new Error("Missing drawer bounds");
+  expect(parentBounds.x).toBeLessThan(childBounds.x - 20);
   await expect(reader).toContainText("Configured Studio judge");
   await expect(reader).toContainText("sample-support-rubric");
+  await page.screenshot({ path: "/tmp/kortyx-pr2-stacked-drawers.png" });
   await reader
     .getByRole("searchbox", { name: "Find in judge instructions" })
     .fill("evidence");
@@ -45,6 +51,8 @@ test("definition instructions stack above the conversation, search, expand and r
   );
   await page.goForward();
   await expect(reader).toBeInViewport();
+  await definition.click({ position: { x: 12, y: 35 } });
+  await expect(page).toHaveURL((url) => url.pathname === suite && url.searchParams.get("definitionStep") === "1");
 });
 
 test("saved instructions open from a conversation and survive reload", async ({
@@ -167,4 +175,81 @@ test("conversation stats expand beneath the summary and the header shows its ID"
     );
   });
   expect(ordered).toBe(true);
+});
+
+test("assessment separates the criterion from the recorded grading messages", async ({
+  page,
+}) => {
+  await page.goto(result);
+  const assessment = page.locator("[data-eval-assessment]");
+  await assessment
+    .getByRole("button", { name: "Assessment details", exact: true })
+    .click();
+  await assessment
+    .getByRole("button", { name: "Grading request", exact: true })
+    .click();
+  await expect(
+    assessment.getByRole("heading", { name: "1. system message" }),
+  ).toBeVisible();
+  await expect(
+    assessment.getByRole("heading", { name: "2. user message" }),
+  ).toBeVisible();
+  await expect(assessment.locator("pre").last()).toContainText('"criterion"');
+  await expect(assessment.locator("pre").last()).toContainText('"observation"');
+  await page.screenshot({
+    path: "/tmp/kortyx-pr2-grading-request.png",
+    fullPage: true,
+  });
+});
+
+test("postcondition help explains the separate application check", async ({
+  page,
+}) => {
+  await page.goto(result);
+  const verification = page.getByRole("region", {
+    name: "Postcondition verification",
+    exact: true,
+  });
+  await expect(verification).toContainText(
+    "The order lookup left the saved order unchanged.",
+  );
+  const help = verification.getByRole("button", {
+    name: "About Postcondition verification",
+    exact: true,
+  });
+  await help.focus();
+  await expect(
+    page.getByRole("dialog", {
+      name: "About Postcondition verification",
+      exact: true,
+    }),
+  ).toContainText("separate from the judge");
+  await expect(
+    page.getByRole("link", { name: /documentation/i }),
+  ).toHaveAttribute("href", /evals#postcondition-verification$/);
+  await page.keyboard.press("Escape");
+  await verification.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "/tmp/kortyx-pr2-postconditions.png" });
+});
+
+test("evaluation header uses refresh icon and keeps Live at the right", async ({
+  page,
+}) => {
+  await page.goto(
+    "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003",
+  );
+  const header = page.locator('[data-tour-surface="eval-summary"]');
+  const refresh = header.getByRole("button", {
+    name: "Refresh evaluation",
+    exact: true,
+  });
+  const live = header.getByRole("button", { name: /^Live refresh:/ });
+  await expect(refresh).toBeVisible();
+  await expect(live).toBeVisible();
+  const refreshBounds = await refresh.boundingBox();
+  const liveBounds = await live.boundingBox();
+  if (!refreshBounds || !liveBounds)
+    throw new Error("Missing refresh controls");
+  expect(liveBounds.x).toBeGreaterThan(refreshBounds.x);
+  await page.screenshot({ path: "/tmp/kortyx-pr2-evaluation-header.png" });
 });

@@ -260,16 +260,6 @@ export function DataTableFilterControls<T>({
           }}
         />
       </div>
-      {error && !state.open && (
-        <span role="alert" className="mr-auto text-xs text-destructive">
-          {error}
-        </span>
-      )}
-      {state.invalid && (
-        <span role="alert" className="mr-auto text-xs text-destructive">
-          Invalid filters. Open Filters to reset.
-        </span>
-      )}
       <Button
         variant="secondary"
         size="icon-sm"
@@ -286,26 +276,6 @@ export function DataTableFilterControls<T>({
         )}
       </Button>
       <DataTableColumnsMenu help={help?.views} />
-      {persisted &&
-        (persisted.status === "error" || persisted.status === "conflict") && (
-          <div className="flex items-center gap-1 text-xs" role="alert">
-            <span title={persisted.error}>Preferences not saved</span>
-            <Button
-              size="xs"
-              variant="ghost"
-              onClick={() => persistence?.retry()}
-            >
-              {persisted.status === "conflict" ? "Save my changes" : "Retry"}
-            </Button>
-            <Button
-              size="xs"
-              variant="ghost"
-              onClick={() => persistence?.reload()}
-            >
-              Reload preferences
-            </Button>
-          </div>
-        )}
       <DropdownMenu open={viewsOpen} onOpenChange={setViewsOpen}>
         <DropdownMenuTrigger asChild>
           <Button aria-label="Views" variant="secondary" size="icon-sm">
@@ -313,17 +283,52 @@ export function DataTableFilterControls<T>({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-64 p-2">
-          {persisted && (
-            <output className="block px-2 py-1 text-xs text-muted-foreground">
-              {persisted.status === "local"
-                ? (persisted.error ?? "Saved in this browser")
-                : persisted.status === "saving"
-                  ? "Saving preferences…"
-                  : persisted.status === "loading"
-                    ? "Refreshing preferences…"
-                    : (persisted.error ?? "Preferences saved")}
-            </output>
-          )}
+          {persisted &&
+            persisted.status !== "error" &&
+            persisted.status !== "conflict" && (
+              <output className="block px-2 py-1 text-xs text-muted-foreground">
+                {persisted.status === "local"
+                  ? (persisted.error ?? "Saved in this browser")
+                  : persisted.status === "saving"
+                    ? "Saving preferences…"
+                    : persisted.status === "loading"
+                      ? "Refreshing preferences…"
+                      : (persisted.error ?? "Preferences saved")}
+              </output>
+            )}
+          {error && !state.open ? (
+            <p role="alert" className="px-2 py-1 text-xs text-destructive">
+              {error}
+            </p>
+          ) : null}
+          {persisted &&
+            (persisted.status === "error" ||
+              persisted.status === "conflict") && (
+              <div
+                className="mb-2 flex flex-wrap items-center gap-1 rounded-md bg-muted p-2 text-xs"
+                role="alert"
+              >
+                <p className="w-full">
+                  {persisted.error ?? "Preferences could not be saved."}
+                </p>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => persistence?.retry()}
+                >
+                  {persisted.status === "conflict"
+                    ? "Save my changes"
+                    : "Retry"}
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => persistence?.reload()}
+                >
+                  Reload preferences
+                </Button>
+              </div>
+            )}
           {help && (
             <div className="flex items-center justify-between px-2 py-1 text-xs">
               Table views
@@ -349,10 +354,11 @@ export function DataTableFilterControls<T>({
             >
               <DropdownMenuItem
                 className="min-w-0 flex-1 truncate"
-                onSelect={() => {
+                onSelect={(event) => {
                   try {
                     validateTableFilters(view.filters, fields);
                   } catch {
+                    event.preventDefault();
                     setError(
                       "This view uses filters that are no longer supported. Delete it and save a new view.",
                     );
@@ -580,9 +586,10 @@ export function DataTableFilterControls<T>({
                   ))}
                 </section>
               ))}
-              {error && (
+              {(error || state.invalid) && (
                 <p role="alert" className="mt-3 text-xs text-destructive">
-                  {error}
+                  {error ||
+                    "These filters are no longer valid. Clear filters to reset them."}
                 </p>
               )}
             </div>

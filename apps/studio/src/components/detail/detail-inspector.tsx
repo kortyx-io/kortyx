@@ -1,7 +1,13 @@
 "use client";
 
 import { X } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { useCoveringDetailLayer } from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
@@ -119,10 +125,12 @@ export function DetailInspectorDrawer({
     >
       <SheetContent
         data-detail-inspector
+        data-detail-stacked={Boolean(coveringLayer)}
         showCloseButton={false}
         overlayClassName="pointer-events-none bg-overlay/45"
         overlayStyle={{ zIndex: inspectorLayers.backdrop }}
         onInteractOutside={(event) => event.preventDefault()}
+        onPointerDownCapture={() => coveringLayer?.close()}
         onEscapeKeyDown={(event) => {
           if (coveringLayer) {
             event.preventDefault();
@@ -136,8 +144,17 @@ export function DetailInspectorDrawer({
           closeRequestedRef.current = false;
           setSelfClosing(false);
         }}
-        style={{ zIndex: inspectorLayers.surface }}
-        className="top-12 right-1 bottom-1 left-4 h-auto w-auto gap-0 rounded-xl border p-0 data-[state=closed]:[animation-fill-mode:forwards] sm:left-auto sm:w-[30rem] sm:max-w-none"
+        style={
+          {
+            zIndex: inspectorLayers.surface,
+            ...(coveringLayer
+              ? {
+                  "--inspector-stack-width": `${33 + coveringLayer.depthAbove * 3}rem`,
+                }
+              : {}),
+          } as CSSProperties
+        }
+        className="top-12 right-1 bottom-1 left-4 h-auto w-auto gap-0 rounded-xl border p-0 data-[state=closed]:[animation-fill-mode:forwards] sm:left-auto sm:w-[30rem] sm:max-w-none sm:data-[detail-stacked=true]:w-[var(--inspector-stack-width)]"
       >
         <SheetHeader className="h-16 shrink-0 flex-row items-center gap-3 border-b px-4 py-0">
           <div className="min-w-0 flex-1">

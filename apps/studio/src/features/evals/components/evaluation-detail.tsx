@@ -4,6 +4,7 @@ import {
   type StudioEvaluationDetail,
   StudioEvaluationDetailSchema,
 } from "@kortyx/agent/evals";
+import { RefreshCw } from "lucide-react";
 import { parseAsBoolean, parseAsString } from "nuqs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DetailPage } from "@/components/detail/detail-page";
@@ -165,22 +166,16 @@ export function EvaluationDetail({
                     status={run.status}
                     termination={run.termination}
                   />
-                  <LiveRefreshButton
-                    enabled={query.live}
-                    status={live.status}
-                    onToggle={() => {
-                      void setQuery({ live: !query.live });
-                    }}
-                  />
                   <Button
-                    variant="ghost"
-                    size="sm"
+                    variant="secondary"
+                    size="icon-sm"
+                    aria-label="Refresh evaluation"
                     onClick={() => {
                       setComparisonRefresh((value) => value + 1);
                       void live.refreshNow();
                     }}
                   >
-                    Refresh
+                    <RefreshCw />
                   </Button>
                   {!query.suiteRun ? (
                     <EvalRerunFailed run={run} canRun={canRun} />
@@ -197,6 +192,13 @@ export function EvaluationDetail({
                         : "Cancel remaining work"}
                     </Button>
                   ) : null}
+                  <LiveRefreshButton
+                    enabled={query.live}
+                    status={live.status}
+                    onToggle={() => {
+                      void setQuery({ live: !query.live });
+                    }}
+                  />
                 </>
               }
             >

@@ -433,11 +433,56 @@ function caseResult(
                   : "This step satisfies its criterion; the failure occurs in the other step."
                 : conversation.reason,
               evidence: [observed.text],
+              ...(definition.id === "order-status"
+                ? {
+                    request: {
+                      protocol: "eval-verdict-v1" as const,
+                      messages: [
+                        {
+                          role: "system" as const,
+                          content: judge.instructions,
+                        },
+                        {
+                          role: "user" as const,
+                          content: JSON.stringify(
+                            {
+                              criterion:
+                                typeof criterion === "string"
+                                  ? {
+                                      id: String(criterionIndex),
+                                      text: criterion,
+                                    }
+                                  : criterion,
+                              input:
+                                "message" in step
+                                  ? { message: step.message }
+                                  : { resume: step.resume },
+                              observation: observed,
+                            },
+                            null,
+                            2,
+                          ),
+                        },
+                      ],
+                    },
+                  }
+                : {}),
             })),
     };
   });
   return {
     caseId: definition.id,
+    ...(definition.id === "order-status"
+      ? {
+          verification: {
+            passed: true,
+            reason: "The order lookup left the saved order unchanged.",
+            evidence: [
+              "No order changes were applied during this read-only conversation.",
+            ],
+          },
+        }
+      : {}),
     repetition: conversation.repetition ?? 1,
     sessionId: conversation.id,
     status: conversation.verdict,

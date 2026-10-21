@@ -459,7 +459,14 @@ export function useCoveringDetailLayer(zIndex: number) {
   const top = stack?.layers.filter((layer) => !layer.closing).at(-1);
   const index = top ? (stack?.layers.indexOf(top) ?? -1) : -1;
   return top && detailDrawerZIndex(index) > zIndex
-    ? { close: () => stack?.closeTop(top.id) }
+    ? {
+        close: () => stack?.closeTop(top.id),
+        depthAbove:
+          stack?.layers.filter(
+            (layer, layerIndex) =>
+              !layer.closing && detailDrawerZIndex(layerIndex) > zIndex,
+          ).length ?? 1,
+      }
     : undefined;
 }
 

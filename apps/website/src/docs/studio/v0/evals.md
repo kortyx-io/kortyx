@@ -35,3 +35,17 @@ Saved runs separate workflow and judge model costs. A partial total includes onl
 ## Application setup and automation
 
 Register your endpoint through [Cloud Settings](/docs/cloud/evaluations) or [self-hosted configuration](/docs/self-hosting/configure-evaluations). Use [CLI evaluations](/docs/cli/evaluations) where your installation supplies a supported Studio connection. Local terminal evaluations can also run directly in the application without Studio.
+
+## Criteria and judge prompts
+
+A **criterion** states what one step must achieve. The **judge prompt** supplies reusable instructions for assessing that criterion against the answer and selected evidence. For example, a criterion can require exactly one next-priority item, while the judge prompt explains how to interpret tool results and earlier turns.
+
+Suites can use different judges and prompt templates. Templates insert the criterion, current input, selected observation, reference facts and earlier conversation into the grading request. Evidence excluded by the application is not inserted. Older suites may put reusable instructions directly in their criteria; those suites continue to work.
+
+Open **Judge instructions** to inspect the configured template or the saved execution snapshot. In a result, open **Assessment details → Grading request** to see the exact recorded messages with their variables filled in. Older executions may not have recorded these messages; Studio does not reconstruct them from today’s configuration.
+
+## Postcondition verification
+
+Postcondition verification runs the application’s configured checks against the state left after a conversation—for example, confirming that an approved change was saved. It is separate from the judge’s assessment of the answer. A verification pass means those application checks passed; it does not establish that every answer criterion passed. The verification card shows the application’s reason and evidence.
+
+Table preference failures and recovery controls appear in the **Views** menu. Changes can remain cached in the browser while saving is unavailable. Filter validation messages appear in the **Filters** panel.

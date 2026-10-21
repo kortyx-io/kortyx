@@ -172,13 +172,6 @@ export function EvaluationList({
       description="Results, costs and changes across saved evaluation runs"
       actions={
         <>
-          <LiveRefreshButton
-            enabled={query.live}
-            status={live.status}
-            onToggle={() => {
-              void setQuery({ live: !query.live });
-            }}
-          />
           <Button
             variant="secondary"
             size="icon-sm"
@@ -199,6 +192,13 @@ export function EvaluationList({
             <Play />
             Run evaluations
           </Button>
+          <LiveRefreshButton
+            enabled={query.live}
+            status={live.status}
+            onToggle={() => {
+              void setQuery({ live: !query.live });
+            }}
+          />
         </>
       }
     />

@@ -140,7 +140,7 @@ export const PAGE_GUIDES = {
     overview:
       "This suite defines conversation cases, their steps, and expected observations. The suite revision identifies the exact definition used by an evaluation.",
     content:
-      "Open a conversation for its message and Expected behavior: criteria and automatic checks. The header shows its ID. Use the step selector and Previous/Next to browse. View workflow opens topology. Judge instructions opens the configured default judge. Case definition shows this case’s data. Saved runs keep their own definitions.",
+      "Open a conversation for its message, criteria and automatic checks. A criterion states the requirement; Judge instructions opens reusable grading instructions in a stacked drawer. Use the step selector and Previous/Next to browse. Case definition shows test data. Saved runs keep their own snapshots.",
     example: `/evals/suites/${sample.targetId}/${sample.suiteId}`,
   },
   evaluation: {
@@ -167,7 +167,7 @@ export const PAGE_GUIDES = {
     overview:
       "This drawer explains one conversation, with a Repetition dropdown for each independent execution. Step results connect expected behavior, the observed response, grading criteria, and execution evidence.",
     content:
-      "Select a repetition for its outcome, time and cost, then inspect the assessment and messages by step. Assessment details groups the criterion, evidence and automatic checks. See more stats expands the summary’s gray footer: this repetition first, all repetitions below a separator. Judge instructions opens the saved snapshot. Workflow links show what ran.",
+      "Select a repetition and step to inspect its assessment and messages. Assessment details contains the criterion, evidence, checks and recorded Grading request. Postcondition verification checks application state separately. See more stats expands this repetition’s metrics and totals. Judge instructions opens the saved snapshot.",
     example: `/evals/cases/${sample.evalRunId}/${sample.caseId}/1`,
   },
   "eval-comparison": {

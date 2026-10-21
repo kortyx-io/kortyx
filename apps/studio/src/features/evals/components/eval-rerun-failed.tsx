@@ -8,7 +8,7 @@ import {
 import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { HelpCircle } from "@/components/ui/info-tooltip";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { studioHelp } from "@/lib/studio-help";
 import { evalRequest } from "../api/client";
@@ -17,7 +17,6 @@ import { isActive, recordedCaseResults } from "../lib/presentation";
 import { failedRerunQuery } from "../lib/rerun";
 import {
   type EvalDetail,
-  EvalDetailSchema,
   type EvalTargets,
   EvalTargetsResponseSchema,
 } from "../schema";
@@ -100,18 +99,19 @@ export function EvalRerunFailed({
   };
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1">
-        <Button
-          variant="secondary"
-          size="xs"
-          disabled={working}
-          onClick={() => void prepare()}
-        >
-          <RotateCcw data-icon="inline-start" />
-          {working ? "Preparing rerun…" : "Rerun failed cases"}
-        </Button>
-        <HelpCircle help={studioHelp.evalRerun} />
-      </div>
+      <InfoTooltip
+        label="About rerunning failed cases"
+        documentationUrl={studioHelp.evalRerun.documentationUrl}
+        triggerAction="preserve"
+        trigger={
+          <Button size="sm" disabled={working} onClick={() => void prepare()}>
+            <RotateCcw data-icon="inline-start" />
+            {working ? "Preparing rerun…" : "Rerun failed cases"}
+          </Button>
+        }
+      >
+        {studioHelp.evalRerun.description}
+      </InfoTooltip>
       {error ? (
         <p role="alert" className="max-w-sm text-xs text-destructive">
           {error}

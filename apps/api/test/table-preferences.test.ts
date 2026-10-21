@@ -170,3 +170,31 @@ it("separates cache namespaces by user and project", () => {
     tablePreferenceScope({ ...human, projectId: "other" }, "cloud"),
   );
 });
+
+it.each([
+  "evaluation-comparison",
+  "eval-suite-conversations",
+])("reads and saves preferences for the eval table %s", async (tableId) => {
+  const { app, db } = fixture();
+  const path = `/v1/studio/table-preferences/${tableId}`;
+  expect((await app.request(path)).status).toBe(200);
+  expect(readTablePreferences).toHaveBeenCalledWith(
+    db,
+    expect.anything(),
+    tableId,
+  );
+  expect(
+    (
+      await app.request(
+        path,
+        post(tablePreferenceScope(human, "cloud")?.cacheKey ?? ""),
+      )
+    ).status,
+  ).toBe(200);
+  expect(writeTablePreferences).toHaveBeenCalledWith(
+    db,
+    expect.anything(),
+    tableId,
+    expect.anything(),
+  );
+});

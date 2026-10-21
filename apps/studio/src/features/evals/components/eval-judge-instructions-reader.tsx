@@ -80,6 +80,14 @@ export function EvalJudgeInstructionsReader({
             </Badge>
           </div>
         ) : null}
+        {judge?.prompt ? (
+          <p className="break-all text-xs text-muted-foreground">
+            Prompt template:{" "}
+            <span className="font-mono text-foreground">
+              {judge.prompt.id} · v{judge.prompt.version}
+            </span>
+          </p>
+        ) : null}
         <p className="text-xs leading-relaxed text-muted-foreground">
           {judgeInstructionsDescription(historical)}
         </p>

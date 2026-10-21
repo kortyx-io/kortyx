@@ -49,11 +49,14 @@ const step: EvalStepResult = {
     },
   ],
 };
-it("has one flat details control and keeps the explanation before criterion, evidence and automatic checks", () => {
+it("keeps the explanation before criterion, evidence and automatic checks", () => {
   const markup = renderToStaticMarkup(
     <EvalStepAssessment step={step} scope="test" />,
   );
-  expect(markup.match(/<button/g)).toHaveLength(1);
+  expect(markup.match(/>Assessment details<\/button>/g)).toHaveLength(1);
+  expect(markup).toContain(
+    "This execution did not record its grading request.",
+  );
   expect(markup).toContain("Assessment details");
   expect(markup).toContain("Criterion");
   expect(markup).toContain("Evidence");

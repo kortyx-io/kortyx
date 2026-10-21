@@ -60,7 +60,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       [
         "content",
         "Read the instructions",
-        "These are static judge instructions. Per-step pass criteria, conversation inputs and execution evidence are supplied separately for grading. Close this drawer to return to the same conversation and step.",
+        "The judge prompt supplies reusable assessment instructions. Templates show where the step’s criterion, input and selected evidence are inserted. Results show the recorded messages under Assessment details → Grading request when available. Close this drawer to return to the same conversation and step.",
         '[aria-label="Judge instruction text"]',
       ],
     ];

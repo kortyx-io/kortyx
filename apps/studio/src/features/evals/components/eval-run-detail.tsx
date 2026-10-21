@@ -95,7 +95,6 @@ export function EvalRunDetail({
               settings={run.resolvedSettings}
               startedAt={run.startedAt}
             />
-            {liveControl}
             {rerunControl}
             <EvalStatus status={run.status} termination={run.termination} />
             <Button
@@ -118,6 +117,7 @@ export function EvalRunDetail({
                 {run.cancelRequestedAt ? "Cancelling…" : "Cancel run"}
               </Button>
             ) : null}
+            {liveControl}
           </>
         }
       >
