@@ -5,7 +5,7 @@ FROM docker:29-cli AS docker-cli
 # Compose v5.6.0's upstream binary still embeds Go 1.26.8. Rebuild the same
 # immutable source with the security-patched toolchain and x/net dependency for
 # both release platforms. Upstream v5.6.0 still pins vulnerable x/net v0.58.0.
-FROM --platform=$BUILDPLATFORM golang:1.26.9-bookworm AS compose-build
+FROM --platform=$BUILDPLATFORM golang:1.26.10-bookworm AS compose-build
 ARG TARGETOS
 ARG TARGETARCH
 WORKDIR /src
