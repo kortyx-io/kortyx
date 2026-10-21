@@ -4,6 +4,7 @@ import { createSampleProjectReadModels } from "@kortyx/telemetry-db/sample-proje
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
+import { sampleEvaluationComparison } from "@/features/sample-project/comparison";
 import { createSampleEvaluations } from "@/features/sample-project/evaluations";
 import { createSamplePrompts } from "@/features/sample-project/prompts";
 import { evalRequest } from "../api/client";
@@ -40,10 +41,14 @@ it("aborts stale baseline reads, ignores late responses, and recovers from a fai
     expect(container.textContent).toContain(
       "Could not load saved evaluation results",
     );
-    await act(async () => resolveFirst(first.results));
+    await act(async () =>
+      resolveFirst({ run: sampleEvaluationComparison(first.results.run) }),
+    );
     expect(current?.value).toBeNull();
     expect(container.textContent).not.toContain(first.results.run.id);
-    vi.mocked(evalRequest).mockResolvedValueOnce(second.results);
+    vi.mocked(evalRequest).mockResolvedValueOnce({
+      run: sampleEvaluationComparison(second.results.run),
+    });
     await act(async () => current?.retry());
     expect(container.textContent).toBe(second.results.run.id);
     expect(current?.loading).toBe(false);

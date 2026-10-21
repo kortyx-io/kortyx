@@ -44,7 +44,8 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
     .click();
   const drawer = page.getByRole("dialog", { name: "Run evaluations" });
   await expect(drawer).toBeVisible();
-  expect(fullResultReads).toBe(1);
+  // Live case summaries already contain failed-case identities; no full result fetch.
+  expect(fullResultReads).toBe(0);
   await expect(
     drawer.getByText(
       "This creates a new run using current deployed suite definitions",

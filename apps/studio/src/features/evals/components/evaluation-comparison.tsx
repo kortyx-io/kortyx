@@ -1,6 +1,9 @@
 "use client";
 
-import type { StudioEvaluationSummary } from "@kortyx/agent/evals";
+import type {
+  StudioEvaluationComparison,
+  StudioEvaluationSummary,
+} from "@kortyx/agent/evals";
 import { ArrowLeftRight, RefreshCw } from "lucide-react";
 import { parseAsString } from "nuqs";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
@@ -17,11 +20,11 @@ import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { studioFeature } from "@/usage/client";
 import { useEvaluationResults } from "../hooks/use-evaluation-results";
 import { comparisonMetric } from "../lib/comparison-metrics";
-import { sumCaseCosts } from "../lib/cost";
 import {
-  compareEvaluations,
-  type EvaluationComparisonRow,
-} from "../lib/evaluation-comparison";
+  compareEvaluationSnapshots,
+  type SnapshotComparisonRow as EvaluationComparisonRow,
+} from "../lib/comparison-snapshot";
+import { sumCaseCosts } from "../lib/cost";
 import {
   evalCaseHref,
   evalComparisonCaseHref,
@@ -29,7 +32,6 @@ import {
   evaluationHref,
 } from "../lib/navigation";
 import { displayName, isActive, passLabel } from "../lib/presentation";
-import type { EvaluationResults } from "../schema";
 import { EvalCost, EvalCostBreakdown, evalFilterCost } from "./eval-cost";
 import { EvalDetailHeader } from "./eval-detail-header";
 import { EvalDropdown } from "./eval-dropdown";
@@ -44,8 +46,8 @@ export function EvaluationComparison({
   historyError,
 }: {
   id: string;
-  initialCandidate: EvaluationResults | null;
-  initialBaseline: EvaluationResults | null;
+  initialCandidate: StudioEvaluationComparison | null;
+  initialBaseline: StudioEvaluationComparison | null;
   history: StudioEvaluationSummary[];
   historyError: boolean;
 }) {
@@ -65,7 +67,7 @@ export function EvaluationComparison({
   const current = candidate.value;
   const rows =
     current && baseline.value
-      ? compareEvaluations(baseline.value, current)
+      ? compareEvaluationSnapshots(baseline.value, current)
       : [];
   const suiteChoices = new Map<string, string>();
   for (const suite of [
@@ -73,10 +75,7 @@ export function EvaluationComparison({
     ...(baseline.value?.suites ?? []),
   ])
     if (!suiteChoices.has(suite.suiteId))
-      suiteChoices.set(
-        suite.suiteId,
-        suite.suite.name ?? displayName(suite.suiteId),
-      );
+      suiteChoices.set(suite.suiteId, suite.name ?? displayName(suite.suiteId));
   const scoped = query.suiteId
     ? rows.filter((row) => row.suiteId === query.suiteId)
     : rows;

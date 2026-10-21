@@ -2,8 +2,8 @@
 
 import {
   type StudioEvalLiveDetail,
+  StudioEvaluationComparisonSchema,
   type StudioEvaluationDetail,
-  StudioEvaluationResultsSchema,
 } from "@kortyx/agent/evals";
 import { RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -76,15 +76,12 @@ export function EvalRerunFailed({
       const [runs, available] = await Promise.all([
         "suites" in run
           ? evalRequest(
-              `evaluations/${encodeURIComponent(run.id)}/results`,
+              `evaluations/${encodeURIComponent(run.id)}/comparison`,
             ).then(
-              (value) => StudioEvaluationResultsSchema.parse(value).run.suites,
+              (value) =>
+                StudioEvaluationComparisonSchema.parse(value).run.suites,
             )
-          : "cases" in run
-            ? evalRequest(`runs/${encodeURIComponent(run.id)}`).then(
-                (value) => [EvalDetailSchema.parse(value).run],
-              )
-            : [run],
+          : [run],
         evalRequest("targets").then((value) =>
           EvalTargetsResponseSchema.parse(value),
         ),

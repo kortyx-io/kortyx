@@ -2,20 +2,26 @@ import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@studio/auth", () => ({ studioAuth: { authorize: vi.fn() } }));
+vi.mock("@studio/auth", () => ({
+  studioAuth: { authorize: vi.fn(), getApiCredential: vi.fn(async () => null) },
+}));
+vi.mock("@/features/sample-project/server", () => ({
+  isSampleProject: vi.fn(async () => false),
+}));
 vi.mock("./server", () => ({
   readEvaluationDetail: vi.fn(),
   readEvaluationHistory: vi.fn(),
-  readEvaluationResults: vi.fn(),
+  readEvaluationComparison: vi.fn(),
 }));
 
 import { studioAuth } from "@studio/auth";
+import { sampleEvaluationComparison } from "@/features/sample-project/comparison";
 import { readSampleDataset } from "@/features/sample-project/data";
 import { readModalComparison } from "./modal-comparison";
 import {
+  readEvaluationComparison,
   readEvaluationDetail,
   readEvaluationHistory,
-  readEvaluationResults,
 } from "./server";
 
 const req = (baseline: string = sample.evaluationIds.baseline) =>
@@ -47,10 +53,10 @@ it("forwards request scope to every read and returns summaries without transcrip
   if (!run) throw new Error("Missing fixture");
   vi.mocked(readEvaluationDetail).mockResolvedValue({ run });
   vi.mocked(readEvaluationHistory).mockResolvedValue({ runs: history });
-  vi.mocked(readEvaluationResults).mockImplementation(async (id) => {
+  vi.mocked(readEvaluationComparison).mockImplementation(async (id) => {
     const run = history.find((run) => run.id === id);
     if (!run) throw new Error("Not found");
-    return { run };
+    return { run: sampleEvaluationComparison(run) };
   });
   const request = req();
   const response = await readModalComparison(request);
@@ -67,20 +73,20 @@ it("forwards request scope to every read and returns summaries without transcrip
     request,
   );
   expect(readEvaluationHistory).toHaveBeenCalledWith(request);
-  expect(readEvaluationResults).toHaveBeenCalledWith(
+  expect(readEvaluationComparison).toHaveBeenCalledWith(
     sample.evaluationId,
     request,
   );
-  expect(readEvaluationResults).toHaveBeenCalledWith(
+  expect(readEvaluationComparison).toHaveBeenCalledWith(
     sample.evaluationIds.baseline,
     request,
   );
-  vi.mocked(readEvaluationResults).mockClear();
+  vi.mocked(readEvaluationComparison).mockClear();
   const invalid = await readModalComparison(
     req(sample.evaluationIds.candidate),
   );
   expect((await invalid.json()).state).toBe("error");
-  expect(readEvaluationResults).not.toHaveBeenCalled();
+  expect(readEvaluationComparison).not.toHaveBeenCalled();
 });
 it("returns a recoverable safe error instead of exposing upstream details", async () => {
   vi.mocked(readEvaluationDetail).mockRejectedValue(new Error("secret"));

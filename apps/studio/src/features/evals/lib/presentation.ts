@@ -416,7 +416,7 @@ export function compareRuns(
     };
   });
 }
-export const passLabel = (rows: CaseRow[]) =>
+export const passLabel = (rows: Pick<CaseRow, "status">[]) =>
   rows.length
     ? `${rows.filter((r) => r.status === "passed").length} / ${rows.length} passed`
     : "Not run";

@@ -21,6 +21,7 @@ import {
   tablePassRate,
   validateTableFilters,
 } from "@kortyx/telemetry-contracts";
+import { sampleEvaluationComparison } from "./comparison";
 import { readSampleDataset } from "./data";
 import { samplePath } from "./routing";
 
@@ -397,14 +398,19 @@ export function sampleResponse(path: string, method = "GET"): Response {
       }
       if (
         id === "evaluations" &&
-        (parts.length === 3 || (parts.length === 4 && parts[3] === "results"))
+        (parts.length === 3 ||
+          (parts.length === 4 && ["results", "comparison"].includes(parts[3])))
       ) {
         const evaluation = data.evals.evaluations.find(
           (evaluation) => evaluation.detail.run.id === parts[2],
         );
         if (evaluation)
           return json(
-            parts[3] === "results" ? evaluation.results : evaluation.detail,
+            parts[3] === "comparison"
+              ? { run: sampleEvaluationComparison(evaluation.results.run) }
+              : parts[3] === "results"
+                ? evaluation.results
+                : evaluation.detail,
           );
       }
     }

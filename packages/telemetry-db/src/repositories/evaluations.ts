@@ -165,7 +165,7 @@ export function summarizeEvaluation(
     }),
   );
 }
-function summarizeLiveEvaluation(
+export function summarizeLiveEvaluation(
   parent: Parent,
   children: EvalLiveSummary[],
 ): StudioEvaluationSummary {

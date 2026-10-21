@@ -1,13 +1,15 @@
 "use client";
 
-import { StudioEvaluationResultsSchema } from "@kortyx/agent/evals";
+import {
+  type StudioEvaluationComparison,
+  StudioEvaluationComparisonSchema,
+} from "@kortyx/agent/evals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { evalRequest } from "../api/client";
-import type { EvaluationResults } from "../schema";
 
 export function useEvaluationResults(
   id: string | null,
-  initial: EvaluationResults | null,
+  initial: StudioEvaluationComparison | null,
 ) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState<string | null>(null);
@@ -22,9 +24,9 @@ export function useEvaluationResults(
     const request = new AbortController();
     controller.current = request;
     try {
-      const next = StudioEvaluationResultsSchema.parse(
+      const next = StudioEvaluationComparisonSchema.parse(
         await evalRequest(
-          `evaluations/${encodeURIComponent(id)}/results`,
+          `evaluations/${encodeURIComponent(id)}/comparison`,
           undefined,
           request.signal,
         ),

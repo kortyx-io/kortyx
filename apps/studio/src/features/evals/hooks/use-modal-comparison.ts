@@ -35,7 +35,11 @@ export function useModalComparison(
   useEffect(() => {
     if (!run) return;
     const force = retry > attemptedRetry.current;
-    if (!force && (supplied || cache.current.has(scope))) return;
+    if (
+      !force &&
+      ((supplied && supplied.choices.length > 0) || cache.current.has(scope))
+    )
+      return;
     attemptedRetry.current = retry;
     const controller = new AbortController();
     setResult({ scope });
