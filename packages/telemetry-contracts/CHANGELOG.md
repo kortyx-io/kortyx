@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.20.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.19.1...telemetry-contracts-v0.20.0) (2026-10-21)
+
+
+### Features
+
+* **studio:** improve eval navigation, comparisons and inspection ([4d18eed](https://github.com/kortyx-io/kortyx/commit/4d18eed1db566e808e220215008951a46ef6113c))
+* **studio:** unify eval browsing and conversation comparisons ([7f6d26e](https://github.com/kortyx-io/kortyx/commit/7f6d26ef60474c113c84d3549fe13acd27731d8d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.4
+
 ## [0.19.1](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.19.0...telemetry-contracts-v0.19.1) (2026-10-18)
 
 

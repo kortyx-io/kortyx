@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.33.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.32.3...kortyx-v0.33.0) (2026-10-21)
+
+
+### Features
+
+* **evals:** add deterministic checks and failed-case reruns ([8b63a21](https://github.com/kortyx-io/kortyx/commit/8b63a214b59a55c36df3facd6b85f38def62f568))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.41.0
+    * @kortyx/cli bumped to 0.23.0
+    * @kortyx/hooks bumped to 0.35.3
+    * @kortyx/mcp bumped to 0.3.4
+    * @kortyx/runtime bumped to 0.26.2
+    * @kortyx/prompts bumped to 0.2.4
+
 ## [0.32.3](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.32.2...kortyx-v0.32.3) (2026-10-20)
 
 

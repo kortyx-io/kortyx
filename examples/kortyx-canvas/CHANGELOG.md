@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.3](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.9.2...example-canvas-v0.9.3) (2026-10-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.17.4
+    * kortyx bumped to 0.33.0
+  * devDependencies
+    * @kortyx/cli bumped to 0.23.0
+
 ## [0.9.2](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.9.1...example-canvas-v0.9.2) (2026-10-20)
 
 

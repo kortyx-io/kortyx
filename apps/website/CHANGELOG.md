@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.54.0](https://github.com/kortyx-io/kortyx/compare/website-v0.53.2...website-v0.54.0) (2026-10-21)
+
+
+### Features
+
+* **evals:** add deterministic checks and failed-case reruns ([8b63a21](https://github.com/kortyx-io/kortyx/commit/8b63a214b59a55c36df3facd6b85f38def62f568))
+* **studio:** improve eval navigation, comparisons and inspection ([4d18eed](https://github.com/kortyx-io/kortyx/commit/4d18eed1db566e808e220215008951a46ef6113c))
+* **studio:** unify eval browsing and conversation comparisons ([7f6d26e](https://github.com/kortyx-io/kortyx/commit/7f6d26ef60474c113c84d3549fe13acd27731d8d))
+
 ## [0.53.2](https://github.com/kortyx-io/kortyx/compare/website-v0.53.1...website-v0.53.2) (2026-10-20)
 
 

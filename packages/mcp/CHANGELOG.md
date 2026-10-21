@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.4](https://github.com/kortyx-io/kortyx/compare/mcp-v0.3.3...mcp-v0.3.4) (2026-10-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/usage-telemetry bumped to 0.6.0
+
 ## [0.3.3](https://github.com/kortyx-io/kortyx/compare/mcp-v0.3.2...mcp-v0.3.3) (2026-10-18)
 
 
