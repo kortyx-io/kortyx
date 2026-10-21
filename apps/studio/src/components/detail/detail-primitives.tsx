@@ -48,7 +48,7 @@ export function DetailHeader({
           {description}
         </div>
         {metrics && (
-          <div className="mt-2 flex min-w-0 gap-0 overflow-x-auto rounded-md border bg-muted/20">
+          <div className="data-table-body-scroll mt-2 flex min-w-0 gap-0 overflow-x-auto rounded-md border bg-muted/20">
             {metrics}
           </div>
         )}
