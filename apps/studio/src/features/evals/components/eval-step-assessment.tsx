@@ -1,7 +1,9 @@
 "use client";
 
 import type { EvalCriterionResult, EvalStepResult } from "@kortyx/agent/evals";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Separator } from "@/components/ui/separator";
+import { studioHelp } from "@/lib/studio-help";
 import { cn } from "@/lib/utils";
 import { EvalAutomaticChecks } from "./eval-automatic-checks";
 import { EvalDisclosure } from "./eval-disclosure";
@@ -106,9 +108,12 @@ export function EvalStepAssessment({
               className="flex min-w-0 flex-col gap-3"
             >
               <div className="flex items-center justify-between gap-3">
-                <h5 className="text-xs font-medium text-muted-foreground">
-                  Criterion{criteria.length > 1 ? ` ${index + 1}` : ""}
-                </h5>
+                <div className="flex items-center gap-1">
+                  <h5 className="text-xs font-medium text-muted-foreground">
+                    Criterion{criteria.length > 1 ? ` ${index + 1}` : ""}
+                  </h5>
+                  <HelpCircle help={studioHelp.evalCriterion} />
+                </div>
                 {result ? (
                   <EvalStatus status={result.passed ? "passed" : "failed"} />
                 ) : (
@@ -120,6 +125,40 @@ export function EvalStepAssessment({
               <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
                 {text}
               </p>
+              {result ? (
+                <EvalDisclosure
+                  scope={`${scope}-criterion-${id}-request`}
+                  label="Grading request"
+                >
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    {result.request
+                      ? "The exact messages sent to the judge, with this criterion and the selected evidence filled in."
+                      : "This execution did not record its grading request. The criterion above is the saved requirement; judge instructions are available separately when recorded."}
+                  </p>
+                  {result.request ? (
+                    <div className="space-y-4">
+                      <p className="break-all font-mono text-xs text-muted-foreground">
+                        {result.request.prompt
+                          ? `${result.request.prompt.id} · v${result.request.prompt.version} · ${result.request.prompt.hash}`
+                          : result.request.protocol}
+                      </p>
+                      {result.request.messages.map((message, messageIndex) => (
+                        <section
+                          key={`${messageIndex}:${message.role}`}
+                          className="space-y-2"
+                        >
+                          <h6 className="text-xs font-semibold capitalize">
+                            {messageIndex + 1}. {message.role} message
+                          </h6>
+                          <pre className="whitespace-pre-wrap break-words rounded-md border bg-muted/20 p-3 font-mono text-xs leading-relaxed [overflow-wrap:anywhere]">
+                            {message.content}
+                          </pre>
+                        </section>
+                      ))}
+                    </div>
+                  ) : null}
+                </EvalDisclosure>
+              ) : null}
               <div className="flex min-w-0 flex-col gap-2">
                 <h6 className="text-xs font-medium text-muted-foreground">
                   Evidence

@@ -8,6 +8,7 @@ import Link from "@/components/scoped-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PromptMessagePreview } from "@/features/prompts/components/prompt-message-preview";
 import { judgeInstructionsDescription } from "../lib/judge-instructions";
 
 export function EvalJudgeInstructionsReader({
@@ -24,29 +25,24 @@ export function EvalJudgeInstructionsReader({
   const { presentation, navigation } = useDetailDrawer();
   const showHeader = presentation !== "drawer" || navigation?.expanded;
   const [search, setSearch] = useState("");
-  const text = judge?.prompt
+  const messages = judge?.prompt
     ? judge.prompt.content.messages
-        .map((message) => `${message.role.toUpperCase()}\n${message.content}`)
-        .join("\n\n")
-    : judge?.instructions;
+    : judge?.instructions
+      ? [{ role: "system" as const, content: judge.instructions }]
+      : [];
+  const text = messages.map((message) => message.content).join("\n\n");
   const query = search.trim().toLocaleLowerCase();
-  const parts: { text: string; match: boolean }[] = [];
-  if (text) {
-    const lower = text.toLocaleLowerCase();
-    let position = 0;
-    let next = query ? lower.indexOf(query) : -1;
-    // Literal substring search: no regular expressions or HTML from content.
-    while (next >= 0) {
-      parts.push(
-        { text: text.slice(position, next), match: false },
-        { text: text.slice(next, next + query.length), match: true },
-      );
-      position = next + query.length;
-      next = lower.indexOf(query, position);
+  let matches = 0;
+  if (query) {
+    for (const message of messages) {
+      const lower = message.content.toLocaleLowerCase();
+      let next = lower.indexOf(query);
+      while (next >= 0) {
+        matches += 1;
+        next = lower.indexOf(query, next + query.length);
+      }
     }
-    parts.push({ text: text.slice(position), match: false });
   }
-  const matches = parts.filter((part) => part.match).length;
   return (
     <div data-judge-instructions className="flex h-full min-h-0 flex-col">
       <div
@@ -69,7 +65,9 @@ export function EvalJudgeInstructionsReader({
         {judge ? (
           <div className="flex flex-wrap items-center gap-2">
             <span className="break-all font-mono text-xs">
-              {judge.id} · {judge.version}
+              {judge.prompt
+                ? `${judge.prompt.id} · v${judge.prompt.version}`
+                : `${judge.id} · ${judge.version}`}
             </span>
             <Badge variant="secondary">
               {historical
@@ -79,6 +77,14 @@ export function EvalJudgeInstructionsReader({
                 : "Configured instructions"}
             </Badge>
           </div>
+        ) : null}
+        {judge?.prompt ? (
+          <p className="break-all text-xs text-muted-foreground">
+            Judge:{" "}
+            <span className="font-mono">
+              {judge.id} · {judge.version}
+            </span>
+          </p>
         ) : null}
         <p className="text-xs leading-relaxed text-muted-foreground">
           {judgeInstructionsDescription(historical)}
@@ -105,20 +111,16 @@ export function EvalJudgeInstructionsReader({
         {text ? (
           <article
             aria-label="Judge instruction text"
-            className="mx-auto max-w-3xl whitespace-pre-wrap break-words text-sm leading-7 [overflow-wrap:anywhere]"
+            className="mx-auto min-w-0 max-w-3xl space-y-6"
           >
-            {parts.map((part, index) =>
-              part.match ? (
-                <mark
-                  key={`${index}:${part.text}`}
-                  className="rounded-sm bg-yellow-300/70 text-neutral-950 dark:bg-yellow-300/30 dark:text-yellow-100"
-                >
-                  {part.text}
-                </mark>
-              ) : (
-                part.text
-              ),
-            )}
+            {messages.map((message, index) => (
+              <PromptMessagePreview
+                key={`${index}:${message.role}`}
+                label={`${message.role[0]?.toUpperCase()}${message.role.slice(1)} Message${judge?.prompt?.content.format === "chat" ? ` ${index + 1}` : ""}`}
+                value={message.content}
+                search={search}
+              />
+            ))}
           </article>
         ) : (
           <p className="text-sm text-muted-foreground">

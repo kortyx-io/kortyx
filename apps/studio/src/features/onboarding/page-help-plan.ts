@@ -60,7 +60,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       [
         "content",
         "Read the instructions",
-        "These are static judge instructions. Per-step pass criteria, conversation inputs and execution evidence are supplied separately for grading. Close this drawer to return to the same conversation and step.",
+        "The judge prompt supplies reusable assessment instructions. Templates show where the step’s criterion, input and selected evidence are inserted. Results show the recorded messages under Assessment details → Grading request when available. Close this drawer to return to the same conversation and step.",
         '[aria-label="Judge instruction text"]',
       ],
     ];
@@ -275,7 +275,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
           : "Search narrows the list. Filters opens scope and field conditions; Match all/any combines them. Numeric and date fields accept minimum and maximum bounds. Columns controls order, visibility, and pins. Views saves filters, search, sorting, and layout. An empty filtered list does not mean the project has no data. " +
               (isSamplePath(url.pathname)
                 ? "Sample table choices stay in this browser, separately from real projects."
-                : "Authenticated projects refresh saved preferences in the background. Cloud views belong to you in this project; self-hosted views are shared by the project. If Preferences not saved appears, open Views to retry or reload the saved preferences."),
+                : "Authenticated projects refresh saved preferences in the background. Cloud views belong to you in this project; self-hosted views are shared by the project. Open Views to check save status and retry or reload preferences when saving fails."),
         find("[data-table-controls]", '[data-tour-surface="workflow-toolbar"]'),
       );
     if (guide.kind === "list")

@@ -5,7 +5,9 @@ import { parseAsInteger } from "nuqs";
 import type { ReactNode } from "react";
 import { DetailLink } from "@/components/detail/detail-link";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { useStudioQueryState } from "@/lib/nuqs";
+import { studioHelp } from "@/lib/studio-help";
 import { sumCaseCosts } from "../lib/cost";
 import type { CaseRow } from "../lib/presentation";
 import { EvalConversationStats } from "./eval-conversation-stats";
@@ -252,9 +254,15 @@ export function EvalVerification({
   verification?: CaseRow["verification"];
 }) {
   return verification ? (
-    <section className="space-y-2 rounded-lg border p-3">
+    <section
+      aria-label="Postcondition verification"
+      className="mt-6 space-y-2 rounded-lg border p-3"
+    >
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-xs font-semibold">Postcondition verification</h4>
+        <div className="flex items-center gap-1">
+          <h4 className="text-xs font-semibold">Postcondition verification</h4>
+          <HelpCircle help={studioHelp.evalPostconditions} />
+        </div>
         <EvalStatus status={verification.passed ? "passed" : "failed"} />
       </div>
       <p className="text-xs leading-5 [overflow-wrap:anywhere]">

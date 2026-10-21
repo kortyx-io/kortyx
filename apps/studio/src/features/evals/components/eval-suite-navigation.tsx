@@ -33,7 +33,7 @@ export function EvalSuiteNavigation({
     <nav
       aria-label="Evaluation suites"
       inert={loading || undefined}
-      className="flex shrink-0 items-center gap-1 overflow-x-auto border-b bg-background p-2 lg:w-48 lg:flex-col lg:items-stretch lg:overflow-x-hidden lg:overflow-y-auto lg:border-r lg:border-b-0"
+      className="data-table-body-scroll flex shrink-0 items-center gap-1 overflow-x-auto border-b bg-background p-2 lg:w-48 lg:flex-col lg:items-stretch lg:overflow-x-hidden lg:overflow-y-auto lg:border-r lg:border-b-0"
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-2 py-1">
         <span className="text-xs text-muted-foreground">Suites</span>

@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
+
 import type { TableFilters } from "@kortyx/telemetry-contracts";
+import { emptyTablePreferences } from "@kortyx/telemetry-contracts";
 import { NuqsTestingAdapter } from "nuqs/adapters/testing";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DataTableProvider } from "./data-table-context";
 import { DataTableFilterControls } from "./data-table-filters";
+import {
+  CurrentTablePreference,
+  type TablePreferenceEntry,
+  type TablePreferenceSnapshot,
+} from "./table-persistence";
 import type { DataTableColumn, DataTableFilter } from "./types";
 import { useTableScope } from "./use-table-scope";
 
@@ -22,7 +29,7 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
     <div>{children}</div>
   ),
   DropdownMenuContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
+    <div data-views-menu>{children}</div>
   ),
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => children,
   DropdownMenuItem: ({
@@ -30,9 +37,12 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
     onSelect,
   }: {
     children: ReactNode;
-    onSelect: () => void;
+    onSelect: (event: { preventDefault: () => void }) => void;
   }) => (
-    <button type="button" onClick={onSelect}>
+    <button
+      type="button"
+      onClick={() => onSelect({ preventDefault: () => {} })}
+    >
       {children}
     </button>
   ),
@@ -256,4 +266,48 @@ it("disables loading search until the real table can retain input", async () => 
   expect(
     container.querySelector<HTMLInputElement>('input[type="search"]')?.disabled,
   ).toBe(false);
+});
+
+it.each([
+  "error",
+  "conflict",
+] as const)("keeps %s recovery in Views and out of the table toolbar", async (status) => {
+  const snapshot: TablePreferenceSnapshot = {
+    preferences: emptyTablePreferences(),
+    hydrated: true,
+    status,
+    error: "Changes are cached in this browser.",
+  };
+  const entry: TablePreferenceEntry = {
+    subscribe: () => () => {},
+    getSnapshot: () => snapshot,
+    getServerSnapshot: () => snapshot,
+    start: vi.fn(),
+    mutate: vi.fn(),
+    retry: vi.fn(),
+    reload: vi.fn(),
+    dispose: vi.fn(),
+  };
+  await act(() =>
+    root.render(
+      <NuqsTestingAdapter hasMemory>
+        <DataTableProvider columns={columns}>
+          <CurrentTablePreference.Provider value={entry}>
+            <Controls />
+          </CurrentTablePreference.Provider>
+        </DataTableProvider>
+      </NuqsTestingAdapter>,
+    ),
+  );
+  const menu = container.querySelector(
+    '[data-table-controls="definitions"] [data-views-menu]',
+  );
+  expect(menu?.textContent).toContain(snapshot.error);
+  const alerts = container.querySelectorAll('[role="alert"]');
+  expect(alerts).toHaveLength(1);
+  expect(menu?.contains(alerts[0])).toBe(true);
+  await click(status === "conflict" ? "Save my changes" : "Retry");
+  expect(entry.retry).toHaveBeenCalledOnce();
+  await click("Reload preferences");
+  expect(entry.reload).toHaveBeenCalledOnce();
 });

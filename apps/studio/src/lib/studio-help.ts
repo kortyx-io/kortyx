@@ -194,6 +194,16 @@ export const studioHelp = {
     "Choose how many times to run each conversation, how many attempts can run at once, and when to stop waiting. Each field shows where its current value came from.",
     "evals#evaluation-settings-and-timeout-reporting",
   ),
+  evalPostconditions: help(
+    "Postcondition verification",
+    "Your application checks the state left after the conversation, such as whether an approved change was saved. This is separate from the judge’s assessment of the answer. A pass means the application’s configured checks passed; it does not mean the answer met every criterion.",
+    "evals#postcondition-verification",
+  ),
+  evalCriterion: help(
+    "Criterion",
+    "A requirement for this step. The judge prompt supplies reusable instructions for applying it to the current answer and evidence. Older suites may include those instructions inside the criterion itself.",
+    "evals#criteria-and-judge-prompts",
+  ),
   evalJudge: help(
     "Evaluation judge",
     "The judge checks whether a test answer meets your requirements. Studio judge uses a model set up in Studio; App judge uses a check provided by your app.",

@@ -11,6 +11,8 @@ export const StudioTableIdSchema = z.enum([
   "prompt-evals",
   "evaluations",
   "eval-comparison",
+  "evaluation-comparison",
+  "eval-suite-conversations",
   "eval-cases",
   "evaluation-suites",
   "legacy-eval-runs",

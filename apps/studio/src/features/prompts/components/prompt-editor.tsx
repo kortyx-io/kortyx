@@ -29,6 +29,11 @@ import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { promptRequest } from "../api/client";
+import {
+  promptMessageClassName,
+  promptVariableClassName,
+  promptVariablePattern,
+} from "./prompt-message-preview";
 
 type StoredVersion = z.infer<typeof PromptStoredVersionSchema>;
 type Choice = {
@@ -124,16 +129,13 @@ const TemplateVariables = Extension.create({
             const decorations: Decoration[] = [];
             state.doc.descendants((node, pos) => {
               if (node.isText)
-                for (const match of node.text!.matchAll(
-                  /\{\{\s*[A-Za-z_][A-Za-z0-9_.]*\s*\}\}/g,
-                ))
+                for (const match of node.text!.matchAll(promptVariablePattern))
                   decorations.push(
                     Decoration.inline(
                       pos + match.index!,
                       pos + match.index! + match[0].length,
                       {
-                        class:
-                          "rounded-sm bg-sky-500/10 px-0.5 text-sky-700 dark:text-sky-300",
+                        class: promptVariableClassName,
                         "data-template-variable": "true",
                       },
                     ),
@@ -408,8 +410,7 @@ export function PromptEditor({
         "aria-label": label,
         "aria-multiline": "true",
         spellcheck: "false",
-        class:
-          "min-h-32 w-full whitespace-pre-wrap break-words rounded-md border bg-background px-3 py-2 font-mono text-xs leading-6 outline-none focus:border-ring focus:ring-2 focus:ring-ring/40 [&_p]:m-0",
+        class: promptMessageClassName,
       },
       handlePaste(view, event) {
         // Prompt text is portable plain text. Pasting HTML never changes it into

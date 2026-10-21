@@ -250,7 +250,7 @@ export const CHAPTERS = [
         view: { surface: "eval-case" },
         title: "Inspect the grading evidence",
         content:
-          "The assessment explains why the recorded answer passed. Selected repetition metrics appear above it, with the input and answer below. Use the step selector for another turn; expand Assessment details for the criterion, evidence and automatic check results.",
+          "The assessment explains why the recorded answer passed. Selected repetition metrics appear above it, with the input and answer below. Use the step selector for another turn; expand Assessment details for the criterion, evidence, automatic check results and the recorded Grading request. The criterion states the requirement; Judge instructions explains how it is assessed.",
       },
       {
         id: "saved-comparison",

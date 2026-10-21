@@ -6,8 +6,10 @@ import type { ReactNode } from "react";
 import { StatusPill } from "@/components/detail/detail-primitives";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
+import { HelpCircle } from "@/components/ui/info-tooltip";
 import { Separator } from "@/components/ui/separator";
 import { useStudioQueryState, useStudioQueryStates } from "@/lib/nuqs";
+import { studioHelp } from "@/lib/studio-help";
 import { displayName } from "../lib/presentation";
 import { EvalAutomaticChecks } from "./eval-automatic-checks";
 import { EvalDisclosure } from "./eval-disclosure";
@@ -132,9 +134,12 @@ function StepDefinition({
             aria-label="Criteria"
             className="flex min-w-0 flex-col gap-3"
           >
-            <h6 className="text-xs font-medium text-muted-foreground">
-              {step.expect.criteria.length === 1 ? "Criterion" : "Criteria"}
-            </h6>
+            <div className="flex items-center gap-1">
+              <h6 className="text-xs font-medium text-muted-foreground">
+                {step.expect.criteria.length === 1 ? "Criterion" : "Criteria"}
+              </h6>
+              <HelpCircle help={studioHelp.evalCriterion} />
+            </div>
             <ul className="flex min-w-0 flex-col gap-3">
               {step.expect.criteria.map((criterion, i) => (
                 <li
