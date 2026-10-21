@@ -5,6 +5,23 @@
 - Render queued, retrying and reconnecting eval dispatch updates without treating
   them as terminal case results.
 
+## [0.24.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.23.1...cli-v0.24.0) (2026-10-21)
+
+
+### Features
+
+* **evals:** add portable judge prompts and suite-owned judges ([9a11389](https://github.com/kortyx-io/kortyx/commit/9a11389203ac08ba9dbf1700e9838ad1b5b59d1c))
+* **evals:** add portable judge prompts and suite-owned judges ([18092cf](https://github.com/kortyx-io/kortyx/commit/18092cf0840933beeda98b6e3d17f774f2f4678d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.42.0
+    * @kortyx/prompts bumped to 0.3.0
+    * @kortyx/telemetry-contracts bumped to 0.20.1
+
 ## [0.23.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.23.0...cli-v0.23.1) (2026-10-21)
 
 

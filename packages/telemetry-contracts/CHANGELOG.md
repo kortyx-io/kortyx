@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.20.1](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.0...telemetry-contracts-v0.20.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **studio:** clarify eval assessments and polish result controls ([2091401](https://github.com/kortyx-io/kortyx/commit/2091401f5c05bd6dac3d2f7e9077dd72c04f5cee))
+* **studio:** clarify eval evidence and polish result controls ([f6e7f9e](https://github.com/kortyx-io/kortyx/commit/f6e7f9ef8e4e0d16918d371a8ae64af0c1dbcd43))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.3.0
+
 ## [0.20.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.19.1...telemetry-contracts-v0.20.0) (2026-10-21)
 
 
