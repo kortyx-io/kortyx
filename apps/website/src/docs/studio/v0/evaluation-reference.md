@@ -27,6 +27,33 @@ and [evidence defaults, overrides, and filters](/docs/sdk/guides/conversation-ev
 for examples, including disabling history/events/outputs for text-only checks.
 Keep any supporting tool results or reference facts required by the criterion.
 
+## Judge instructions
+
+Pass criteria specify what each step must satisfy. Judge instructions tell the
+judge how to apply those criteria; they are separate inputs. In the conversation
+definition and conversation result drawers, **Judge instructions** opens a stacked,
+read-only drawer. Search highlights matching passages in yellow. Close returns to
+the same conversation, step and repetition. Expand uses the platform detail layout.
+
+Current definitions show the configured default judge; launch settings can select
+a different judge. Saved executions show their recorded static instruction
+snapshot. Older runs and custom judges that did not publish instructions show
+**Instructions not recorded**. Studio never substitutes the current instructions
+for missing historical evidence.
+
+The built-in judge publishes its static system instructions automatically. Custom
+judges may publish an optional `instructions` string (1–64,000 characters) alongside
+`id`, `version` and `grade`. Publish only the exact static instructions actually
+used, without credentials, per-case inputs or resolved customer data. Update the
+judge version when instructions change. This reader does not edit judges or
+resolve prompt-library references; future authoring can build on this entry point.
+
+Upgrade the API and Studio together before upgrading SDK consumers that publish
+instruction snapshots: older strict schemas cannot read the new optional field.
+Existing custom judges and older runs remain supported. Hosted judge discovery
+opts into instructions with `includeInstructions=true`; legacy discovery and
+verdict responses retain their original identity shape.
+
 ## Required structured responses
 
 Conversation steps can declare `expect.outputs` as an array of required output
@@ -65,8 +92,7 @@ support before the SDK/CLI emitting these additive fields. Apply migration `0013
 **Settings → Evaluations** stores sparse project defaults in
 `projects.eval_defaults`. Reading uses the existing project Studio permission;
 saving requires `studio:write` through the installation's authorization adapter.
-The run drawer shows effective repetitions, concurrency, case timeout, overall
-evaluation timeout and judge, along with their source. Enter a value to override
+The run drawer shows **Repetitions per conversation** and judge, along with their source. Repetitions execute every selected case N times, including passes. **Execution settings** contains concurrency, case timeout, and overall evaluation timeout. Enter a value to override
 it for that run; Reset to default removes that override. There is no separate
 inherit mode. Project defaults apply to the whole project across targets and
 environments; application-specific defaults stay in the SDK.

@@ -484,3 +484,54 @@ Settings cards with an authored `help` definition also supply the current-page e
 Prompt draft help explains server-acknowledged saves, local-only edits and explicit recovery. Essential keep-page-open/export instructions stay visible during a failed save. Only the API's known revision-conflict code with HTTP 409 receives the conflict label; connection or service failures remain “Draft not saved.” Neither help nor export retries a write. Customer steps live in [Review and save](https://kortyx.io/docs/studio/v0/prompts#review-and-save).
 
 Verify hover-to-card movement, keyboard access to the footer, Escape/outside dismissal, narrow-screen placement and surrounding drawer behavior. Every destination must resolve to a page/anchor in the supported docs line. See [the audit](../../docs/audits/studio-contextual-help.md) and [completion policy](../../docs/internal/definition-of-done.md).
+
+### Evaluation results workspace
+
+Evals → Runs opens All conversations in one DataTable across suites. Selecting
+a suite filters the same table while retaining its columns, search, and filters.
+Cases with the same ID in different suites stay separate. Run totals use the
+shared Runs metric layout; cost breakdown stays in the total-cost tooltip.
+Results use one row per conversation across repetitions; open a
+row in the platform drawer and choose a Repetition to read its input, answer,
+assessment, execution links, and cost. Repetitions execute all selected cases N
+times, including passes. Suite details shows a compact saved-definition summary and execution settings in a platform drawer; the conversation table stays visible.
+The run list Changes column shows clickable groups and a right-side comparison
+icon with an Open comparison tooltip. A named earlier completed run is chosen
+independently of table filters. Inside a run, Comparison baseline changes that reference;
+the Change column opens the same wide comparison modal for a case. Previous/Next
+review the selected group; from a conversation row they follow the table’s suite,
+search, filters and sort order across pages. Left/Right keys navigate unless a
+menu or editor owns focus. Evaluation/conversation/baseline/group and independent
+repetition selections use nuqs URL state with pushed history, so reload, shared
+URLs and browser Back/Forward restore the view. Closing clears only modal state.
+Comparison notes live in the change-status popover; load failures keep a visible
+retry. The modal also offers Comparison baseline and stats that follow each selected repetition: outcome, execution time and total cost (with workflow/judge breakdown on the amount). See more stats expands from the thin gray footer attached to the summary boxes on both sides together. It shows the selected repetition’s details, then All repetitions totals and averages below a separator. Only the aggregates stay fixed when changing the dropdown. This run shows directional deltas; when repetition counts differ, totals/count indicators are hidden and per-repetition means show performance changes. Changing its baseline keeps the selected case and leaves the table baseline unchanged. Close restores the table. No row selection or extra
+row height is required. Reference candidates come from the recent 100-run history.
+Comparison matches suite/case identities and withholds deltas when context or
+grading is incomplete. Cost totals include all repetitions; mean cost change
+requires fully priced comparable results in the same currency. Existing suite
+and conversation URLs remain readable as standalone pages.
+
+
+### Browse definitions and inspect evidence
+
+Evals → Suites opens a suite workspace with a searchable conversation table.
+Select one conversation to inspect its current definition in a platform drawer;
+the step selector and Previous/Next controls keep the table context. Suite and
+conversation IDs remain shareable, including the selected definition step.
+The Conversation ID appears under the title. The message comes before Expected
+behavior, which groups configured criteria and automatic checks without verdict
+badges. Judge instructions stays with the case context below; Case definition
+shows only the selected case. **View workflow** opens topology with the configured
+workflow selected, beside Judge instructions. Test data and reference facts remain optional.
+
+Inside a saved run, Suite details describes the saved snapshot and execution
+settings; additional identifiers and configuration are collapsed. Conversation
+results lead with selected repetition outcome, execution time and cost, then the
+recorded assessment and messages. One **Assessment details** expander groups the
+criterion, supporting evidence and automatic check results without nested accordions.
+The explanation stays visible; failed steps open their details by default. Missing
+verdicts remain Not assessed. Raw response context expands separately. See more stats expands from a thin gray footer attached to the summary boxes. This repetition’s stats appear first, with All repetitions totals below a separator. The Conversation ID appears beneath the title; phase timings live in the stats instead of a separate Execution details section. Comparison uses
+the same reading order: a shared step selector aligns Earlier and This run
+assessments and messages, while repetition selections remain independent.
+Step selection, baseline and repetitions survive reload and browser history.

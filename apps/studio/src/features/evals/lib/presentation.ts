@@ -6,6 +6,7 @@ import type {
   StudioEvalLiveDetail,
 } from "@kortyx/agent/evals";
 import type { EvalDetail } from "../schema";
+import { sumCaseCosts } from "./cost";
 
 export type CaseRow = {
   environment?: string;
@@ -241,6 +242,76 @@ export function progressCounts(rows: CaseRow[]) {
     total: rows.length,
   };
 }
+
+export type CaseGroup = {
+  caseId: string;
+  name: string;
+  repetitions: CaseRow[];
+  counts: ReturnType<typeof progressCounts>;
+  status: string;
+  costs?: EvalCosts;
+  durationMs?: number;
+  defaultRepetition: number;
+};
+
+export function groupCaseRows(
+  rows: CaseRow[],
+  {
+    active = false,
+    mixedCases,
+  }: { active?: boolean; mixedCases?: ReadonlySet<string> } = {},
+): CaseGroup[] {
+  const groups = new Map<string, CaseRow[]>();
+  for (const row of rows) {
+    const group = groups.get(row.caseId) ?? [];
+    group.push(row);
+    groups.set(row.caseId, group);
+  }
+  return [...groups].map(([caseId, values]) => {
+    const repetitions = [...values].sort((a, b) => a.repetition - b.repetition);
+    const counts = progressCounts(repetitions);
+    const statuses = new Set(repetitions.map((row) => row.status));
+    const pending = repetitions.find((row) =>
+      ["running", "queued", "retrying", "reconnecting", "ungraded"].includes(
+        row.status,
+      ),
+    );
+    const failed = repetitions.find((row) =>
+      ["failed", "error", "unknown", "interrupted"].includes(row.status),
+    );
+    return {
+      caseId,
+      name: repetitions[0].name,
+      repetitions,
+      counts,
+      status:
+        statuses.size === 1
+          ? repetitions[0].status
+          : !active &&
+              (mixedCases?.has(caseId) ??
+                (counts.passed > 0 && counts.failed > 0))
+            ? "mixed"
+            : pending
+              ? pending.status === "ungraded"
+                ? "ungraded"
+                : "running"
+              : ([
+                  "unknown",
+                  "error",
+                  "interrupted",
+                  "failed",
+                  "cancelled",
+                  "not-run",
+                  "passed",
+                ].find((status) => statuses.has(status)) ?? "not-run"),
+      costs: sumCaseCosts(repetitions.map((row) => row.costs)),
+      durationMs: repetitions.every((row) => row.durationMs !== undefined)
+        ? repetitions.reduce((sum, row) => sum + (row.durationMs ?? 0), 0)
+        : undefined,
+      defaultRepetition: (failed ?? pending ?? repetitions[0]).repetition,
+    };
+  });
+}
 // Object key order is not a data change. Array order remains significant.
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -262,9 +333,10 @@ export type ComparisonRow = {
 export function compareRuns(
   baseline: EvalDetail,
   candidate: EvalDetail,
+  selected?: { baseline: CaseRow[]; candidate: CaseRow[] },
 ): ComparisonRow[] {
-  const a = caseRows(baseline);
-  const b = caseRows(candidate);
+  const a = selected?.baseline ?? caseRows(baseline);
+  const b = selected?.candidate ?? caseRows(candidate);
   const ids = new Set([...a, ...b].map((r) => r.caseId));
   const judgeChanged =
     !baseline.result?.judge ||

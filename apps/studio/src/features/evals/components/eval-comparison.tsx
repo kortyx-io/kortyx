@@ -13,11 +13,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { comparisonMetric } from "../lib/comparison-metrics";
+import { sumCaseCosts } from "../lib/cost";
 import { evalComparisonCaseHref } from "../lib/navigation";
 import {
   type ComparisonRow,
@@ -26,8 +27,10 @@ import {
   passLabel,
 } from "../lib/presentation";
 import type { EvalDetail, EvalHistory } from "../schema";
+import { EvalCost, evalFilterCost } from "./eval-cost";
 import { EvalDetailHeader, EvalSummaryMetric } from "./eval-detail-header";
 import { EvalDropdown } from "./eval-dropdown";
+import { EvalComparisonTableSkeleton } from "./eval-loading";
 import { EvalStatus } from "./eval-status";
 
 export function EvalComparison({
@@ -63,7 +66,12 @@ export function EvalComparison({
   const caseHref = (id: string) =>
     evalComparisonCaseHref(candidate.id, id, baselineId ?? "");
   const choices = history.runs.filter(
-    (r) => r.id !== candidate.id && !["queued", "running"].includes(r.status),
+    (r) =>
+      r.id !== candidate.id &&
+      r.targetId === candidate.targetId &&
+      r.environment === candidate.environment &&
+      r.suiteId === candidate.suiteId &&
+      !["queued", "running"].includes(r.status),
   );
   const columns: DataTableColumn<ComparisonRow>[] = [
     {
@@ -139,10 +147,10 @@ export function EvalComparison({
 
     valueColumn<ComparisonRow>({
       key: "passRateDelta",
-      label: "Pass-rate change (pp)",
+      label: "Pass-rate change (%)",
       kind: "number",
       read: (r) => comparisonMetric(r, "passRate"),
-      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)} pp`,
+      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(1)} %`,
     }),
     valueColumn<ComparisonRow>({
       key: "durationDelta",
@@ -152,22 +160,52 @@ export function EvalComparison({
       format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(0)} ms`,
       width: 190,
     }),
-    valueColumn<ComparisonRow>({
+    ...(["baseline", "candidate"] as const).map(
+      (side): DataTableColumn<ComparisonRow> => ({
+        key: `${side}Cost`,
+        label: `${side === "baseline" ? "Baseline" : "Candidate"} cost`,
+        defaultWidth: 125,
+        help: studioHelp.evalCost,
+        filter: columnFilter(
+          `${side}Cost`,
+          `${side} total cost`,
+          "number",
+          (row) =>
+            evalFilterCost(sumCaseCosts(row[side].map((item) => item.costs))),
+        ),
+        render: (row) => (
+          <EvalCost costs={sumCaseCosts(row[side].map((item) => item.costs))} />
+        ),
+      }),
+    ),
+    {
       key: "costDelta",
       label: "Mean cost change",
-      kind: "number",
-      read: (r) => comparisonMetric(r, "cost"),
-      format: (v) => `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(6)}`,
-    }),
+      defaultWidth: 150,
+      help: studioHelp.evalCost,
+      filter: columnFilter("costDelta", "Mean cost change", "number", (row) =>
+        comparisonMetric(row, "cost"),
+      ),
+      render: (row) => {
+        const value = comparisonMetric(row, "cost");
+        return (
+          <span className="font-mono text-xs">
+            {value === undefined
+              ? "—"
+              : `${value > 0 ? "+" : ""}${formatCurrency(value, { currency: row.candidate[0]?.costs?.total.currency })}`}
+          </span>
+        );
+      },
+    },
     valueColumn<ComparisonRow>({
       key: "baselineAttempts",
-      label: "Baseline attempts",
+      label: "Baseline repetitions",
       kind: "number",
       read: (r) => r.baseline.length,
     }),
     valueColumn<ComparisonRow>({
       key: "candidateAttempts",
-      label: "Candidate attempts",
+      label: "Candidate repetitions",
       kind: "number",
       read: (r) => r.candidate.length,
     }),
@@ -284,18 +322,41 @@ export function EvalComparison({
         </p>
       ) : null}
       {loading ? (
-        <output className="p-12 text-center text-sm text-muted-foreground">
-          Loading baseline…
-        </output>
+        <div className="min-h-0 flex-1">
+          <EvalComparisonTableSkeleton evaluation={false} />
+        </div>
       ) : (
         <div className="min-h-0 flex-1">
           <DataTable
             help={{ filters: studioHelp.filters, views: studioHelp.views }}
-            compatibility={{ aliases: { change: "change" } }}
             columns={withStudioColumnHelp(columns, "evals")}
             tableId="eval-comparison"
             className="rounded-none border-0 shadow-none"
-            data={rows}
+            data={
+              query.change === "all"
+                ? rows
+                : rows.filter((row) =>
+                    query.change === "not-comparable"
+                      ? ["changed", "incomplete"].includes(row.change)
+                      : row.change === query.change,
+                  )
+            }
+            toolbarStart={
+              <EvalDropdown
+                label="Show changes"
+                value={query.change}
+                options={[
+                  { value: "all", label: "All changes" },
+                  { value: "regressed", label: "Regressed" },
+                  { value: "improved", label: "Improved" },
+                  { value: "unchanged", label: "Unchanged" },
+                  { value: "not-comparable", label: "Not comparable" },
+                ]}
+                onChange={(change) => {
+                  void setQuery({ change });
+                }}
+              />
+            }
             getRowKey={(r) => r.id}
             onRowClick={(r) => {
               const href = detailNavigationHref(caseHref(r.id), search);

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { OUTPUT_SUITE } from "./support/eval-output-plan";
 import { EVAL_OPAQUE_SUITE, EVAL_SUITE } from "./support/eval-plan";
 
 for (const scope of ["all", "selected"] as const) {
@@ -82,6 +83,7 @@ for (const scope of ["all", "selected"] as const) {
     await page
       .getByRole("menuitemradio", { name: "App judge", exact: true })
       .click();
+    await drawer.getByText("Execution settings", { exact: true }).click();
     const concurrency = drawer.getByRole("spinbutton", {
       name: "Concurrent attempts across suites",
     });
@@ -97,33 +99,52 @@ for (const scope of ["all", "selected"] as const) {
     await expect(page).toHaveURL(/\/evals\/evaluations\/[0-9a-f-]+$/);
     const parentPath = new URL(page.url()).pathname;
     const tableControls = page.locator(
-      '[data-table-controls="evaluation-suites"]',
+      '[data-table-controls="evaluation-conversations"]',
     );
-    await expect(tableControls.getByRole("button")).toHaveCount(3);
+    await expect(
+      tableControls.getByRole("button", { name: /^(Filters|Columns|Views)$/ }),
+    ).toHaveCount(3);
     await expect(tableControls.getByRole("searchbox")).toHaveCount(1);
     await expect(page.locator("[data-table-footer]")).toHaveCount(1);
     const suiteCount = scope === "all" ? 3 : 2;
-    await expect(page.locator("[data-row-key]")).toHaveCount(suiteCount);
+    await expect(page.locator("[data-row-key]")).toHaveCount(
+      Math.min(
+        20,
+        EVAL_SUITE.cases.length +
+          EVAL_OPAQUE_SUITE.cases.length +
+          (scope === "all" ? OUTPUT_SUITE.cases.length : 0),
+      ),
+    );
     await expect(
-      page.getByRole("button", { name: EVAL_OPAQUE_SUITE.name!, exact: true }),
+      page.getByRole("link", { name: "Ambiguous role", exact: true }),
+    ).toHaveCount(2);
+    await expect(
+      page
+        .getByRole("navigation", { name: "Evaluation suites" })
+        .getByRole("button", { name: /^Opaque suite identifiers/ }),
     ).toBeVisible();
     await expect(
       page.getByText(`${suiteCount}/${suiteCount}`, { exact: true }),
     ).toBeVisible({ timeout: 20000 });
     await page.reload();
     await page
-      .getByRole("button", { name: EVAL_SUITE.name!, exact: true })
+      .getByRole("navigation", { name: "Evaluation suites" })
+      .getByRole("button", { name: /^E2E job conversations/ })
       .click();
-    await expect(page).toHaveURL(/\/evals\/runs\/[0-9a-f-]+$/);
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === parentPath &&
+        Boolean(url.searchParams.get("suiteRun")),
+    );
 
     // Navigation can leave the pointer over a table header's hover help.
     // Dismiss it before selecting a conversation underneath that popover.
     await page.mouse.move(5, 5);
     await page.keyboard.press("Escape");
     await page
-      .getByRole("button", { name: "Ambiguous role", exact: true })
+      .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
-    await expect(page.getByText("Step 1 evaluation")).toBeVisible();
+    await expect(page.getByText("Step 1 assessment")).toBeVisible();
     await page.goto(parentPath);
     await page
       .getByRole("button", { name: "Back to evaluation runs", exact: true })
@@ -224,7 +245,7 @@ test("selects conversations independently across suites and persists mixed check
     ).toBeChecked();
   }
   await expect(
-    drawer.getByText("2 suites · 2 conversations · 2 attempts", {
+    drawer.getByText("2 suites · 2 conversations · 2 executions", {
       exact: true,
     }),
   ).toBeVisible();

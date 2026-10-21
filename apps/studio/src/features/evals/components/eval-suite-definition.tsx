@@ -1,15 +1,19 @@
 "use client";
 import type { EvalSuite } from "@kortyx/agent/evals";
 import { ChevronDown, MessageSquare, Reply, Workflow } from "lucide-react";
-import { parseAsBoolean } from "nuqs";
+import { parseAsBoolean, parseAsInteger } from "nuqs";
+import type { ReactNode } from "react";
 import { StatusPill } from "@/components/detail/detail-primitives";
+import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
-import { useStudioQueryStates } from "@/lib/nuqs";
+import { Separator } from "@/components/ui/separator";
+import { useStudioQueryState, useStudioQueryStates } from "@/lib/nuqs";
 import { displayName } from "../lib/presentation";
-import { EvalDeterministicChecks } from "./eval-deterministic-checks";
+import { EvalAutomaticChecks } from "./eval-automatic-checks";
 import { EvalDisclosure } from "./eval-disclosure";
 import { EvalOutputRequirements } from "./eval-output-requirements";
 import { EvalPayloadViewer } from "./eval-payload-viewer";
+import { EvalStepNavigation } from "./eval-step-navigation";
 
 type SuiteStep = EvalSuite["cases"][number]["steps"][number];
 function ResponseDefinition({
@@ -87,80 +91,98 @@ function StepDefinition({
   scope,
 }: {
   step: SuiteStep;
-  index: number;
+  index?: number;
   scope: string;
 }) {
   const message = "message" in step;
   const Icon = message ? MessageSquare : Reply;
   return (
-    <li className="min-w-0 space-y-4 border-t border-foreground/10 py-5 first:border-t-0 first:pt-0 last:pb-0">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-muted/30 px-3 py-2">
-        <h5 className="flex min-w-0 items-center gap-2 text-sm font-medium">
-          <span className="font-mono text-xs text-muted-foreground">
-            Step {index + 1}
-          </span>
-          <Icon
-            className="size-3.5 shrink-0 text-muted-foreground"
-            aria-hidden="true"
-          />
-          {message ? "User message" : "Respond to human input"}
+    <li
+      aria-label={index === undefined ? undefined : `Step ${index + 1}`}
+      className="flex min-w-0 flex-col gap-4 py-5 first:pt-0 last:pb-0"
+    >
+      <section className="flex min-w-0 flex-col gap-3 rounded-lg border-l-2 border-info/30 bg-info/5 p-3">
+        <h5 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+          {index === undefined ? null : `Step ${index + 1} · `}
+          {message ? "User message" : "Response to human input"}
         </h5>
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Expects</span>
-          <StatusPill
-            tone={step.expect.type === "interrupt" ? "warning" : "neutral"}
-          >
+        {message ? (
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+            {step.message || "Empty user message"}
+          </p>
+        ) : (
+          <ResponseDefinition response={step.resume} scope={scope} />
+        )}
+      </section>
+      <section
+        aria-label="Expected behavior"
+        className="flex min-w-0 flex-col gap-4 rounded-lg border bg-muted/10 p-3"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h5 className="text-sm font-medium">Expected behavior</h5>
+          <StatusPill tone="neutral">
             {step.expect.type === "interrupt"
               ? "Human input requested"
               : "Agent answer"}
           </StatusPill>
         </div>
-      </div>
-      {message ? (
-        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed">
-          {step.message || "Empty user message"}
-        </p>
-      ) : (
-        <ResponseDefinition response={step.resume} scope={scope} />
-      )}
-      {step.expect.schemaId ? (
-        <p className="break-words text-xs text-muted-foreground">
-          Choice / input component{" "}
-          <code translate="no" className="font-mono text-foreground">
-            {step.expect.schemaId}
-            {step.expect.schemaVersion
-              ? ` · v${step.expect.schemaVersion}`
-              : ""}
-          </code>
-        </p>
-      ) : null}
-      <EvalOutputRequirements outputs={step.expect.outputs} />
-      <EvalDeterministicChecks checks={step.expect.checks} scope={scope} />
-      {step.expect.criteria?.length ? (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Pass criteria
+        {step.expect.criteria?.length ? (
+          <section
+            aria-label="Criteria"
+            className="flex min-w-0 flex-col gap-3"
+          >
+            <h6 className="text-xs font-medium text-muted-foreground">
+              {step.expect.criteria.length === 1 ? "Criterion" : "Criteria"}
+            </h6>
+            <ul className="flex min-w-0 flex-col gap-3">
+              {step.expect.criteria.map((criterion, i) => (
+                <li
+                  key={typeof criterion === "string" ? i : criterion.id}
+                  className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]"
+                >
+                  {typeof criterion === "string" ? criterion : criterion.text}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No judge criteria configured.
           </p>
-          <ul className="list-disc space-y-2 pl-4 marker:text-muted-foreground">
-            {step.expect.criteria.map((criterion, i) => (
-              <li
-                key={typeof criterion === "string" ? i : criterion.id}
-                className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-foreground/80"
-              >
-                {typeof criterion === "string" ? criterion : criterion.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          {step.expect.outputs?.length
-            ? "Checks the response type and required structured outputs. No LLM grading criteria."
-            : step.expect.checks?.length
-              ? "Checks the expected response type and deterministic assertions. No LLM grading criteria."
-              : "Checks the expected response type. No additional grading criteria."}
-        </p>
-      )}
+        )}
+        {step.expect.checks?.length ||
+        step.expect.outputs?.length ||
+        step.expect.schemaId ? (
+          <>
+            <Separator />
+            <section
+              aria-label="Automatic checks"
+              className="flex min-w-0 flex-col gap-3"
+            >
+              <h6 className="text-xs font-medium text-muted-foreground">
+                Automatic checks
+              </h6>
+              <EvalOutputRequirements outputs={step.expect.outputs} />
+              <EvalAutomaticChecks
+                checks={step.expect.checks}
+                mode="definition"
+              />
+              {step.expect.schemaId ? (
+                <p className="break-words text-xs text-muted-foreground">
+                  Human input component{" "}
+                  <code className="font-mono text-foreground" translate="no">
+                    {step.expect.schemaId}
+                    {step.expect.schemaVersion
+                      ? ` · v${step.expect.schemaVersion}`
+                      : ""}
+                  </code>
+                </p>
+              ) : null}
+            </section>
+          </>
+        ) : null}
+      </section>
     </li>
   );
 }
@@ -202,15 +224,27 @@ function conversationDetails(
   }
   return details;
 }
-function ConversationDefinition({
+export function ConversationDefinition({
   conversation: c,
   index,
   scope,
+  compact = false,
+  actions,
 }: {
+  compact?: boolean;
+  actions?: ReactNode;
   conversation: EvalSuite["cases"][number];
   index: number;
   scope: string;
 }) {
+  const [stepIndex, setStepIndex] = useStudioQueryState(
+    "definitionStep",
+    parseAsInteger.withOptions({ shallow: true }),
+  );
+  const selectedStep =
+    stepIndex !== null && stepIndex >= 0 && stepIndex < c.steps.length
+      ? stepIndex
+      : 0;
   const details = conversationDetails(c, scope);
   const groupId = `${scope}-${c.id}-details`;
   const groupKey = `expand.${groupId}`;
@@ -230,69 +264,80 @@ function ConversationDefinition({
   return (
     <section
       aria-label={name}
-      className="min-w-0 space-y-5 border-t-2 border-foreground/20 pt-5"
+      data-tour-surface="conversation-definition"
+      className="flex min-w-0 flex-col gap-5"
     >
-      <div className="space-y-2">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <h4 className="flex min-w-0 flex-1 items-start gap-2.5 text-base font-semibold leading-snug">
-            <span className="shrink-0 pt-0.5 font-mono text-xs font-normal text-muted-foreground">
-              {String(index + 1).padStart(2, "0")}
-            </span>
-            <span className="min-w-0 break-words text-pretty">{name}</span>
+      {!compact ? (
+        <header className="flex min-w-0 flex-col gap-1">
+          <h4 className="text-base font-semibold">
+            {String(index + 1).padStart(2, "0")} · {name}
           </h4>
-          {details.length ? (
-            <Button
-              variant="ghost"
-              size="xs"
-              aria-label={`Details for ${name}`}
-              aria-expanded={open}
-              aria-controls={groupId}
-              className="shrink-0"
-              onClick={() => {
-                void setState({
-                  ...Object.fromEntries(legacyKeys.map((key) => [key, null])),
-                  [groupKey]: !open,
-                });
-              }}
-            >
-              Details
-              <ChevronDown
-                aria-hidden="true"
-                className={`transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
-              />
+          <p
+            className="break-all font-mono text-xs text-muted-foreground"
+            translate="no"
+          >
+            {c.id}
+          </p>
+        </header>
+      ) : null}
+      {compact ? (
+        <EvalStepNavigation
+          steps={c.steps.map((_, index) => ({ index }))}
+          selected={selectedStep}
+          onSelect={(index) => void setStepIndex(index)}
+        />
+      ) : null}
+      <ol className="min-w-0">
+        {c.steps.map((step, i) =>
+          !compact || selectedStep === i ? (
+            <StepDefinition
+              key={`${c.id}:${i}`}
+              step={step}
+              index={compact ? undefined : i}
+              scope={`${scope}-${c.id}-${i}`}
+            />
+          ) : null,
+        )}
+      </ol>
+      {actions || c.workflowId ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {c.workflowId ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                href={`/workflows?workflow=${encodeURIComponent(c.workflowId)}`}
+                prefetch={false}
+                title={c.workflowId}
+              >
+                <Workflow />
+                View workflow
+              </Link>
             </Button>
           ) : null}
+          {actions}
         </div>
-        <p
-          className="break-all font-mono text-xs text-muted-foreground"
-          translate="no"
+      ) : null}
+      {details.length ? (
+        <Button
+          variant="ghost"
+          size="xs"
+          aria-label={`Details for ${name}`}
+          aria-expanded={open}
+          aria-controls={groupId}
+          className="shrink-0"
+          onClick={() => {
+            void setState({
+              ...Object.fromEntries(legacyKeys.map((key) => [key, null])),
+              [groupKey]: !open,
+            });
+          }}
         >
-          {c.id}
-        </p>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <span>
-            {c.steps.length} {c.steps.length === 1 ? "step" : "steps"}
-          </span>
-          {c.workflowId ? (
-            <span className="inline-flex min-w-0 items-center gap-1.5">
-              <Workflow className="size-3 shrink-0" aria-hidden="true" />
-              <code translate="no" className="break-all">
-                {c.workflowId}
-              </code>
-            </span>
-          ) : null}
-        </div>
-      </div>
-      <ol className="min-w-0">
-        {c.steps.map((step, i) => (
-          <StepDefinition
-            key={`${c.id}:${i}`}
-            step={step}
-            index={i}
-            scope={`${scope}-${c.id}-${i}`}
+          Test data and reference facts
+          <ChevronDown
+            aria-hidden="true"
+            className={`transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
           />
-        ))}
-      </ol>
+        </Button>
+      ) : null}
       {open ? (
         <div
           id={groupId}

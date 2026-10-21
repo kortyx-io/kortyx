@@ -128,6 +128,8 @@ export type EvalStatus = "passed" | "failed" | "error" | "cancelled";
 /** Execution can finish before Studio has evaluated its semantic criteria. */
 export type EvalExecutionStatus = EvalStatus | "ungraded";
 export type EvalJudgeIdentity = {
+  /** Exact static judge instructions, excluding per-case inputs and credentials. Optional for older/custom judges. */
+  instructions?: string | undefined;
   id: string;
   version: string;
   location?: "app" | "studio" | undefined;
@@ -213,6 +215,8 @@ export type EvalGradeInput = {
   signal: AbortSignal;
 };
 export type EvalJudge = {
+  /** Safe-to-persist static instructions actually used by this judge. Do not include secrets or per-case data. */
+  instructions?: string | undefined;
   id: string;
   version: string;
   location?: "app" | "studio";

@@ -1,30 +1,35 @@
 import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { HelpCircle } from "@/components/ui/info-tooltip";
+import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 import { studioHelp } from "@/lib/studio-help";
 
 /** Compact identity and actions shared by eval detail pages. */
 export function EvalDetailHeader({
   title,
+  loading = false,
   description,
   backLabel,
   onBack,
   actions,
   children,
+  help = studioHelp.evals,
 }: {
   title: string;
+  loading?: boolean;
   description: ReactNode;
   backLabel: string;
   onBack: () => void;
   actions?: ReactNode;
   children?: ReactNode;
+  help?: HelpDefinition | null;
 }) {
   return (
     <header
       data-tour-surface="eval-summary"
-      className="@container shrink-0 border-b px-4 py-3"
+      className="@container min-h-16 shrink-0 border-b px-4 py-3"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <Button
@@ -41,14 +46,22 @@ export function EvalDetailHeader({
             aria-label={title}
             className="truncate font-mono text-sm font-semibold"
           >
-            <OverflowText ariaLabel={title}>{title}</OverflowText>
+            {loading ? (
+              <Skeleton className="my-0.5 h-4 w-52 max-w-full" />
+            ) : (
+              <OverflowText ariaLabel={title}>{title}</OverflowText>
+            )}
           </h2>
           <div className="mt-0.5 truncate text-xs text-muted-foreground">
-            {description}
+            {loading ? (
+              <Skeleton className="h-4 w-72 max-w-full" />
+            ) : (
+              description
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <HelpCircle help={studioHelp.evals} />
+          {help ? <HelpCircle help={help} /> : null}
           {actions}
         </div>
       </div>

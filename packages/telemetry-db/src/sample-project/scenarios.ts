@@ -30,6 +30,8 @@ export type SampleConversation = {
   snapshot: "baseline" | "candidate" | "latest";
   suite: "quality" | "resolutions" | "recovery";
   caseId: string;
+  repetition?: number;
+  failedStep?: number;
   verdict: "passed" | "failed" | "error";
   reason: string;
   turns: SampleTurn[];
@@ -42,7 +44,7 @@ const turn = (
   specialists: SampleTurn["specialists"] = ["research"],
 ): SampleTurn => ({ id, input, output, behavior, specialists });
 
-export const SAMPLE_SUPPORT_CONVERSATIONS: SampleConversation[] = [
+const baseConversations: SampleConversation[] = [
   {
     id: sample.sessions.baseline,
     snapshot: "baseline",
@@ -547,4 +549,47 @@ export const SAMPLE_SUPPORT_CONVERSATIONS: SampleConversation[] = [
       ),
     ],
   },
+];
+
+// Additional authored executions for the saved consistency examples. Every
+// repetition has its own session and workflow IDs, so inspection links resolve.
+export const SAMPLE_SUPPORT_CONVERSATIONS: SampleConversation[] = [
+  ...baseConversations,
+  ...baseConversations
+    .filter(
+      (item) =>
+        item.snapshot === "latest" &&
+        [sample.caseId, "delivery-confidence", "decline-credit"].includes(
+          item.caseId,
+        ),
+    )
+    .flatMap((item) =>
+      Array.from(
+        { length: item.caseId === "delivery-confidence" ? 1 : 2 },
+        (_, index): SampleConversation => {
+          const repetition = index + 2;
+          const source =
+            item.caseId === sample.caseId && repetition === 2
+              ? (baseConversations.find(
+                  (candidate) =>
+                    candidate.snapshot === "baseline" &&
+                    candidate.caseId === item.caseId,
+                ) ?? item)
+              : item;
+          return {
+            ...source,
+            snapshot: "latest",
+            id: `${item.id}-repetition-${repetition}`,
+            repetition,
+            ...(source.verdict === "failed" ? { failedStep: 0 } : {}),
+            turns: source.turns
+              .slice(0, item.caseId === "decline-credit" ? 1 : 2)
+              .map((turn, turnIndex) => ({
+                ...turn,
+                id: `${item.turns[turnIndex]?.id ?? turn.id}-repetition-${repetition}`,
+              })),
+          };
+        },
+      ),
+    ),
 ];

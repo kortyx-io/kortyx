@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { columnLayout, columnWidths } from "./column-layout";
 import { DataTableFilterControls } from "./data-table-filters";
@@ -71,6 +72,9 @@ export type DataTableProps<T, S extends string = string> = {
   initialLayout?: Partial<DataTableLayout>;
   query?: DataTableQueryConfig<S>;
   totalCount?: number;
+  /** Reserve the real column layout while initial records are being fetched. */
+  loading?: boolean;
+  loadingRowHeight?: number;
   filters?: DataTableFilter<T>[];
   scopeFilters?: readonly DataTableScopeFilter[];
   help?: { filters: HelpDefinition; views: HelpDefinition };
@@ -82,6 +86,8 @@ export type DataTableProps<T, S extends string = string> = {
   data: T[];
   getRowKey: (item: T) => string;
   onRowClick?: (item: T, event: React.MouseEvent<HTMLTableRowElement>) => void;
+  /** Matching rows in display order, before pagination; useful for scoped entity navigation. */
+  onFilteredRowsChange?: (rows: T[]) => void;
   rowClassName?: (item: T) => string | undefined;
   rowTone?: (item: T) => "danger" | undefined;
   emptyState?:
@@ -144,6 +150,8 @@ function DataTableContent<T, S extends string>({
   columns,
   query: queryConfig,
   totalCount = 0,
+  loading = false,
+  loadingRowHeight = 61,
   filters: extraFilters = [],
   scopeFilters = [],
   help,
@@ -152,6 +160,7 @@ function DataTableContent<T, S extends string>({
   data,
   getRowKey,
   onRowClick,
+  onFilteredRowsChange,
   rowClassName,
   rowTone,
   emptyState,
@@ -233,6 +242,9 @@ function DataTableContent<T, S extends string>({
     remote ? undefined : query.sort,
     query.dir,
   );
+  useEffect(() => {
+    onFilteredRowsChange?.(filteredData);
+  }, [filteredData, onFilteredRowsChange]);
   const sort = query.sort,
     direction = query.dir;
   const onSort = query.onSort,
@@ -356,6 +368,8 @@ function DataTableContent<T, S extends string>({
     <div className={cn("relative flex h-full min-h-0 min-w-0", className)}>
       <div
         data-table-ready={interactive}
+        aria-busy={loading}
+        inert={loading || undefined}
         data-page-help-records={data.length}
         className={cn(
           "flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
@@ -364,6 +378,7 @@ function DataTableContent<T, S extends string>({
       >
         {header}
         <DataTableFilterControls
+          disabled={loading}
           help={help}
           tableId={tableId}
           searching={searching}
@@ -469,68 +484,84 @@ function DataTableContent<T, S extends string>({
                 >
                   {colGroup}
                   <tbody>
-                    {pageRows.map((item) => (
-                      <tr
-                        key={getRowKey(item)}
-                        data-row-key={getRowKey(item)}
-                        data-row-tone={rowTone?.(item)}
-                        style={
-                          {
-                            "--table-row-base":
-                              rowTone?.(item) === "danger"
-                                ? "color-mix(in oklab, var(--destructive) 2.5%, var(--background))"
-                                : "var(--background)",
-                          } as React.CSSProperties
-                        }
-                        onClick={
-                          onRowClick
-                            ? (event) => handleRowClick(item, event)
-                            : undefined
-                        }
-                        className={cn(
-                          "group border-b [--table-row-bg:var(--table-row-base)] hover:[--table-row-bg:color-mix(in_oklab,var(--muted)_55%,var(--table-row-base))]",
-                          onRowClick && "cursor-pointer",
-                          rowClassName?.(item),
-                        )}
-                      >
-                        {visibleColumnOrder.map((column) => {
-                          const definition = columnsByKey[column];
-                          const motion = getColumnCellMotion(column);
-                          const pin = pinned[column];
-                          return (
-                            <td
-                              key={column}
-                              data-column={column}
-                              data-column-dragging={
-                                draggedColumn === column || undefined
-                              }
-                              title={definition.cellTitle?.(item)}
-                              className={cn(
-                                CELL_BASE,
-                                definition.cellClassName,
-                                "transition-colors",
-                                pin && "sticky z-10",
-                                motion && !pin && "relative z-1",
-                                draggedColumn === column && "z-30 shadow-lg",
-                              )}
-                              style={{
-                                backgroundColor: "var(--table-row-bg)",
-                                ...motion?.style,
-                                ...getPinnedColumnStyle(column),
-                              }}
-                            >
-                              <div className="min-w-0 overflow-hidden">
-                                {definition.render(item)}
-                              </div>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                    {loading
+                      ? Array.from({ length: 6 }, (_, index) => (
+                          <tr key={`loading-${index}`}>
+                            {visibleColumnOrder.map((column) => (
+                              <td
+                                key={column}
+                                className={CELL_BASE}
+                                style={{ height: loadingRowHeight }}
+                              >
+                                <Skeleton className="h-4 w-3/4 max-w-48" />
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      : null}
+                    {!loading &&
+                      pageRows.map((item) => (
+                        <tr
+                          key={getRowKey(item)}
+                          data-row-key={getRowKey(item)}
+                          data-row-tone={rowTone?.(item)}
+                          style={
+                            {
+                              "--table-row-base":
+                                rowTone?.(item) === "danger"
+                                  ? "color-mix(in oklab, var(--destructive) 2.5%, var(--background))"
+                                  : "var(--background)",
+                            } as React.CSSProperties
+                          }
+                          onClick={
+                            onRowClick
+                              ? (event) => handleRowClick(item, event)
+                              : undefined
+                          }
+                          className={cn(
+                            "group border-b [--table-row-bg:var(--table-row-base)] hover:[--table-row-bg:color-mix(in_oklab,var(--muted)_55%,var(--table-row-base))]",
+                            onRowClick && "cursor-pointer",
+                            rowClassName?.(item),
+                          )}
+                        >
+                          {visibleColumnOrder.map((column) => {
+                            const definition = columnsByKey[column];
+                            const motion = getColumnCellMotion(column);
+                            const pin = pinned[column];
+                            return (
+                              <td
+                                key={column}
+                                data-column={column}
+                                data-column-dragging={
+                                  draggedColumn === column || undefined
+                                }
+                                title={definition.cellTitle?.(item)}
+                                className={cn(
+                                  CELL_BASE,
+                                  definition.cellClassName,
+                                  "transition-colors",
+                                  pin && "sticky z-10",
+                                  motion && !pin && "relative z-1",
+                                  draggedColumn === column && "z-30 shadow-lg",
+                                )}
+                                style={{
+                                  backgroundColor: "var(--table-row-bg)",
+                                  ...motion?.style,
+                                  ...getPinnedColumnStyle(column),
+                                }}
+                              >
+                                <div className="min-w-0 overflow-hidden">
+                                  {definition.render(item)}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>
-              {isEmpty && (
+              {isEmpty && !loading && (
                 <div
                   className={cn("sticky left-0 w-full", emptyStateClassName)}
                 >
@@ -558,6 +589,7 @@ function DataTableContent<T, S extends string>({
         </div>
         {pagination && (
           <DataTablePaginationFooter
+            loading={loading}
             pagination={
               pagination.serverSide
                 ? pagination
@@ -590,9 +622,11 @@ function DataTableContent<T, S extends string>({
 }
 
 function DataTablePaginationFooter({
+  loading = false,
   pagination,
   onBeforeChange,
 }: {
+  loading?: boolean;
   pagination: DataTablePagination;
   onBeforeChange: () => void;
 }) {
@@ -617,9 +651,13 @@ function DataTablePaginationFooter({
       className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t bg-background px-4 py-2 text-xs text-muted-foreground"
     >
       <span>
-        {totalCount > 0
-          ? `Showing ${firstVisible}–${lastVisible} of ${totalCount}`
-          : "No results"}
+        {loading ? (
+          <Skeleton className="h-4 w-32" />
+        ) : totalCount > 0 ? (
+          `Showing ${firstVisible}–${lastVisible} of ${totalCount}`
+        ) : (
+          "No results"
+        )}
       </span>
       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         <div className="flex items-center gap-2 whitespace-nowrap">
@@ -660,7 +698,11 @@ function DataTablePaginationFooter({
           <ChevronLeft /> <span className="hidden sm:inline">Previous</span>
         </Button>
         <span className="shrink-0 font-mono whitespace-nowrap tabular-nums">
-          {currentPage}/{totalPages}
+          {loading ? (
+            <Skeleton className="h-4 w-8" />
+          ) : (
+            `${currentPage}/${totalPages}`
+          )}
         </span>
         <Button
           variant="secondary"

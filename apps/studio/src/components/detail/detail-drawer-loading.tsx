@@ -10,11 +10,13 @@ export function DetailDrawerLoading({
   title,
   description,
   header,
+  children,
 }: {
   basePath: string;
   title: string;
   description: string;
   header?: ReactNode;
+  children?: ReactNode;
 }) {
   const pathname = usePathname();
   const [matchPath] = useState(pathname);
@@ -28,8 +30,11 @@ export function DetailDrawerLoading({
       description={description}
     >
       {header}
-      <output aria-label={`Loading ${title.toLowerCase()}`}>
-        <DetailSkeleton />
+      <output
+        className="block h-full min-h-0"
+        aria-label={`Loading ${title.toLowerCase()}`}
+      >
+        {children ?? <DetailSkeleton />}
       </output>
     </DetailDrawer>
   );

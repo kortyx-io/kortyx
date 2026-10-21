@@ -121,7 +121,7 @@ export function EvalSettingsSummary({
                 <dt className="text-muted-foreground">
                   {
                     {
-                      repetitions: "Attempts per conversation",
+                      repetitions: "Repetitions per conversation",
                       concurrency: "Concurrent attempts",
                       caseTimeoutMs: "Case timeout",
                       runTimeoutMs: "Evaluation timeout",

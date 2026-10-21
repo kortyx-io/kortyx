@@ -19,10 +19,10 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
       `/api/studio/evals/runs/${EVAL_FIXTURE.repeatedCandidate}`,
     )
   ).json();
-  const rows = page.locator('[data-row-key^="repeated-role:"]');
-  await expect(rows).toHaveCount(2);
+  const rows = page.locator('[data-row-key="repeated-role"]');
+  await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("Mixed results");
-  await expect(rows.first()).toContainText("1/2 assessed attempts passed");
+  await expect(rows.first()).toContainText("1 of 2 passed");
   await rows
     .first()
     .getByRole("button", { name: "About Mixed results" })
@@ -52,7 +52,7 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
     ),
   ).toBeVisible();
   await expect(
-    drawer.getByRole("spinbutton", { name: "Attempts per conversation" }),
+    drawer.getByRole("spinbutton", { name: "Repetitions per conversation" }),
   ).toHaveValue("2");
   const conversations = drawer.getByRole("group", {
     name: `Conversations in ${EVAL_SUITE.name}`,
@@ -68,7 +68,7 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
     }),
   ).not.toBeChecked();
   await expect(
-    drawer.getByText("1 suites · 1 conversations · 2 attempts", {
+    drawer.getByText("1 suites · 1 conversations · 2 executions", {
       exact: true,
     }),
   ).toBeVisible();
@@ -122,13 +122,14 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
     )
   ).json();
   expect(after.run.result).toEqual(original.run.result);
-  await page
-    .getByRole("button", { name: EVAL_SUITE.name!, exact: true })
-    .click();
+  await page.getByRole("button", { name: /^E2E job conversations/ }).click();
   await expect(page.getByText("Mixed results", { exact: true })).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Repeated role", exact: true })
+    .getByRole("link", { name: "Repeated role", exact: true })
     .first()
+    .click();
+  await page
+    .getByRole("button", { name: "Assessment details", exact: true })
     .click();
   const checks = page.locator('[data-guide-focus="eval-checks"]').first();
   await expect(checks).toContainText("Passed");
@@ -156,9 +157,16 @@ test("renders completed-output check verdicts and prepares grouped failures with
   page,
 }, testInfo) => {
   await page.goto(`/evals/suites/${EVAL_FIXTURE.targetId}/${OUTPUT_SUITE.id}`);
+  await expect(page.locator("[data-row-key]")).toHaveCount(5);
+  await page
+    .getByRole("button", { name: "Product list version two", exact: true })
+    .click();
   await expect(
-    page.getByText("Deterministic checks", { exact: true }),
-  ).toHaveCount(2);
+    page.getByRole("heading", { name: "Automatic checks", exact: true }),
+  ).toHaveCount(1);
+  await page
+    .getByRole("button", { name: "Close conversation definition" })
+    .click();
   await page.getByRole("button", { name: "Run suite", exact: true }).click();
   const drawer = page.getByRole("dialog", { name: "Run evaluations" });
   await drawer
@@ -212,11 +220,30 @@ test("renders completed-output check verdicts and prepares grouped failures with
     }),
   ).not.toBeChecked();
   await page.goto(path);
+  await page.getByRole("button", { name: /^Product output contracts/ }).click();
+  await expect(page).toHaveURL((url) =>
+    Boolean(url.searchParams.get("suiteRun")),
+  );
   await page
-    .getByRole("button", { name: OUTPUT_SUITE.name!, exact: true })
+    .getByRole("button", { name: "Rerun failed cases", exact: true })
     .click();
+  await expect(drawer).toHaveCount(1);
+  await expect(drawer).toBeVisible();
+  await expect(
+    selected.getByRole("checkbox", {
+      name: "Obsolete product list contract",
+      exact: true,
+    }),
+  ).toBeChecked();
+  await page.reload();
+  await expect(drawer).toHaveCount(1);
+  await expect(drawer).toBeVisible();
+  await drawer
+    .getByRole("button", { name: "Close run setup", exact: true })
+    .click();
+
   await page
-    .getByRole("button", {
+    .getByRole("link", {
       name: "Obsolete product list contract",
       exact: true,
     })
@@ -226,15 +253,12 @@ test("renders completed-output check verdicts and prepares grouped failures with
   await expect(checks).toContainText(
     "No matching completed structured output contains the expected value",
   );
-  await checks
-    .getByRole("button", { name: "About Deterministic checks" })
-    .focus();
   await expect(
-    page.getByText("Built-in assertions inspect the current captured answer", {
-      exact: false,
+    checks.getByRole("button", {
+      name: "Check definition and evidence",
+      exact: true,
     }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
+  ).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("failed-output-check.png"),
     fullPage: true,

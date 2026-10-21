@@ -76,7 +76,7 @@ it("uses a pinned Studio judge through the ordinary runner and stores its actual
   expect(result.judge).toEqual(identity);
   expect(request).toHaveBeenCalledTimes(2);
   expect(String(request.mock.calls[0]?.[0])).toBe(
-    "http://127.0.0.1:7440/v1/studio/evals/judge?environment=development",
+    "http://127.0.0.1:7440/v1/studio/evals/judge?includeInstructions=true&environment=development",
   );
   const grade = request.mock.calls[1]?.[1];
   expect(grade?.headers).toMatchObject({
@@ -355,4 +355,33 @@ it("compacts direct HTTP judging and removes nested snapshots from previous step
   expect(payload.conversation[0].observation).toEqual(observation);
   expect(payload.conversation[0]).not.toHaveProperty("evidence");
   expect(JSON.stringify(payload)).not.toContain("NOISE");
+});
+
+it("pins published instructions while keeping them out of grading request identities", async () => {
+  const published = { ...identity, instructions: "Use only evidence." };
+  let changed = false;
+  const request = vi.fn(async (_url: unknown, init?: RequestInit) =>
+    Response.json(
+      init?.method === "POST"
+        ? {
+            judge: {
+              ...published,
+              instructions: changed
+                ? "Different instructions"
+                : published.instructions,
+            },
+            verdict,
+          }
+        : published,
+    ),
+  );
+  vi.stubGlobal("fetch", request);
+  const judge = await createStudioEvalJudge(options);
+  await judge.grade(input());
+  expect(judge.instructions).toBe("Use only evidence.");
+  expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body)).judge).toEqual(
+    identity,
+  );
+  changed = true;
+  await expect(judge.grade(input())).rejects.toThrow("identity changed");
 });

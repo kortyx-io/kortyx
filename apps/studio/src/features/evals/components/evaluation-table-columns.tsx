@@ -240,5 +240,23 @@ export function createEvaluationColumns(
       format: (v) => formatDurationMs(Number(v)),
     }),
   ];
-  return withStudioColumnHelp(columns, "evals");
+  const order = [
+    "name",
+    "status",
+    "progress",
+    "results",
+    "passRate",
+    "duration",
+    "cost",
+    "application",
+    "trigger",
+    "judge",
+    "judgeVersion",
+    "queueMs",
+    "created",
+  ];
+  return withStudioColumnHelp(
+    order.flatMap((key) => columns.filter((column) => column.key === key)),
+    "evals",
+  );
 }

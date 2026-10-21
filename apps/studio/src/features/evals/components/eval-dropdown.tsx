@@ -20,6 +20,7 @@ export function EvalDropdown({
   disabled,
   className,
   triggerLabel,
+  contentClassName,
   search,
 }: {
   label: string;
@@ -34,6 +35,7 @@ export function EvalDropdown({
   disabled?: boolean;
   className?: string;
   triggerLabel?: string;
+  contentClassName?: string;
   search?: {
     value: string;
     onChange: (value: string) => void;
@@ -78,7 +80,10 @@ export function EvalDropdown({
         align="start"
         onEscapeKeyDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
-        className="max-h-80 w-(--radix-dropdown-menu-trigger-width) min-w-0 max-w-[calc(100vw-2rem)] overflow-y-auto"
+        className={cn(
+          "max-h-80 w-(--radix-dropdown-menu-trigger-width) min-w-0 max-w-[calc(100vw-2rem)] overflow-y-auto",
+          contentClassName,
+        )}
       >
         {search && (
           <div className="p-1">

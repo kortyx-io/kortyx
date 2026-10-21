@@ -60,13 +60,14 @@ const apply = vi.fn(),
   pageSize = vi.fn();
 let root: ReturnType<typeof createRoot>, container: HTMLDivElement;
 let currentFilters: TableFilters;
-function Controls() {
+function Controls({ disabled = false }: { disabled?: boolean }) {
   const scope = useTableScope(
     [{ kind: "boolean", key: "includeArchived", label: "Include archived" }],
     false,
   );
   return (
     <DataTableFilterControls
+      disabled={disabled}
       tableId="definitions"
       searching={{
         value: "current search",
@@ -125,12 +126,12 @@ afterEach(async () => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
-async function render() {
+async function render(disabled = false) {
   await act(() =>
     root.render(
       <NuqsTestingAdapter hasMemory>
         <DataTableProvider columns={columns}>
-          <Controls />
+          <Controls disabled={disabled} />
         </DataTableProvider>
       </NuqsTestingAdapter>,
     ),
@@ -244,4 +245,15 @@ it("keeps newer invalid bounds when an older URL write returns, then applies a z
       '[aria-label="Confidence maximum"]',
     )?.value,
   ).toBe("");
+});
+
+it("disables loading search until the real table can retain input", async () => {
+  await render(true);
+  expect(
+    container.querySelector<HTMLInputElement>('input[type="search"]')?.disabled,
+  ).toBe(true);
+  await render(false);
+  expect(
+    container.querySelector<HTMLInputElement>('input[type="search"]')?.disabled,
+  ).toBe(false);
 });

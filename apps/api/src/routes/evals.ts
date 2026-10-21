@@ -127,6 +127,9 @@ export function registerEvalRoutes(
       canRun: await canApiAction(c, "eval:run"),
       studioJudge: studioJudge
         ? {
+            ...(studioJudge.instructions
+              ? { instructions: studioJudge.instructions }
+              : {}),
             id: studioJudge.id,
             version: studioJudge.version,
             location: "studio",
@@ -272,6 +275,9 @@ export function registerEvalRoutes(
     const selectedJudge =
       request.judge === "studio"
         ? studioJudge && {
+            ...(studioJudge.instructions
+              ? { instructions: studioJudge.instructions }
+              : {}),
             id: studioJudge.id,
             version: studioJudge.version,
             location: "studio" as const,

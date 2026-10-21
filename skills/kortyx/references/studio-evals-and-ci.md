@@ -730,7 +730,70 @@ Cancelled, ungraded, never-started, and uncertain attempts are excluded. Missing
 current cases/targets require manual review; samples stay read-only.
 
 A finished suite case shows **Mixed results** only with both an assessed pass and
-failure. The displayed passed/assessed count excludes errors and unassessed work,
-which remain separate. Do not infer model randomness or a root cause from this
+failure. Each row reports passes out of all requested repetitions; failed,
+errored, cancelled, and unfinished work remain separate. Do not infer model randomness or a root cause from this
 badge. Deterministic `step.checks` results are distinct from semantic criteria in
 Studio and CLI results; see the conversation-evals reference for authoring.
+
+## Inspect results in Studio
+
+Open Evals → Runs and select an evaluation. All conversations shows one table
+across suites; selecting a suite filters it and All conversations clears that
+filter. Rows stay distinct by suite-run and case ID. Results group all repetitions
+into one conversation row. The platform drawer has a
+Repetition dropdown for individual inputs, outputs, assessments, execution links,
+and cost. Repetitions run every selected case N times, including passes; they
+are not failure retries. Suite details opens the saved Definition and Configuration in a platform drawer.
+Changes columns compare suites/cases by identity with the latest earlier completed
+run of the same application and environment in recent history. The reference is
+explicit; Comparison baseline chooses another. Click a change or the run-list comparison
+icon to open the modal, with its own Comparison baseline selector and independent Earlier and This run repetition selectors. Selected repetition stats follow the independent dropdowns: outcome, execution time, workflow/judge/total cost and steps. The attached See more stats footer expands both sides together, showing the selected repetition’s details followed by All repetitions totals/averages below a separator. This run shows applicable numeric trends: pass-rate differences with a % label, counts, duration, and cost. Total/count indicators are hidden when repetition counts differ; compare per-repetition means instead. Incomplete/context-changed rows have no quantified trend. Selecting a repetition changes its stats and evidence while the separate aggregate totals stay fixed; changing the modal baseline leaves the table baseline unchanged.
+Modal selections (run, conversation, baseline, group, and independent repetitions)
+use nuqs URL state with pushed history; reload, shared links, and Back/Forward
+restore them. Previous/Next and Left/Right keys navigate the selected group or
+the conversation table’s filtered/sorted suite scope across pages. Menus/editors
+keep their own keys. Close clears only modal parameters. Context explanations
+live in the change-status popover; actual read failures keep a retry action.
+Run-row selection and Compare selected are removed. Incomplete grading or changed
+context prevents a score delta. Total cost sums repetitions; mean cost change
+requires fully priced comparable results in one currency. Review evidence before
+attributing a pass-rate difference to a prompt or application change.
+
+
+### Browse definitions and inspect evidence
+
+Evals → Suites opens a suite workspace with a searchable conversation table.
+Select one conversation to inspect its current definition in a platform drawer;
+the step selector and Previous/Next controls keep the table context. Suite and
+conversation IDs remain shareable, including the selected definition step.
+The Conversation ID appears under the title. The message comes before Expected
+behavior, which groups configured criteria and automatic checks without verdict
+badges. Judge instructions stays with the case context below; Case definition
+shows only the selected case. **View workflow** opens topology with the configured
+workflow selected, beside Judge instructions. Test data and reference facts remain optional.
+
+Inside a saved run, Suite details describes the saved snapshot and execution
+settings; additional identifiers and configuration are collapsed. Conversation
+results lead with selected repetition outcome, execution time and cost, then the
+recorded assessment and messages. One **Assessment details** expander groups the
+criterion, supporting evidence and automatic check results without nested accordions.
+The explanation stays visible; failed steps open their details by default. Missing
+verdicts remain Not assessed. Raw response context expands separately. See more stats expands from a thin gray footer attached to the summary boxes. This repetition’s stats appear first, with All repetitions totals below a separator. The Conversation ID appears beneath the title; phase timings live in the stats instead of a separate Execution details section. Comparison uses
+the same reading order: a shared step selector aligns Earlier and This run
+assessments and messages, while repetition selections remain independent.
+Step selection, baseline and repetitions survive reload and browser history.
+
+
+### Inspecting judge instructions
+
+The conversation definition and result drawers expose **Judge instructions** in
+a stacked, read-only platform drawer. Definitions show the configured default;
+launch can choose another judge. Results use the saved execution snapshot only.
+Older/custom judges without a snapshot show **Instructions not recorded**.
+`createEvalJudge` publishes its actual static system instructions. A custom
+`EvalJudge` can opt in with `instructions?: string` (1–64,000 characters), which
+must match the static instructions it uses. Exclude secrets, case inputs and
+resolved customer data. Change the judge version when instructions change.
+Criteria remain separate per-step requirements; this reader adds no judge editing
+or prompt-library resolution API. Upgrade API and Studio together before SDK
+consumers that publish the optional field; older strict readers require the update.

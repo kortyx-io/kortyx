@@ -10,7 +10,7 @@ import { useStudioQueryState } from "@/lib/nuqs";
 import { evalRequest } from "../api/client";
 
 export function useEvalLiveRun(
-  id: string,
+  id: string | null,
   initial: StudioEvalLiveDetail | null,
   refresh: number,
 ) {
@@ -23,6 +23,7 @@ export function useEvalLiveRun(
   const current = useRef(initial);
   const request = useRef<AbortController | null>(null);
   const read = useCallback(async () => {
+    if (!id) return;
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
@@ -59,7 +60,7 @@ export function useEvalLiveRun(
     current.current = initial?.id === id ? initial : null;
     setDetail(current.current);
     setError(null);
-    if (!current.current) void read();
+    if (id && !current.current) void read();
     return () => request.current?.abort();
   }, [id, initial, read]);
   const lastRefresh = useRef(refresh);
@@ -69,12 +70,12 @@ export function useEvalLiveRun(
     void read();
   }, [refresh, read]);
   const live = useLiveRefresh({
-    enabled,
+    enabled: Boolean(id) && enabled,
     resource: "evals",
     relatedResources: ["runs"],
     minRefreshIntervalMs: 1_000,
     refreshOnEnable: false,
-    refreshKey: id,
+    refreshKey: id ?? "",
     refresh: read,
   });
   return {

@@ -26,9 +26,11 @@ import { EvalRunSetup } from "./eval-run-setup";
 export function EvalRerunFailed({
   run,
   canRun,
+  matchPath,
 }: {
   run: EvalDetail | StudioEvalLiveDetail | StudioEvaluationDetail;
   canRun: boolean;
+  matchPath?: string;
 }) {
   const [query, setQuery] = useStudioQueryStates(evalSetupParsers, {
     shallow: true,
@@ -122,9 +124,10 @@ export function EvalRerunFailed({
         <EvalRunSetup
           targets={targets}
           matchPath={
-            "suites" in run
+            matchPath ??
+            ("suites" in run
               ? `/evals/evaluations/${run.id}`
-              : `/evals/runs/${run.id}`
+              : `/evals/runs/${run.id}`)
           }
         />
       ) : null}

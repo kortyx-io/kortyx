@@ -265,3 +265,23 @@ it("rejects a pinned app judge when deployment removes the app judge", async () 
   expect(response.status).toBe(409);
   expect(run).not.toHaveBeenCalled();
 });
+
+it("saves the selected judge instructions without changing older custom judges", async () => {
+  const evals = createEvals({
+    agent,
+    suites: [suite],
+    execute,
+    judge: {
+      ...codeJudge,
+      instructions: "Apply the supplied criterion. Never invent evidence.",
+    },
+  });
+  expect(evals.describe().judge?.instructions).toBe(
+    "Apply the supplied criterion. Never invent evidence.",
+  );
+  const result = await evals.run({ suiteId: suite.id });
+  expect(result.judge?.instructions).toBe(
+    "Apply the supplied criterion. Never invent evidence.",
+  );
+  expect(codeJudge.instructions).toBeUndefined();
+});

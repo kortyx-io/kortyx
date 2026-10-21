@@ -27,6 +27,19 @@ export function comparisonSelectionHref(
 }
 export const evalRunHref = (id: string) =>
   `/evals/runs/${encodeURIComponent(id)}`;
+export const evaluationHref = (id: string) =>
+  `/evals/evaluations/${encodeURIComponent(id)}`;
+export function evaluationCompareHref(
+  id: string,
+  baseline?: string,
+  suiteId?: string,
+) {
+  const path = `${evaluationHref(id)}/compare`;
+  const params = new URLSearchParams();
+  if (baseline) params.set("baseline", baseline);
+  if (suiteId) params.set("suiteId", suiteId);
+  return `${path}${params.size ? `?${params}` : ""}`;
+}
 export const evalSuiteHref = (target: string, suite: string) =>
   `/evals/suites/${encodeURIComponent(target)}/${encodeURIComponent(suite)}`;
 export function evalCompareHref(candidate: string, baseline?: string) {

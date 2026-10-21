@@ -17,7 +17,11 @@ export function registerEvalJudgeRoutes(
 ) {
   const path = "/v1/studio/evals/judge";
   const identity = judge
-    ? { id: judge.id, version: judge.version, location: "studio" as const }
+    ? {
+        id: judge.id,
+        version: judge.version,
+        location: "studio" as const,
+      }
     : undefined;
   let active = 0;
   app.use(path, bodyLimit({ maxSize: 2_000_000 }));
@@ -42,7 +46,12 @@ export function registerEvalJudgeRoutes(
     );
     if (!identity)
       return c.json({ error: "Studio judge is not configured." }, 503);
-    return c.json(identity);
+    return c.json({
+      ...identity,
+      ...(c.req.query("includeInstructions") === "true" && judge?.instructions
+        ? { instructions: judge.instructions }
+        : {}),
+    });
   });
   app.post(path, async (c) => {
     const input = StudioEvalJudgeRequestSchema.safeParse(
@@ -88,7 +97,13 @@ export function registerEvalJudgeRoutes(
       );
       signal.throwIfAborted();
       return c.json({
-        judge: identity,
+        judge: {
+          ...identity,
+          ...(c.req.query("includeInstructions") === "true" &&
+          judge.instructions
+            ? { instructions: judge.instructions }
+            : {}),
+        },
         verdict,
         ...(usage.length ? { usage } : {}),
       });

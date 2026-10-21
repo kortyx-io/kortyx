@@ -8,6 +8,7 @@ import {
   evalNavigationHref,
   evalRunHref,
   evalSuiteHref,
+  evaluationCompareHref,
   legacyEvalHref,
 } from "./navigation";
 
@@ -120,4 +121,13 @@ it.each([
   "not-json",
 ])("rejects malformed launch case selection %s", (value) => {
   expect(evalSetupParsers.launchCases.parse(value)).toBeNull();
+});
+
+it("encodes evaluation comparison scope with or without a baseline", () => {
+  expect(evaluationCompareHref("a/b", undefined, "suite/x")).toBe(
+    "/evals/evaluations/a%2Fb/compare?suiteId=suite%2Fx",
+  );
+  expect(evaluationCompareHref("a", "b/c", "suite/x")).toBe(
+    "/evals/evaluations/a/compare?baseline=b%2Fc&suiteId=suite%2Fx",
+  );
 });

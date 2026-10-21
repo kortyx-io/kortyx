@@ -16,6 +16,7 @@ import {
 } from "../lib/navigation";
 import { isActive } from "../lib/presentation";
 import type { EvalHistory } from "../schema";
+import { EvalRunBodySkeleton } from "./eval-loading";
 import { EvalRerunFailed } from "./eval-rerun-failed";
 import { EvalRunDetail } from "./eval-run-detail";
 
@@ -120,6 +121,7 @@ export function EvalLiveRunPageClient({
                   r.id !== id &&
                   r.suiteId === current.detail?.suiteId &&
                   r.targetId === current.detail?.targetId &&
+                  r.environment === current.detail?.environment &&
                   !isActive(r.status),
               )}
               onCompare={() =>
@@ -131,12 +133,15 @@ export function EvalLiveRunPageClient({
                         r.id !== id &&
                         r.suiteId === current.detail?.suiteId &&
                         r.targetId === current.detail?.targetId &&
+                        r.environment === current.detail?.environment &&
                         !isActive(r.status),
                     )?.id,
                   ),
                 )
               }
             />
+          ) : !current.error ? (
+            <EvalRunBodySkeleton />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-4">
               <output>

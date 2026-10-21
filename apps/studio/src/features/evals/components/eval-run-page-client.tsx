@@ -17,6 +17,7 @@ import {
 import { isActive } from "../lib/presentation";
 import type { EvalDetail, EvalHistory, EvalTargets } from "../schema";
 import { EvalComparison } from "./eval-comparison";
+import { EvalRunBodySkeleton } from "./eval-loading";
 import { EvalRerunFailed } from "./eval-rerun-failed";
 import { EvalRunDetail } from "./eval-run-detail";
 export function EvalRunPageClient({
@@ -131,7 +132,12 @@ export function EvalRunPageClient({
                 }
                 canRun={targets.canRun}
                 canCompare={history.runs.some(
-                  (r) => r.id !== id && !isActive(r.status),
+                  (r) =>
+                    r.id !== id &&
+                    r.suiteId === current.detail?.suiteId &&
+                    r.targetId === current.detail?.targetId &&
+                    r.environment === current.detail?.environment &&
+                    !isActive(r.status),
                 )}
                 cancelling={cancelling}
                 onCancel={() => {
@@ -143,12 +149,15 @@ export function EvalRunPageClient({
                       r.id !== id &&
                       r.suiteId === current.detail?.suiteId &&
                       r.targetId === current.detail?.targetId &&
+                      r.environment === current.detail?.environment &&
                       !isActive(r.status),
                   );
                   navigate(evalCompareHref(id, other?.id));
                 }}
               />
             )
+          ) : current.loading ? (
+            <EvalRunBodySkeleton />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-4">
               <output>

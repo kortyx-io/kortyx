@@ -8,3 +8,9 @@ export {
   type StudioEvalTargets as EvalTargets,
   StudioEvalTargetsResponseSchema as EvalTargetsResponseSchema,
 } from "@kortyx/agent/evals";
+
+import type { StudioEvaluationResultsSchema } from "@kortyx/agent/evals";
+import type { z } from "zod";
+export type EvaluationResults = z.infer<
+  typeof StudioEvaluationResultsSchema
+>["run"];

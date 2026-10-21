@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { EvalDetail } from "../schema";
-import { caseRows, compareRuns, progressCounts } from "./presentation";
+import {
+  caseRows,
+  compareRuns,
+  groupCaseRows,
+  progressCounts,
+} from "./presentation";
 
 const run = (): EvalDetail => ({
   id: "a",
@@ -258,4 +263,59 @@ it("preserves captured evidence when the execution outcome is unknown", () => {
   expect(rows[0]?.status).toBe("unknown");
   expect(rows[0]?.steps).toHaveLength(1);
   expect(progressCounts(rows)).toMatchObject({ error: 1, completed: 1 });
+});
+
+describe("one conversation row across repetitions", () => {
+  it("groups mixed outcomes, opens the failed repetition, and keeps source records intact", () => {
+    const a = caseRows(finished("passed"))[0];
+    const b = {
+      ...caseRows(finished("failed"))[0],
+      key: "ambiguity:2",
+      repetition: 2,
+    };
+    const input = [b, a],
+      before = structuredClone(input);
+    const [group] = groupCaseRows(input);
+    expect(group).toMatchObject({
+      caseId: "ambiguity",
+      status: "mixed",
+      defaultRepetition: 2,
+      counts: { passed: 1, failed: 1, total: 2, completed: 2 },
+      durationMs: 20,
+    });
+    expect(group.repetitions.map((row) => row.repetition)).toEqual([1, 2]);
+    expect(input).toEqual(before);
+  });
+  it("keeps pending and ungraded repetitions unfinished in the grouped row", () => {
+    const rows = caseRows(run());
+    rows[0] = { ...caseRows(finished("passed"))[0] };
+    let group = groupCaseRows(rows)[0];
+    expect(group).toMatchObject({
+      status: "running",
+      counts: { passed: 1, total: 2, completed: 1 },
+      durationMs: undefined,
+    });
+    rows[1].status = "ungraded";
+    group = groupCaseRows(rows)[0];
+    expect(group).toMatchObject({
+      status: "ungraded",
+      counts: { passed: 1, completed: 1 },
+      defaultRepetition: 2,
+    });
+  });
+});
+
+it("reserves mixed quality for assessed passes and failures in finished cases", () => {
+  const passed = caseRows(finished("passed"))[0];
+  const other = { ...passed, key: "ambiguity:2", repetition: 2 };
+  expect(groupCaseRows([passed, { ...other, status: "error" }])[0].status).toBe(
+    "error",
+  );
+  expect(
+    groupCaseRows([passed, { ...other, status: "cancelled" }])[0].status,
+  ).toBe("cancelled");
+  expect(
+    groupCaseRows([passed, { ...other, status: "failed" }], { active: true })[0]
+      .status,
+  ).toBe("failed");
 });

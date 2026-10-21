@@ -107,13 +107,13 @@ it("keeps the recorded sample deterministic even years after its reference clock
 
 it("projects observed specialist calls once, including resumed and reused executions", () => {
   const models = createSampleProjectReadModels();
-  expect(models.runs).toHaveLength(50);
-  expect(models.sessions).toHaveLength(20);
-  expect(models.childRuns).toHaveLength(55);
+  expect(models.runs).toHaveLength(58);
+  expect(models.sessions).toHaveLength(25);
+  expect(models.childRuns).toHaveLength(65);
   const calls = models.workflows.observedCalls ?? [];
   expect(calls).toHaveLength(2);
   expect(calls.map((call) => call.volume).sort((a, b) => a - b)).toEqual([
-    17, 38,
+    19, 46,
   ]);
   expect(calls.reduce((sum, call) => sum + call.volume, 0)).toBe(
     models.childRuns.length,

@@ -49,6 +49,14 @@ export async function proxy(request: NextRequest): Promise<Response> {
           ),
         );
   }
+  // This Studio-owned summary composes existing immutable sample reads.
+  // Its route handler reauthorizes the request and preserves sample intent.
+  if (
+    browserSample &&
+    request.method === "GET" &&
+    request.nextUrl.pathname === "/api/studio/evals/comparison"
+  )
+    return NextResponse.next();
   if (browserSample) {
     const { sampleBrowserResponse } = await import(
       "@/features/sample-project/http"

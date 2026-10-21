@@ -16,6 +16,22 @@ function plan(path: string, html: string) {
   document.body.innerHTML = `<main data-studio-page="true">${html}</main>`;
   return createPageHelpPlan(new URL(path, "https://studio.example"));
 }
+it("explains the comparison modal instead of the table underneath without reading content", () => {
+  const modal = document.createElement("section");
+  modal.setAttribute("data-eval-comparison-modal", "true");
+  modal.innerHTML =
+    '<header data-page-help="comparison-context">private run name</header><div data-comparison-side="Earlier">private answer</div><div data-comparison-side="This run">private answer</div><footer data-page-help="comparison-navigation"></footer>';
+  document.body.append(modal);
+  const result = createPageHelpPlan(
+    new URL("https://studio.example/sample/evals/runs"),
+  );
+  expect(result.id).toBe("eval-case-comparison");
+  expect(result.steps).toHaveLength(4);
+  expect(result.steps.every((step) => modal.contains(step.target))).toBe(true);
+  expect(
+    JSON.stringify(result.steps.map(({ content }) => content)),
+  ).not.toContain("private");
+});
 it("explains a real execution's current tab without navigating or reading its content", () => {
   const path =
     "/projects/prj_0123456789abcdef01234567/runs/customer-run?tab=events&event=customer-event&env=production";
@@ -125,6 +141,7 @@ it("covers every primary Studio route and retains help for extension pages", () 
     "/evals/suites": "eval-suites",
     "/evals/suites/target/suite": "eval-suite",
     "/evals/runs/id/compare": "eval-comparison",
+    "/evals/evaluations/id/compare": "eval-comparison",
     "/evals/cases/run/case/1": "eval-case",
     "/evals/cases/run/case/compare": "eval-case-comparison",
     "/diagnostics/id": "diagnostic",
@@ -157,10 +174,10 @@ it("gets to selected evidence without teaching generic table or tab controls aga
 it("retains domain help for related records on detail pages without tab panels", () => {
   const result = plan(
     "/sample/evals/evaluations/current",
-    `<header data-tour-surface="eval-summary"></header><div data-table-controls="evaluation-suites"></div><table><tr data-row-key="private-suite"><td>Private suite</td></tr></table>`,
+    `<header data-tour-surface="eval-summary"></header><div data-table-controls="evaluation-conversations"></div><table><tr data-row-key="private-suite"><td>Private suite</td></tr></table>`,
   );
   expect(result.steps.map((step) => step.id)).toEqual(["overview", "content"]);
-  expect(result.steps[1]?.content).toContain("open a suite");
+  expect(result.steps[1]?.content).toContain("filters the same table");
   expect(result.steps[1]?.target.tagName).toBe("TD");
 });
 
@@ -259,4 +276,49 @@ it("uses authored setup help and rejects untrusted documentation destinations", 
     expect(result.steps.at(-1)?.content).toBe("The key step is optional.");
     expect(result.documentationUrl).toBeUndefined();
   }
+});
+
+it("explains the conversation results inside the evaluation workspace", () => {
+  const result = plan(
+    "/evals/evaluations/id?suiteRun=suite&evalTab=cases",
+    `<header data-page-help="header"></header><div data-eval-run-id="suite"><button data-page-help="suite-details"></button><div data-detail-tab-content="cases" aria-hidden="false"><table><tbody><tr data-row-key="case"><td>private</td></tr></tbody></table></div></div>`,
+  );
+  expect(result.id).toBe("eval-run");
+  expect(result.steps[0]?.target.dataset.pageHelp).toBe("suite-details");
+  expect(result.steps.at(-1)?.content).toContain(
+    "Each row represents one conversation",
+  );
+  expect(result.steps.at(-1)?.content).toContain("Repetition dropdown");
+});
+
+it("explains suite details in the open inspector instead of the results underneath", () => {
+  document.body.innerHTML = `<main data-studio-page="true"><div data-eval-run-id="suite"><div data-detail-tab-content="cases" aria-hidden="false"></div></div></main><section data-detail-inspector data-state="open"><section data-suite-details-section="context" data-detail-tab-content="context" aria-hidden="false"><h3 data-page-help="header">Configuration</h3><dl data-guide-focus="eval-configuration"><dt>Run ID</dt><dd>private-id</dd></dl></section></section>`;
+  const result = createPageHelpPlan(
+    new URL(
+      "https://studio.example/evals/evaluations/id?suiteRun=suite&evalTab=context",
+    ),
+  );
+  const inspector = document.querySelector("[data-detail-inspector]");
+  expect(result.id).toBe("eval-run");
+  expect(result.steps.every((step) => inspector?.contains(step.target))).toBe(
+    true,
+  );
+  expect(result.steps.at(-1)?.title).toBe("Configuration");
+  expect(result.steps.at(-1)?.content).not.toContain("private-id");
+});
+
+it("explains the instruction reader without reading instruction content", () => {
+  const result = plan(
+    "/sample/evals/judges/target/app?suiteId=suite",
+    '<section data-judge-instructions><header data-judge-instructions-context>private judge</header><input type="search" /><article aria-label="Judge instruction text">private instructions</article></section>',
+  );
+  expect(result.title).toBe("Judge instructions");
+  expect(result.steps.map((step) => step.id)).toEqual([
+    "overview",
+    "controls",
+    "content",
+  ]);
+  expect(
+    JSON.stringify(result.steps.map(({ content }) => content)),
+  ).not.toContain("private");
 });

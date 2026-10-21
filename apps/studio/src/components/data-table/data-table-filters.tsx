@@ -41,6 +41,7 @@ import type { useTableSearch } from "./use-table-search";
 
 export function DataTableFilterControls<T>({
   help,
+  disabled = false,
   tableId,
   searching,
   start,
@@ -60,6 +61,7 @@ export function DataTableFilterControls<T>({
 }: {
   help?: { filters: HelpDefinition; views: HelpDefinition };
   tableId: string;
+  disabled?: boolean;
   searching: ReturnType<typeof useTableSearch>;
   start?: ReactNode;
   panelContainer: HTMLDivElement | null;
@@ -248,6 +250,7 @@ export function DataTableFilterControls<T>({
         />
         <Input
           type="search"
+          disabled={disabled}
           aria-label={searching.label}
           placeholder={searching.placeholder}
           className="h-8 pl-9"

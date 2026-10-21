@@ -266,3 +266,22 @@ it("isolates sample table preference endpoints from the real project", async () 
   }
   expect(state.credential).not.toHaveBeenCalled();
 });
+
+it("routes sample comparison summaries through immutable reads with auth and visibility intact", async () => {
+  const { readModalComparison } = await import("../evals/api/modal-comparison");
+  const path = `/api/studio/evals/comparison?run=${SAMPLE_PROJECT.evaluationId}&baseline=${SAMPLE_PROJECT.evaluationIds.baseline}`;
+  const makeRequest = () =>
+    request(path, { headers: { [STUDIO_REQUEST_PATH]: "/sample/evals/runs" } });
+  const forwarded = await proxy(makeRequest());
+  expect(forwarded.headers.get("x-middleware-next")).toBe("1");
+  const response = await readModalComparison(makeRequest());
+  expect(response.status).toBe(200);
+  expect((await response.json()).state).toBe("ready");
+  expect(state.credential).not.toHaveBeenCalled();
+  state.values.set(SAMPLE_VISIBILITY_COOKIE, "false");
+  expect((await proxy(makeRequest())).status).toBe(404);
+  expect((await readModalComparison(makeRequest())).status).toBe(503);
+  state.authorize.mockResolvedValue(new Response("Denied", { status: 401 }));
+  expect((await proxy(makeRequest())).status).toBe(401);
+  expect((await readModalComparison(makeRequest())).status).toBe(401);
+});

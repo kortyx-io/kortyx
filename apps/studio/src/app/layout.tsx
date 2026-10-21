@@ -39,6 +39,7 @@ export default async function RootLayout({
   runDrawer,
   sessionDrawer,
   evalCaseDrawer,
+  evalJudgeDrawer,
   evalSuiteDrawer,
   promptDrawer,
   promptGroupDrawer,
@@ -49,6 +50,7 @@ export default async function RootLayout({
   runDrawer: React.ReactNode;
   sessionDrawer: React.ReactNode;
   evalCaseDrawer: React.ReactNode;
+  evalJudgeDrawer: React.ReactNode;
   evalSuiteDrawer: React.ReactNode;
   promptDrawer: React.ReactNode;
   promptGroupDrawer: React.ReactNode;
@@ -93,6 +95,9 @@ export default async function RootLayout({
                       </DetailSlotPresence>
                       <DetailSlotPresence dismissPath="/evals/suites">
                         {evalSuiteDrawer}
+                      </DetailSlotPresence>
+                      <DetailSlotPresence dismissPath="/evals/judges">
+                        {evalJudgeDrawer}
                       </DetailSlotPresence>
                       <DetailSlotPresence dismissPath="/evals/cases">
                         {evalCaseDrawer}

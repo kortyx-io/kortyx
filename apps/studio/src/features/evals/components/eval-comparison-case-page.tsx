@@ -6,7 +6,11 @@ import { DetailPage } from "@/components/detail/detail-page";
 import { Button } from "@/components/ui/button";
 import { studioRouteId } from "@/lib/studio-routes";
 import { readEvalDetail } from "../api/server";
-import { evalCompareHref, evalComparisonCaseHref } from "../lib/navigation";
+import {
+  evalCompareHref,
+  evalComparisonCaseHref,
+  evaluationCompareHref,
+} from "../lib/navigation";
 import { compareRuns } from "../lib/presentation";
 import { EvalComparisonCaseContent } from "./eval-comparison-case-content";
 
@@ -16,11 +20,18 @@ export async function EvalComparisonCasePage({
   drawer = false,
 }: {
   params: Promise<{ evalRunId: string; caseId: string }>;
-  searchParams: Promise<{ baseline?: string }>;
+  searchParams: Promise<{
+    baseline?: string;
+    evaluationComparison?: string;
+    comparisonBaseline?: string;
+    suiteId?: string;
+  }>;
   drawer?: boolean;
 }) {
-  const [{ evalRunId, caseId: encodedCaseId }, { baseline: baselineId }] =
-    await Promise.all([params, searchParams]);
+  const [
+    { evalRunId, caseId: encodedCaseId },
+    { baseline: baselineId, evaluationComparison, comparisonBaseline, suiteId },
+  ] = await Promise.all([params, searchParams]);
   const caseId = studioRouteId(encodedCaseId);
   if (!baselineId) notFound();
   const [candidate, baseline] = await Promise.all([
@@ -31,6 +42,9 @@ export async function EvalComparisonCasePage({
     (r) => r.id === caseId,
   );
   if (!row) notFound();
+  const backHref = evaluationComparison
+    ? evaluationCompareHref(evaluationComparison, comparisonBaseline, suiteId)
+    : evalCompareHref(evalRunId, baselineId);
   const content = (
     <EvalComparisonCaseContent
       row={row}
@@ -55,7 +69,7 @@ export async function EvalComparisonCasePage({
         <header className="flex min-w-0 shrink-0 items-center gap-3 border-b px-4 py-3">
           <Button variant="ghost" size="icon-sm" asChild>
             <DetailLink
-              href={evalCompareHref(evalRunId, baselineId)}
+              href={backHref}
               aria-label="Comparison results"
               title="Comparison results"
             >

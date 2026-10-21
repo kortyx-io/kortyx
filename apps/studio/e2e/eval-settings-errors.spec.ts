@@ -166,6 +166,10 @@ test("saves project defaults and submits only settings explicitly changed for a 
       page.getByLabel("Concurrent attempts across suites", { exact: true }),
     ).toHaveValue("2");
     await page
+      .getByRole("dialog")
+      .getByText("Execution settings", { exact: true })
+      .click();
+    await page
       .getByLabel("Evaluation timeout (minutes)", { exact: true })
       .fill("90");
     await capture(page, "run-setting-overrides");
@@ -229,6 +233,7 @@ test("allows a run override to satisfy an application ceiling below the project 
       .getByRole("button", { name: "Run evaluations", exact: true })
       .click();
     const drawer = page.getByRole("dialog");
+    await drawer.getByText("Execution settings", { exact: true }).click();
     const start = drawer.getByRole("button", {
       name: "Run evaluations",
       exact: true,

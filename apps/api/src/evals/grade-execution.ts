@@ -52,7 +52,12 @@ export async function gradeEvalExecution(
 ): Promise<EvalRunResult> {
   const started = Date.now();
   const result = structuredClone(execution);
-  result.judge = { id: judge.id, version: judge.version, location: "studio" };
+  result.judge = {
+    id: judge.id,
+    version: judge.version,
+    location: "studio",
+    ...(judge.instructions ? { instructions: judge.instructions } : {}),
+  };
   for (const item of result.cases) {
     const caseStarted = Date.now();
     for (const step of item.steps) {

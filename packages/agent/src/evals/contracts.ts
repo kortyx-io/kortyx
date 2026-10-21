@@ -281,6 +281,7 @@ export const EvalCaseResultSchema = z
   .strict();
 export const EvalJudgeIdentitySchema = z
   .object({
+    instructions: z.string().min(1).max(64_000).optional(),
     id,
     version: id,
     location: z.enum(["app", "studio"]).optional(),

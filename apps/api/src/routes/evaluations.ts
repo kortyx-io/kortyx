@@ -252,6 +252,9 @@ export function registerEvaluationRoutes(
       const judge =
         request.judge === "studio"
           ? studioJudge && {
+              ...(studioJudge.instructions
+                ? { instructions: studioJudge.instructions }
+                : {}),
               id: studioJudge.id,
               version: studioJudge.version,
               location: "studio" as const,

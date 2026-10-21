@@ -75,6 +75,7 @@ export async function createStudioEvalJudge(
       "Studio judging requires an API origin, key and environment, with HTTPS or explicit local HTTP opt-in.",
     );
   const endpoint = new URL("/v1/studio/evals/judge", base);
+  endpoint.searchParams.set("includeInstructions", "true");
   const discovery = new URL(endpoint);
   discovery.searchParams.set("environment", options.environment);
   const signal = options.signal
@@ -100,7 +101,11 @@ export async function createStudioEvalJudge(
     async grade(input) {
       const request = StudioEvalJudgeRequestSchema.parse({
         environment: options.environment,
-        judge: identity,
+        judge: {
+          id: identity.id,
+          version: identity.version,
+          location: identity.location,
+        },
         criterion: input.criterion,
         input: input.input,
         observation: compactEvalObservation(input.observation),
@@ -135,7 +140,9 @@ export async function createStudioEvalJudge(
       if (
         response.judge.id !== identity.id ||
         response.judge.version !== identity.version ||
-        response.judge.location !== "studio"
+        response.judge.location !== "studio" ||
+        (identity.instructions !== undefined &&
+          response.judge.instructions !== identity.instructions)
       )
         throw new Error(
           "Studio judge identity changed. Refresh before running.",

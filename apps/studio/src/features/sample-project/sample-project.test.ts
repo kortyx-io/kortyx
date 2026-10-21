@@ -106,11 +106,11 @@ it("links evaluation execution errors to their full diagnostic and keeps quality
   }
   expect(executionErrors).toBe(1);
 });
-it("projects 50 root runs, 20 sessions, both specialists, and every run status", () => {
+it("projects 58 root runs, 25 sessions, both specialists, and every run status", () => {
   const data = readSampleDataset();
-  expect(data.runs).toHaveLength(50);
-  expect(data.sessions).toHaveLength(20);
-  expect(new Set(data.runs.map((run) => run.id)).size).toBe(50);
+  expect(data.runs).toHaveLength(58);
+  expect(data.sessions).toHaveLength(25);
+  expect(new Set(data.runs.map((run) => run.id)).size).toBe(58);
   expect(new Set(data.runs.map((run) => run.status))).toEqual(
     new Set([
       "completed",
@@ -239,7 +239,7 @@ it("filters and paginates against the fixed sample clock", async () => {
   expect(
     (await sampleResponse("/v1/studio/runs?range=24%20hours").json())
       .totalCount,
-  ).toBe(50);
+  ).toBe(58);
   expect(
     (
       await sampleResponse(
@@ -268,13 +268,13 @@ it("isolates dataset snapshots between requests", () => {
   const data = readSampleDataset();
   data.runs.length = 0;
   data.prompts.library.permissions.edit = true;
-  expect(readSampleDataset().runs).toHaveLength(50);
+  expect(readSampleDataset().runs).toHaveLength(58);
   expect(readSampleDataset().prompts.library.permissions.edit).toBe(false);
 });
 
 it("records completed baseline and latest evaluations with improved results and coverage", async () => {
   const data = readSampleDataset();
-  expect(data.evals.evaluations).toHaveLength(3);
+  expect(data.evals.evaluations).toHaveLength(5);
   const totals = await Promise.all(
     data.evals.evaluations
       .filter(({ results }) => results.run.status !== "running")
@@ -284,13 +284,16 @@ it("records completed baseline and latest evaluations with improved results and 
         expect(evaluation.completedSuites).toBe(evaluation.suiteCount);
         expect(evaluation.completedAttempts).toBe(evaluation.totalAttempts);
         const cases = evaluation.suites.flatMap((suite) => {
-          expect(suite.result?.cases.map((entry) => entry.caseId)).toEqual(
-            suite.suite.cases.map((entry) => entry.id),
+          expect([
+            ...new Set(suite.result?.cases.map((entry) => entry.caseId)),
+          ]).toEqual(
+            suite.request?.caseIds ??
+              suite.suite.cases.map((entry) => entry.id),
           );
           expect(suite.result?.suiteRevision).toBe(suite.suiteRevision);
           expect(suite.costs?.total.amount).toBeGreaterThan(0);
           expect(Object.keys(suite.caseCosts ?? {})).toHaveLength(
-            suite.suite.cases.length,
+            suite.result?.cases.length ?? 0,
           );
           expect(suite.request?.promptSnapshot?.revision).toMatch(
             /^sample-prompts-[123]$/,
@@ -334,8 +337,10 @@ it("records completed baseline and latest evaluations with improved results and 
   expect(totals).toEqual([
     [2, 3, 6],
     [3, 7, 8],
+    [2, 5, 6],
+    [2, 4, 4],
   ]);
-  expect(data.evals.runs).toHaveLength(7);
+  expect(data.evals.runs).toHaveLength(11);
   for (const detail of data.evals.runs) {
     expect(
       sampleResponse(`/v1/studio/evals/runs/${detail.run.id}`).status,
@@ -517,4 +522,44 @@ it("uses authored sample content and exposes every prompt revision without netwo
       StudioRunDetailResponseSchema.safeParse(await response.json()).success,
     ).toBe(true);
   }
+});
+
+it("offers two- and three-repetition samples with separate captured executions and mixed quality", () => {
+  const data = readSampleDataset();
+  const examples = data.evals.evaluations.filter(({ detail }) =>
+    detail.run.name.startsWith("Consistency check"),
+  );
+  expect(examples.map(({ detail }) => detail.run.totalAttempts)).toEqual([
+    6, 4,
+  ]);
+  expect(
+    data.evals.evaluations.every(
+      ({ results }) => results.run.suites.length >= 2,
+    ),
+  ).toBe(true);
+  for (const { results } of examples) {
+    expect(results.run.suites).toHaveLength(2);
+    for (const run of results.run.suites) {
+      const cases = run.result?.cases ?? [];
+      expect(cases).toHaveLength(run.request?.repetitions ?? 0);
+      expect(new Set(cases.map((entry) => entry.caseId)).size).toBe(1);
+      expect(new Set(cases.map((entry) => entry.sessionId)).size).toBe(
+        cases.length,
+      );
+      expect(cases.map((entry) => entry.repetition)).toEqual(
+        Array.from({ length: cases.length }, (_, index) => index + 1),
+      );
+      for (const entry of cases)
+        expect(
+          run.caseCosts?.[`${entry.caseId}:${entry.repetition}`]?.total.status,
+        ).toBe("complete");
+    }
+  }
+  const mixed = examples[0].results.run.suites[0].result?.cases ?? [];
+  expect(mixed.map((entry) => entry.status)).toEqual([
+    "passed",
+    "failed",
+    "passed",
+  ]);
+  expect(mixed[1].steps[0].observation.text).toContain("cannot tell you");
 });

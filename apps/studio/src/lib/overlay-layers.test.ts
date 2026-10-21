@@ -13,6 +13,7 @@ describe("overlay layer contract", () => {
 
     expect(OVERLAY_LAYERS.detailBackdrop).toBeLessThan(session);
     expect(session).toBeLessThan(run);
+    expect(detailInspectorZIndex(session).surface).toBeLessThan(run);
     expect(run).toBeLessThan(inspector.backdrop);
     expect(inspector.backdrop).toBeLessThan(inspector.surface);
   });

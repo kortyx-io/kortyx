@@ -2,9 +2,8 @@
 
 import type { EvalSuite } from "@kortyx/agent/evals";
 import { tablePassRate } from "@kortyx/telemetry-contracts";
-import { FlaskConical, GitCompareArrows, Play, RefreshCw } from "lucide-react";
+import { FlaskConical, Play, RefreshCw } from "lucide-react";
 import {
-  parseAsArrayOf,
   parseAsBoolean,
   parseAsInteger,
   parseAsString,
@@ -15,8 +14,7 @@ import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { valueColumn } from "@/components/data-table/value-column";
-import { DetailLink } from "@/components/detail/detail-link";
-import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
+import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
 import { evalDurationMs } from "@/features/evals/lib/duration";
 import { LiveRefreshButton } from "@/features/telemetry/components/live-refresh-button";
@@ -30,7 +28,6 @@ import { evalRequest } from "../api/client";
 import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { useEvalSetup } from "../hooks/use-eval-setup";
 import {
-  evalCompareHref,
   evalNavigationHref,
   evalRunHref,
   evalSuiteHref,
@@ -63,7 +60,6 @@ const defaults: ListTablePreferences<Sort, unknown> = {
 };
 const parsers = {
   live: parseAsBoolean.withDefault(true),
-  selected: parseAsArrayOf(parseAsString).withDefault([]),
   q: parseAsString.withDefault(""),
   env: parseAsString.withDefault("All environments"),
   application: parseAsString.withDefault("all"),
@@ -109,10 +105,6 @@ export function EvalsPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { open } = useEvalSetup(targets);
-  const selectedRuns = query.selected;
-  const setSelectedRuns = (next: string[]) => {
-    void setQuery({ selected: next });
-  };
   const navigate = (href: string) =>
     router.push(evalNavigationHref(href, searchParams));
   const update = (values: Partial<typeof query>) => {
@@ -155,13 +147,11 @@ export function EvalsPageClient({
     },
   });
   const startSetup = (row?: SuiteRow) => open(row?.target.id, row?.suite.id);
-  const prepareDetailNavigation = usePrepareDetailNavigation();
   const chooseSuite = (row: SuiteRow) => {
     const href = evalNavigationHref(
       evalSuiteHref(row.target.id, row.suite.id),
       searchParams,
     );
-    prepareDetailNavigation?.(href);
     router.push(href);
   };
   const suiteRows = targets.targets.flatMap(
@@ -191,32 +181,6 @@ export function EvalsPageClient({
   );
   const chooseRun = (id: string) => navigate(evalRunHref(id));
   const runColumns: DataTableColumn<EvalRunSummary, Sort>[] = [
-    {
-      key: "select",
-      filter: false,
-      label: "Compare",
-      defaultWidth: 70,
-      render: (r) => (
-        <input
-          type="checkbox"
-          aria-label={`Select ${r.id} for comparison`}
-          className="accent-foreground"
-          checked={selectedRuns.includes(r.id)}
-          disabled={
-            isActive(r.status) ||
-            (!selectedRuns.includes(r.id) && selectedRuns.length === 2)
-          }
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) =>
-            setSelectedRuns(
-              e.target.checked
-                ? [...selectedRuns, r.id]
-                : selectedRuns.filter((id) => id !== r.id),
-            )
-          }
-        />
-      ),
-    },
     {
       key: "suite",
       filter: [
@@ -369,7 +333,7 @@ export function EvalsPageClient({
             className="max-w-full justify-start"
             asChild
           >
-            <DetailLink
+            <Link
               href={evalNavigationHref(
                 evalSuiteHref(r.target.id, r.suite.id),
                 searchParams,
@@ -378,7 +342,7 @@ export function EvalsPageClient({
               <span className="truncate">
                 {r.suite.name ?? displayName(r.suite.id)}
               </span>
-            </DetailLink>
+            </Link>
           </Button>
           <p className="truncate font-mono text-[10px] text-muted-foreground">
             {r.suite.id}
@@ -511,22 +475,14 @@ export function EvalsPageClient({
   const header = (
     <TablePageHeader
       help={studioHelp.evals}
-      title="Evals"
-      description="Conversation suites and saved evaluation results"
+      title={view === "runs" ? "Evaluation runs" : "Evaluation suites"}
+      description={
+        view === "runs"
+          ? "Results and costs from saved suite executions"
+          : "Browse suites and their conversation definitions"
+      }
       actions={
         <>
-          {selectedRuns.length === 2 && view === "runs" ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                navigate(evalCompareHref(selectedRuns[1], selectedRuns[0]))
-              }
-            >
-              <GitCompareArrows />
-              Compare 2 runs
-            </Button>
-          ) : null}
           <LiveRefreshButton
             enabled={query.live}
             status={live.status}
