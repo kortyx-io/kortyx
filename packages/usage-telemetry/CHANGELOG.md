@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.5.0...usage-telemetry-v0.6.0) (2026-10-21)
+
+
+### Features
+
+* **evals:** add deterministic checks and failed-case reruns ([8b63a21](https://github.com/kortyx-io/kortyx/commit/8b63a214b59a55c36df3facd6b85f38def62f568))
+
 ## [0.5.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.4.0...usage-telemetry-v0.5.0) (2026-10-18)
 
 

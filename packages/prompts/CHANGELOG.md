@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.4](https://github.com/kortyx-io/kortyx/compare/prompts-v0.2.3...prompts-v0.2.4) (2026-10-21)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/usage-telemetry bumped to 0.6.0
+
 ## [0.2.3](https://github.com/kortyx-io/kortyx/compare/prompts-v0.2.2...prompts-v0.2.3) (2026-10-18)
 
 

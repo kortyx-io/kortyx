@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.24.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.23.3...studio-v0.24.0) (2026-10-21)
+
+
+### Features
+
+* **evals:** add deterministic checks and failed-case reruns ([8b63a21](https://github.com/kortyx-io/kortyx/commit/8b63a214b59a55c36df3facd6b85f38def62f568))
+* **studio:** improve eval navigation, comparisons and inspection ([4d18eed](https://github.com/kortyx-io/kortyx/commit/4d18eed1db566e808e220215008951a46ef6113c))
+* **studio:** unify eval browsing and conversation comparisons ([7f6d26e](https://github.com/kortyx-io/kortyx/commit/7f6d26ef60474c113c84d3549fe13acd27731d8d))
+
+
+### Bug Fixes
+
+* **studio:** keep loading search inert and align eval regressions ([d22b8fa](https://github.com/kortyx-io/kortyx/commit/d22b8fae37f3fa2b41308ea589afeb9d87199e0e))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.2.4
+    * @kortyx/telemetry-contracts bumped to 0.20.0
+    * @kortyx/usage-telemetry bumped to 0.6.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.41.0
+    * @kortyx/telemetry bumped to 0.17.4
+    * kortyx bumped to 0.33.0
+
 ## [0.23.3](https://github.com/kortyx-io/kortyx/compare/studio-v0.23.2...studio-v0.23.3) (2026-10-20)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/prompts",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Typed, versioned prompts and portable Studio serving for Kortyx.",
   "license": "Apache-2.0",
   "main": "./dist/index.js",
