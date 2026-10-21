@@ -45,7 +45,7 @@ const contentDocument = z.object({
   config: z.record(z.string(), z.unknown()),
 });
 const judgeDocument = StudioEvaluationSummarySchema.shape.judge.unwrap();
-const evaluationDocument = StudioEvaluationSummarySchema.extend({
+const evaluationDocument: z.ZodType = StudioEvaluationSummarySchema.extend({
   judge: judgeDocument
     .extend({
       prompt: judgeDocument.shape.prompt
