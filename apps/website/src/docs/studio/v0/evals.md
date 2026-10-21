@@ -42,7 +42,7 @@ A **criterion** states what one step must achieve. The **judge prompt** supplies
 
 Suites can use different judges and prompt templates. Templates insert the criterion, current input, selected observation, reference facts and earlier conversation into the grading request. Evidence excluded by the application is not inserted. Older suites may put reusable instructions directly in their criteria; those suites continue to work.
 
-Open **Judge instructions** to inspect the configured template or the saved execution snapshot. In a result, open **Assessment details → Grading request** to see the exact recorded messages with their variables filled in. Older executions may not have recorded these messages; Studio does not reconstruct them from today’s configuration.
+Open **Judge instructions** to inspect the configured template or the saved execution snapshot. Messages use the same read-only cards and highlighted template variables as the prompt drawer; search finds text across the messages. In a result, open **Assessment details → Grading request** to see the exact recorded messages with their variables filled in. Older executions may not have recorded these messages; Studio does not reconstruct them from today’s configuration.
 
 ## Postcondition verification
 

@@ -140,7 +140,7 @@ export const PAGE_GUIDES = {
     overview:
       "This suite defines conversation cases, their steps, and expected observations. The suite revision identifies the exact definition used by an evaluation.",
     content:
-      "Open a conversation for its message, criteria and automatic checks. A criterion states the requirement; Judge instructions opens reusable grading instructions in a stacked drawer. Use the step selector and Previous/Next to browse. Case definition shows test data. Saved runs keep their own snapshots.",
+      "Open a conversation for its message, criteria and automatic checks. A criterion states the requirement; Judge instructions opens reusable grading instructions as read-only message cards in a stacked drawer, with highlighted input variables. Use the step selector and Previous/Next to browse. Case definition shows test data. Saved runs keep their own snapshots.",
     example: `/evals/suites/${sample.targetId}/${sample.suiteId}`,
   },
   evaluation: {

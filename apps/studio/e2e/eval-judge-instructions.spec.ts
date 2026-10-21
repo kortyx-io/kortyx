@@ -71,6 +71,10 @@ test("saved instructions open from a conversation and survive reload", async ({
   });
   await expect(reader).toBeInViewport();
   await expect(reader).toContainText("Saved snapshot");
+  await expect(
+    reader.getByRole("heading", { name: "System Message", exact: true }),
+  ).toBeVisible();
+  await expect(reader.locator('[contenteditable="true"]')).toHaveCount(0);
   await reader
     .getByRole("button", { name: "Close detail", exact: true })
     .click();

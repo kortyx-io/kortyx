@@ -1,5 +1,5 @@
 export function judgeInstructionsDescription(historical: boolean) {
   return historical
-    ? "Reusable judge instructions saved with this execution. Each grading call also receives the step’s criterion and selected evidence. Custom templates show where those values are inserted; Assessment details contains the recorded grading request when available."
-    : "These reusable instructions guide how the judge applies each step’s criterion to its answer and evidence. A custom template shows the input variables. The judge model can be changed when launching a run.";
+    ? "Saved instructions for assessing each step’s criterion against selected evidence. Assessment details → Grading request shows the recorded messages when available."
+    : "Reusable instructions for assessing each step’s criterion against selected evidence. Highlighted variables are filled for each grading call. The judge model can be changed when launching a run.";
 }
