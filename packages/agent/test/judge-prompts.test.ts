@@ -351,3 +351,65 @@ it("uses per-suite judge pins at the authenticated consumer route", async () => 
     result: { status: "passed", judge: { prompt: { id: "test/judge" } } },
   });
 });
+
+it("rejects unsupported suite prompts and invalid unused legacy judge identities", () => {
+  const valid = createEvalJudge({ model: model().ref, prompt: prompt() });
+  expect(() =>
+    createEvals({
+      agent,
+      suites: [
+        defineSuite({
+          id: "bad",
+          judge: { ...valid, promptTemplates: undefined },
+          cases,
+        }),
+      ],
+    }),
+  ).toThrow(/does not support prompt templates/);
+  for (const field of ["id", "version"] as const) {
+    expect(() =>
+      createEvals({
+        agent,
+        suites: [defineSuite({ id: "good", judge: valid, cases })],
+        judge: { ...valid, [field]: " " },
+      }),
+    ).toThrow(/ID and version/);
+  }
+});
+
+it("renders earlier observations without their verdicts and supports reference-free custom calls", async () => {
+  const input = gradeInput();
+  input.conversation = [
+    {
+      index: 0,
+      expectation: { type: "answer" },
+      status: "failed",
+      input: { message: "Earlier city?" },
+      observation: {
+        type: "answer",
+        text: "Lyon",
+        structured: [],
+        events: [{ type: "tool-call-result", city: "Lyon" }],
+      },
+      criteria: [
+        {
+          id: "earlier",
+          text: "SECRET_RUBRIC",
+          passed: false,
+          reason: "SECRET_VERDICT",
+          evidence: [],
+        },
+      ],
+    },
+  ];
+  const mock = model();
+  const judge = createEvalJudge({ model: mock.ref, prompt: prompt() });
+  expect((await judge.grade(input)).passed).toBe(true);
+  const sent = JSON.stringify(mock.invoke.mock.calls);
+  expect(sent).toContain("Lyon");
+  expect(sent).not.toMatch(/SECRET_RUBRIC|SECRET_VERDICT/);
+  expect(sent).toContain("Reference: null");
+  input.reference = { city: "Paris" };
+  expect((await judge.grade(input)).passed).toBe(true);
+  expect(JSON.stringify(mock.invoke.mock.calls.at(-1))).toContain("Paris");
+});

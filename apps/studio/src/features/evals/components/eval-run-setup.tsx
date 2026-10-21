@@ -48,6 +48,7 @@ export function EvalRunSetup({
     judge,
     studioAvailable,
     appJudge,
+    appJudgeDescription,
     close,
   } = useEvalSetup(targets);
   const [working, setWorking] = useState(false);
@@ -554,7 +555,7 @@ export function EvalRunSetup({
                 label: "App judge",
                 disabled: !appJudge,
                 description: !appJudge
-                  ? "No App judge configured by this application."
+                  ? "No App judge configured for one or more selected suites."
                   : undefined,
               },
             ]}
@@ -566,8 +567,8 @@ export function EvalRunSetup({
           <p className="break-words text-xs text-muted-foreground">
             {judge === "app"
               ? appJudge
-                ? `${appJudge.id} · ${appJudge.version}`
-                : "No App judge configured by this application."
+                ? appJudgeDescription
+                : "No App judge configured for one or more selected suites."
               : judge === "studio"
                 ? studioAvailable
                   ? `${targets.studioJudge?.id} · ${targets.studioJudge?.version}`

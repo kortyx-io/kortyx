@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   createEvals,
   createStudioEvalJudge,
+  defineJudgePrompt,
   type EvalGradeInput,
   type EvalSuite,
 } from "../src/evals/index";
@@ -384,4 +385,49 @@ it("pins published instructions while keeping them out of grading request identi
   );
   changed = true;
   await expect(judge.grade(input())).rejects.toThrow("identity changed");
+});
+
+it("rejects custom templates on older Studio backends before submitting a grade", async () => {
+  const request = vi.fn(async () => Response.json(identity));
+  vi.stubGlobal("fetch", request);
+  const judge = await createStudioEvalJudge(options);
+  const prompt = defineJudgePrompt({
+    id: "custom",
+    messages: [{ role: "user", content: "{{criterion.text}} {{observation}}" }],
+  });
+  await expect(judge.grade({ ...input(), prompt })).rejects.toThrow(
+    /does not support prompt templates/,
+  );
+  expect(request).toHaveBeenCalledOnce();
+});
+
+it("forwards custom templates and the exact returned request with an optional observer", async () => {
+  const prompt = defineJudgePrompt({
+    id: "custom",
+    messages: [{ role: "user", content: "{{criterion.text}} {{observation}}" }],
+  });
+  const gradingRequest = {
+    protocol: "eval-verdict-v1",
+    messages: [{ role: "user", content: "Rendered criterion and observation" }],
+  };
+  const request = vi.fn(async (_url: unknown, init?: RequestInit) =>
+    Response.json(
+      init?.method === "POST"
+        ? {
+            judge: { ...identity, promptTemplates: true },
+            verdict,
+            request: gradingRequest,
+          }
+        : { ...identity, promptTemplates: true },
+    ),
+  );
+  vi.stubGlobal("fetch", request);
+  const judge = await createStudioEvalJudge(options);
+  const onRequest = vi.fn();
+  expect(await judge.grade({ ...input(), prompt, onRequest })).toEqual(verdict);
+  expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body)).prompt).toEqual(
+    prompt,
+  );
+  expect(onRequest).toHaveBeenCalledExactlyOnceWith(gradingRequest);
+  expect(await judge.grade({ ...input(), prompt })).toEqual(verdict);
 });
