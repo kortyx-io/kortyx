@@ -44,6 +44,17 @@ const contentDocument = z.object({
   configSchema: z.record(z.string(), z.unknown()),
   config: z.record(z.string(), z.unknown()),
 });
+const judgeDocument = StudioEvaluationSummarySchema.shape.judge.unwrap();
+const evaluationDocument: z.ZodType = StudioEvaluationSummarySchema.extend({
+  judge: judgeDocument
+    .extend({
+      prompt: judgeDocument.shape.prompt
+        .unwrap()
+        .extend({ content: contentDocument })
+        .optional(),
+    })
+    .optional(),
+});
 const snapshotDocument = PromptSnapshotSchema.extend({
   versions: z.record(
     z.string(),
@@ -231,7 +242,7 @@ const tables = createRoute({
         "application/json": {
           schema: z.object({
             runs: z.array(StudioRunSchema),
-            evaluations: z.array(StudioEvaluationSummarySchema),
+            evaluations: z.array(evaluationDocument),
             evidence: PromptDetailSchema.shape.evidence,
           }),
         },

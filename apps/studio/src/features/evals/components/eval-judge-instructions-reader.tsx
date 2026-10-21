@@ -24,7 +24,11 @@ export function EvalJudgeInstructionsReader({
   const { presentation, navigation } = useDetailDrawer();
   const showHeader = presentation !== "drawer" || navigation?.expanded;
   const [search, setSearch] = useState("");
-  const text = judge?.instructions;
+  const text = judge?.prompt
+    ? judge.prompt.content.messages
+        .map((message) => `${message.role.toUpperCase()}\n${message.content}`)
+        .join("\n\n")
+    : judge?.instructions;
   const query = search.trim().toLocaleLowerCase();
   const parts: { text: string; match: boolean }[] = [];
   if (text) {

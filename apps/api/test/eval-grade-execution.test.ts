@@ -525,3 +525,88 @@ it("persists the backend judge instructions rather than trusting execution-suppl
   );
   expect(execution.judge.instructions).toBe("Untrusted incoming instructions");
 });
+
+it("grades a deserialized suite and its prompt through the same Studio runner with selected evidence", async () => {
+  const {
+    createEvalJudge,
+    defineJudgePrompt,
+    defineSuite,
+    promptText,
+    parseEvalSuite,
+  } = await import("@kortyx/agent");
+  const appInvoke = vi.fn();
+  const judgePrompt = defineJudgePrompt({
+    id: "reporting",
+    messages: ({ criterion, observation, conversation, reference }) => [
+      { role: "system", content: "Grade the current requirement." },
+      {
+        role: "user",
+        content: promptText`${criterion.text}\n${observation}\n${conversation}\n${reference}`,
+      },
+    ],
+  });
+  const appJudge = createEvalJudge({
+    model: {
+      modelId: "app",
+      provider: { id: "test", getModel: () => ({ invoke: appInvoke }) },
+    } as unknown as Parameters<typeof createEvalJudge>[0]["model"],
+    prompt: judgePrompt,
+  });
+  const authored = defineSuite({
+    id: "portable",
+    judge: appJudge,
+    evidence: { events: false, history: false },
+    cases: [
+      {
+        id: "one",
+        steps: [
+          {
+            message: "City?",
+            expect: { type: "answer", criteria: ["Reports Paris"] },
+          },
+        ],
+      },
+    ],
+  });
+  // This boundary is identical for future Studio-authored suite snapshots.
+  const portable = parseEvalSuite(JSON.parse(JSON.stringify(authored)));
+  const execution = await createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [portable],
+    execute: () => ({
+      observation: {
+        type: "answer",
+        text: "Paris",
+        structured: [],
+        events: [{ type: "tool-call-result", secret: "EXCLUDED" }],
+      },
+    }),
+  }).run({ suiteId: "portable", grading: "studio" });
+  const invoke = vi.fn(async (_messages: unknown) => ({
+    content: JSON.stringify({
+      passed: true,
+      reason: "Paris",
+      evidence: ["Paris"],
+    }),
+  }));
+  const studio = createEvalJudge({
+    model: {
+      modelId: "studio",
+      provider: { id: "test", getModel: () => ({ invoke }) },
+    } as unknown as Parameters<typeof createEvalJudge>[0]["model"],
+  });
+  const result = await gradeEvalExecution(
+    execution,
+    studio,
+    new AbortController().signal,
+    async () => {},
+  );
+  expect(result.status).toBe("passed");
+  expect(appInvoke).not.toHaveBeenCalled();
+  expect(invoke).toHaveBeenCalledOnce();
+  expect(JSON.stringify(invoke.mock.calls)).not.toContain("EXCLUDED");
+  expect(result.judge?.prompt).toEqual(judgePrompt);
+  expect(result.cases[0]?.steps[0]?.criteria[0]?.request?.messages).toEqual(
+    invoke.mock.calls[0]?.[0],
+  );
+});

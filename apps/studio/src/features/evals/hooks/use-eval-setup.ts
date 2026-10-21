@@ -42,7 +42,30 @@ export function useEvalSetup(targets: EvalTargets) {
   const studioAvailable = Boolean(
     target?.manifest?.studioJudging && targets.studioJudge,
   );
-  const appJudge = target?.manifest?.judge;
+  const selectedIds =
+    query.launchScope === "selected"
+      ? (query.launchSuites ?? (query.launchSuite ? [query.launchSuite] : []))
+      : undefined;
+  const selectedDefinitions =
+    target?.manifest?.suites.filter(
+      (item) => !selectedIds || selectedIds.includes(item.id),
+    ) ?? [];
+  const appJudge =
+    selectedDefinitions.length &&
+    selectedDefinitions.every((item) => item.judge ?? target?.manifest?.judge)
+      ? (selectedDefinitions[0]?.judge ?? target?.manifest?.judge)
+      : undefined;
+  const selectedJudges = selectedDefinitions.map((item) => ({
+    suite: item.name ?? item.id,
+    judge: item.judge ?? target?.manifest?.judge,
+  }));
+  const appJudgeDescription = selectedJudges
+    .map(({ suite, judge }) =>
+      judge
+        ? `${selectedJudges.length > 1 ? `${suite}: ` : ""}${judge.id} · ${judge.version}`
+        : `${suite}: no App judge configured`,
+    )
+    .join("; ");
   const overrides: EvalSettings = {
     ...(query.launchAttempts !== null
       ? { repetitions: Number(query.launchAttempts) }
@@ -104,6 +127,7 @@ export function useEvalSetup(targets: EvalTargets) {
     judge,
     studioAvailable,
     appJudge,
+    appJudgeDescription,
     open: (
       targetId?: string,
       suiteId?: string,

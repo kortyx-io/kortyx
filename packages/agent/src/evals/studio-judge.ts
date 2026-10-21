@@ -99,7 +99,12 @@ export async function createStudioEvalJudge(
     ...identity,
     location: "studio",
     async grade(input) {
+      if (input.prompt && !identity.promptTemplates)
+        throw new EvalConfigurationError(
+          "Studio judge does not support prompt templates. Update the Studio backend.",
+        );
       const request = StudioEvalJudgeRequestSchema.parse({
+        ...(input.prompt ? { prompt: input.prompt } : {}),
         environment: options.environment,
         judge: {
           id: identity.id,
@@ -147,6 +152,7 @@ export async function createStudioEvalJudge(
         throw new Error(
           "Studio judge identity changed. Refresh before running.",
         );
+      if (response.request) input.onRequest?.(response.request);
       for (const usage of response.usage ?? []) input.onUsage?.(usage);
       return response.verdict;
     },

@@ -559,3 +559,31 @@ SDK case budget. Studio defaults to 30 minutes across all selected suites,
 including execution and Studio grading, starting when execution begins. Queue
 waiting is excluded. Direct `evals.run` has no Studio scheduler deadline; callers
 can pass `signal`. Aborts remain cooperative and cannot forcibly terminate work.
+
+## Suite-owned judge prompts
+
+Import a judge directly into `defineSuite({ judge })` when suites need different models or grading instructions. `createEvals({ judge })` remains a deprecated fallback until the next major release. Existing criteria, including application instruction wrappers, keep working.
+
+Use `defineJudgePrompt` and `promptText` for portable templates:
+
+```ts
+import { createEvalJudge, defineJudgePrompt, defineSuite, promptText } from "kortyx";
+
+const judgePrompt = defineJudgePrompt({
+  id: "support/reporting-judge",
+  messages: ({ criterion, input, observation, reference, conversation }) => [
+    { role: "system", content: "Assess only the supplied criterion using verified evidence." },
+    { role: "user", content: promptText`Criterion: ${criterion.text}
+Input: ${input}
+Observation: ${observation}
+Reference: ${reference}
+Earlier turns: ${conversation}` },
+  ],
+});
+const reportingJudge = createEvalJudge({ model: reportingModel, prompt: judgePrompt });
+const supportSuite = defineSuite({ id: "support", judge: reportingJudge, cases });
+```
+
+The callback receives typed symbolic references once at declaration time. Use the tag, not ordinary JavaScript interpolation. Kortyx serializes objects internally. The runtime injects only selected evidence after the suite’s history/event/output policy and filters; omitted reference facts become null and omitted history becomes an empty array. Earlier verdicts are excluded.
+
+The serialized suite contains the judge identity and immutable prompt snapshot, never executable provider objects. Local App grading needs the original runtime binding; a deserialized suite must be rebound to an executable judge. Studio grading supports the portable template when its backend advertises `promptTemplates`. Upgrade SDK, API and CLI together before adopting templates. Studio suite/prompt authoring is a future surface, not an editor provided by this change.

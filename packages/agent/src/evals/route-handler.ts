@@ -8,6 +8,7 @@ import {
   EvalConfigurationError,
   EvalRemoteRunRequestSchema,
 } from "./contracts";
+import { sameJudgePrompt } from "./judge-prompt-contracts";
 import { getEvalSuiteRevision } from "./revision";
 import { createEvalExecutionTransport } from "./route-executions";
 import type {
@@ -122,6 +123,7 @@ export function createEvalRouteHandler({
       );
     }
     const suite = manifest.suites.find((item) => item.id === body.suiteId);
+    const appJudge = suite?.judge ?? manifest.judge;
     if (body.promptSnapshot) {
       try {
         const snapshot = await verifyPromptSnapshot(body.promptSnapshot);
@@ -174,10 +176,11 @@ export function createEvalRouteHandler({
     if (
       body.grading !== "studio" &&
       body.judge &&
-      (!manifest.judge ||
-        body.judge.id !== manifest.judge.id ||
-        body.judge.version !== manifest.judge.version ||
-        body.judge.location !== manifest.judge.location)
+      (!appJudge ||
+        body.judge.id !== appJudge.id ||
+        body.judge.version !== appJudge.version ||
+        body.judge.location !== appJudge.location ||
+        !sameJudgePrompt(body.judge.prompt, appJudge.prompt))
     )
       return Response.json(
         { error: "App judge changed. Refresh before running." },

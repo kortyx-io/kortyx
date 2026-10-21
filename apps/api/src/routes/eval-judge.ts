@@ -18,6 +18,7 @@ export function registerEvalJudgeRoutes(
   const path = "/v1/studio/evals/judge";
   const identity = judge
     ? {
+        ...(judge.promptTemplates ? { promptTemplates: true as const } : {}),
         id: judge.id,
         version: judge.version,
         location: "studio" as const,
@@ -78,6 +79,11 @@ export function registerEvalJudgeRoutes(
         { error: "Studio judge changed. Refresh before running." },
         409,
       );
+    if (input.data.prompt && !judge.promptTemplates)
+      return c.json(
+        { error: "Studio judge does not support prompt templates." },
+        409,
+      );
     if (active >= 4) return c.json({ error: "Studio judge is busy." }, 429);
     active++;
     try {
@@ -88,10 +94,14 @@ export function registerEvalJudgeRoutes(
       signal.throwIfAborted();
       const { environment: _environment, judge: _judge, ...grade } = input.data;
       const usage: import("@kortyx/agent/evals").EvalJudgeUsage[] = [];
+      let request: import("@kortyx/agent/evals").EvalGradingRequest | undefined;
       const verdict = EvalVerdictSchema.parse(
         await judge.grade({
           ...grade,
           signal,
+          onRequest: (value) => {
+            request = structuredClone(value);
+          },
           onUsage: (record) => usage.push(record),
         } as EvalGradeInput),
       );
@@ -105,6 +115,7 @@ export function registerEvalJudgeRoutes(
             : {}),
         },
         verdict,
+        ...(request ? { request } : {}),
         ...(usage.length ? { usage } : {}),
       });
     } catch (error) {

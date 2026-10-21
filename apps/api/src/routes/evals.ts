@@ -22,6 +22,7 @@ import {
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
+import { snapshotEvalJudge } from "../evals/judge-snapshot";
 import { freezeEvalPrompts } from "../evals/prompts";
 import {
   evalInstallationSettings,
@@ -130,6 +131,10 @@ export function registerEvalRoutes(
             ...(studioJudge.instructions
               ? { instructions: studioJudge.instructions }
               : {}),
+            ...(studioJudge.promptTemplates
+              ? { promptTemplates: true as const }
+              : {}),
+            ...(studioJudge.prompt ? { prompt: studioJudge.prompt } : {}),
             id: studioJudge.id,
             version: studioJudge.version,
             location: "studio",
@@ -278,11 +283,31 @@ export function registerEvalRoutes(
             ...(studioJudge.instructions
               ? { instructions: studioJudge.instructions }
               : {}),
+            ...(studioJudge.promptTemplates
+              ? { promptTemplates: true as const }
+              : {}),
+            ...(suite.judge?.prompt
+              ? { prompt: suite.judge.prompt }
+              : studioJudge.prompt
+                ? { prompt: studioJudge.prompt }
+                : {}),
             id: studioJudge.id,
             version: studioJudge.version,
             location: "studio" as const,
           }
-        : manifest.judge;
+        : (suite.judge ?? manifest.judge);
+    if (
+      request.judge === "studio" &&
+      suite.judge?.prompt &&
+      !studioJudge?.promptTemplates
+    )
+      return c.json(
+        {
+          error:
+            "The configured Studio judge does not support suite prompt templates.",
+        },
+        409,
+      );
     if (request.judge === "studio" && !manifest.studioJudging)
       return c.json(
         {
@@ -322,13 +347,7 @@ export function registerEvalRoutes(
           ...(promptSnapshot ? { promptSnapshot } : {}),
           ...(promptGroupName ? { promptGroupName } : {}),
           grading: request.judge,
-          judge: {
-            id: selectedJudge.id,
-            version: selectedJudge.version,
-            ...(selectedJudge.location
-              ? { location: selectedJudge.location }
-              : {}),
-          },
+          judge: snapshotEvalJudge(selectedJudge),
           suiteId: request.suiteId,
           suiteRevision: request.suiteRevision,
           repetitions: request.repetitions,

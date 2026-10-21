@@ -1,3 +1,4 @@
+export { promptText } from "@kortyx/prompts";
 export { EvalCheckSchema } from "./check-contracts";
 export { evalChecks } from "./checks";
 export * from "./comparison-contracts";
@@ -27,6 +28,9 @@ export * from "./evaluation-contracts";
 export { getEvalGradeEvidence } from "./evidence";
 export { EvalEvidencePolicySchema } from "./evidence-policy";
 export { createEvalJudge } from "./judge";
+export type { EvalJudgeVariables } from "./judge-prompt";
+export { defineJudgePrompt, evalJudgeVariablesSchema } from "./judge-prompt";
+export * from "./judge-prompt-contracts";
 export { getEvalSuiteRevision } from "./revision";
 export { createEvalRouteHandler, type EvalRunner } from "./route-handler";
 export * from "./settings";

@@ -213,6 +213,7 @@ export function registerStudioEvalCommands(
             target.manifest?.suites.map((suite) => ({
               id: suite.id,
               name: suite.name,
+              judge: suite.judge ?? target.manifest?.judge ?? null,
               revision: target.revisions[suite.id],
               caseIds: suite.cases.map((item) => item.id),
             })) ?? [],

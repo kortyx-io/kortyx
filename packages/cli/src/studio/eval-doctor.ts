@@ -164,7 +164,10 @@ export function buildEvalDoctorReport(
     const judgeReady =
       options.judge === "studio"
         ? Boolean(data.studioJudge && target.manifest.studioJudging)
-        : Boolean(target.manifest.judge);
+        : selectedSuite
+          ? Boolean(selectedSuite.judge ?? target.manifest.judge)
+          : suites.length > 0 &&
+            suites.every((suite) => suite.judge ?? target.manifest?.judge);
     checks.push({
       id: `${target.id}:judge`,
       status: judgeReady ? "passed" : "failed",

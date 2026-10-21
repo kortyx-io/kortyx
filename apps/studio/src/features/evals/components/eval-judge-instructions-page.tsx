@@ -37,7 +37,12 @@ export async function EvalJudgeInstructionsPage({
     const selected =
       targets.settings?.defaults.judge ?? (studioAvailable ? "studio" : "app");
     judge =
-      selected === "studio" ? targets.studioJudge : target.manifest?.judge;
+      selected === "studio"
+        ? targets.studioJudge && {
+            ...targets.studioJudge,
+            ...(suite.judge?.prompt ? { prompt: suite.judge.prompt } : {}),
+          }
+        : (suite.judge ?? target.manifest?.judge);
     context = `${suite.name ?? suite.id} · Configured ${selected === "studio" ? "Studio" : "App"} judge`;
     backHref = evalSuiteHref(id, suite.id);
   } else if (source === "run") {
