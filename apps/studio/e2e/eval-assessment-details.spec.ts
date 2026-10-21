@@ -37,8 +37,12 @@ test("conversation assessment has one flat disclosure with readable recorded che
   await expect(details.locator("[data-guide-focus=eval-checks]")).toContainText(
     "Passed",
   );
-  await expect(details.getByRole("button")).toHaveCount(0);
-  await expect(assessment.getByRole("button")).toHaveCount(1);
+  await expect(
+    details.getByRole("button", { name: "Grading request", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    assessment.getByRole("button", { name: "Assessment details", exact: true }),
+  ).toHaveCount(1);
   await page.reload();
   const restored = page.locator(
     "[data-eval-assessment] [data-assessment-details]",
@@ -87,7 +91,9 @@ test("comparison uses the same flat assessment details on both sides and opens f
     await expect(
       details.getByRole("region", { name: "Automatic checks", exact: true }),
     ).toBeVisible();
-    await expect(details.getByRole("button")).toHaveCount(0);
+    await expect(
+      details.getByRole("button", { name: "Grading request", exact: true }),
+    ).toHaveCount(1);
   }
   await expect(
     modal.getByRole("button", {
