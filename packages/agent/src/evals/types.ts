@@ -90,6 +90,8 @@ export type EvalSuite<Params = EvalJson> = {
   name?: string;
   cases: readonly EvalCase<Params>[];
   evidence?: EvalEvidencePolicy;
+  /** Portable binding. defineSuite retains its executable judge privately. */
+  judge?: EvalJudgeIdentity;
 };
 export type EvalInterrupt = {
   requestId: string;
@@ -128,6 +130,9 @@ export type EvalStatus = "passed" | "failed" | "error" | "cancelled";
 /** Execution can finish before Studio has evaluated its semantic criteria. */
 export type EvalExecutionStatus = EvalStatus | "ungraded";
 export type EvalJudgeIdentity = {
+  prompt?: import("./judge-prompt-contracts").EvalJudgePrompt | undefined;
+  promptTemplates?: true | undefined;
+  model?: { provider: string; id: string } | undefined;
   /** Exact static judge instructions, excluding per-case inputs and credentials. Optional for older/custom judges. */
   instructions?: string | undefined;
   id: string;
@@ -159,7 +164,11 @@ export type EvalVerdict = {
   reason: string;
   evidence: readonly string[];
 };
-export type EvalCriterionResult = EvalVerdict & { id: string; text: string };
+export type EvalCriterionResult = EvalVerdict & {
+  id: string;
+  text: string;
+  request?: import("./judge-prompt-contracts").EvalGradingRequest;
+};
 export type EvalJudgeUsage = z.infer<typeof EvalJudgeUsageSchema>;
 export type EvalStepResult = {
   /** Exact compact observation selected by the app; full observation remains unchanged. */
@@ -205,6 +214,10 @@ export type EvalRunResult = {
   errors: EvalIssue[];
 };
 export type EvalGradeInput = {
+  prompt?: import("./judge-prompt-contracts").EvalJudgePrompt | undefined;
+  onRequest?: (
+    request: import("./judge-prompt-contracts").EvalGradingRequest,
+  ) => void;
   /** Trusted provider billing evidence, independent of the generated verdict. */
   onUsage?: (usage: EvalJudgeUsage) => void;
   criterion: { id: string; text: string };
@@ -214,7 +227,7 @@ export type EvalGradeInput = {
   conversation: readonly EvalStepResult[];
   signal: AbortSignal;
 };
-export type EvalJudge = {
+export type EvalJudge = EvalJudgeIdentity & {
   /** Safe-to-persist static instructions actually used by this judge. Do not include secrets or per-case data. */
   instructions?: string | undefined;
   id: string;
@@ -223,6 +236,7 @@ export type EvalJudge = {
   grade: (input: EvalGradeInput) => Promise<EvalVerdict> | EvalVerdict;
 };
 export type EvalJudgeOptions = {
+  prompt?: import("./judge-prompt-contracts").EvalJudgePrompt | undefined;
   model: ProviderModelRef;
   id?: string;
   version?: string;
@@ -312,6 +326,7 @@ export type CreateEvalsOptions<
       },
     ) => EvalJson | Promise<EvalJson>
   >;
+  /** @deprecated Assign the judge in defineSuite. Removed in the next major version. */
   judge?: EvalJudge;
   evidenceFilters?: EvalEvidenceFilters;
   defaults?: EvalDefaults;

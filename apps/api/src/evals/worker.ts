@@ -9,7 +9,7 @@ import type {
   EvalRunResult,
   EvalSuite,
 } from "@kortyx/agent/evals";
-import { createEvalIssue } from "@kortyx/agent/evals";
+import { createEvalIssue, sameJudgePrompt } from "@kortyx/agent/evals";
 import {
   appendEvalProgress,
   type claimEvalRun,
@@ -683,7 +683,8 @@ export function createEvalWorker(
         run.request.judge &&
         (result.judge?.id !== run.request.judge.id ||
           result.judge?.version !== run.request.judge.version ||
-          result.judge?.location !== run.request.judge.location)
+          result.judge?.location !== run.request.judge.location ||
+          !sameJudgePrompt(result.judge?.prompt, run.request.judge.prompt))
       )
         throw new EvalDispatchError(
           "EVAL_RESULT_INVALID",

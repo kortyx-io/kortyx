@@ -13,6 +13,7 @@ import {
   EvalVerdictSchema,
   parseEvalSuite,
 } from "./contracts";
+import { judgeIdentity, suiteJudge } from "./define-suite";
 import { createEvalIssue } from "./errors";
 import {
   createEvalJudgeEvidence,
@@ -20,6 +21,9 @@ import {
   validateEvidenceFilters,
 } from "./evidence";
 import { EvalEvidencePolicySchema } from "./evidence-policy";
+import { validateJudgePrompt } from "./judge-prompt";
+import type { EvalGradingRequest } from "./judge-prompt-contracts";
+import { sameJudgePrompt } from "./judge-prompt-contracts";
 import { missingOutputReason } from "./output-expectations";
 import { getEvalSuiteRevision } from "./revision";
 import { executeEvalChat } from "./stream";
@@ -44,6 +48,19 @@ import type {
   EvalStepResult,
   EvalSuite,
 } from "./types";
+
+let legacyJudgeWarningEmitted = false;
+function warnLegacyJudge(): void {
+  if (legacyJudgeWarningEmitted) return;
+  legacyJudgeWarningEmitted = true;
+  process.emitWarning(
+    "createEvals({ judge }) is deprecated and will be removed in the next major version. Import the judge into defineSuite({ judge }) instead. See docs/internal/next-major-removals.md.",
+    {
+      code: "KORTYX_EVAL_APPLICATION_JUDGE_DEPRECATED",
+      type: "DeprecationWarning",
+    },
+  );
+}
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 function freeze<T>(value: T): T {
@@ -85,6 +102,7 @@ export function createEvals<
   Params = EvalJson | undefined,
   Prepared = undefined,
 >(options: CreateEvalsOptions<Params, Prepared>) {
+  if (options.judge) warnLegacyJudge();
   const defaultEvidence = EvalEvidencePolicySchema.parse(
     options.defaults?.evidence ?? {},
   ) as EvalEvidencePolicy;
@@ -93,8 +111,22 @@ export function createEvals<
     outputs: { ...options.evidenceFilters?.outputs },
   };
   validateEvidenceFilters(defaultEvidence, evidenceFilters);
+  const appJudges = new Map(
+    options.suites.map((suite) => [
+      suite.id,
+      suiteJudge(suite) ?? options.judge,
+    ]),
+  );
   const suites = options.suites.map((suite) => {
     const parsed = parseEvalSuite(suite);
+    if (parsed.judge?.prompt) validateJudgePrompt(parsed.judge.prompt);
+    const bound = appJudges.get(suite.id);
+    if (bound?.prompt && !bound.promptTemplates)
+      throw new EvalConfigurationError(
+        "The suite judge does not support prompt templates.",
+      );
+    if (bound && (!bound.id.trim() || !bound.version.trim()))
+      throw new EvalConfigurationError("A judge needs an ID and version.");
     const evidence = { ...defaultEvidence, ...parsed.evidence };
     validateEvidenceFilters(evidence, evidenceFilters);
     return freeze(
@@ -234,20 +266,7 @@ export function createEvals<
               }),
             }
           : {}),
-        ...(options.judge
-          ? {
-              judge: {
-                ...(options.judge.instructions
-                  ? { instructions: options.judge.instructions }
-                  : {}),
-                id: options.judge.id,
-                version: options.judge.version,
-                ...(options.judge.location
-                  ? { location: options.judge.location }
-                  : {}),
-              },
-            }
-          : {}),
+        ...(options.judge ? { judge: judgeIdentity(options.judge) } : {}),
       };
     },
     async run(args: EvalRunOptions): Promise<EvalRunResult> {
@@ -312,9 +331,21 @@ export function createEvals<
         )
           throw new EvalConfigurationError("Invalid scheduled attempt.");
         const studioGrading = args.grading === "studio";
+        const appJudge = appJudges.get(suite.id);
+        if (
+          suite.judge &&
+          !studioGrading &&
+          (!appJudge ||
+            suite.judge.id !== appJudge.id ||
+            suite.judge.version !== appJudge.version ||
+            !sameJudgePrompt(suite.judge.prompt, appJudge.prompt))
+        )
+          throw new EvalConfigurationError(
+            "The suite's App judge is not bound. Use defineSuite({ judge }) to bind it.",
+          );
         if (
           !studioGrading &&
-          !options.judge &&
+          !appJudge &&
           selected.some((item) =>
             item.steps.some((step) => step.expect.criteria?.length),
           )
@@ -322,16 +353,15 @@ export function createEvals<
           throw new EvalConfigurationError(
             "Local runs with criteria require a judge. Run from Studio or provide a code judge.",
           );
-        const selectedJudge = studioGrading
-          ? args.judgeIdentity
-          : options.judge;
+        const selectedJudge = studioGrading ? args.judgeIdentity : appJudge;
         if (
           !studioGrading &&
           args.judgeIdentity &&
-          (!options.judge ||
-            args.judgeIdentity.id !== options.judge.id ||
-            args.judgeIdentity.version !== options.judge.version ||
-            args.judgeIdentity.location !== options.judge.location)
+          (!appJudge ||
+            args.judgeIdentity.id !== appJudge.id ||
+            args.judgeIdentity.version !== appJudge.version ||
+            args.judgeIdentity.location !== appJudge.location ||
+            !sameJudgePrompt(args.judgeIdentity.prompt, appJudge.prompt))
         )
           throw new EvalConfigurationError(
             "App judge changed. Refresh before running.",
@@ -346,13 +376,9 @@ export function createEvals<
           ...(selectedJudge
             ? {
                 judge: {
-                  ...(selectedJudge.instructions
-                    ? { instructions: selectedJudge.instructions }
-                    : {}),
-                  id: selectedJudge.id,
-                  version: selectedJudge.version,
-                  ...(selectedJudge.location
-                    ? { location: selectedJudge.location }
+                  ...judgeIdentity(selectedJudge),
+                  ...(studioGrading && suite.judge?.prompt
+                    ? { prompt: suite.judge.prompt }
                     : {}),
                 },
               }
@@ -690,9 +716,16 @@ export function createEvals<
                           ? { id: String(criterionIndex), text: value }
                           : value;
                       evaluated.judgeCalls = (evaluated.judgeCalls ?? 0) + 1;
+                      let request: EvalGradingRequest | undefined;
                       const verdict = EvalVerdictSchema.parse(
                         await withEvalAttribution(undefined, () =>
-                          options.judge!.grade({
+                          appJudge!.grade({
+                            ...(suite.judge?.prompt
+                              ? { prompt: suite.judge.prompt }
+                              : {}),
+                            onRequest: (value) => {
+                              request = clone(value);
+                            },
                             criterion,
                             onUsage: (usage) => {
                               if (!signal.aborted) {
@@ -713,7 +746,11 @@ export function createEvals<
                         ),
                       );
                       signal.throwIfAborted();
-                      evaluated.criteria.push({ ...criterion, ...verdict });
+                      evaluated.criteria.push({
+                        ...criterion,
+                        ...verdict,
+                        ...(request ? { request } : {}),
+                      });
                       if (!verdict.passed) evaluated.status = "failed";
                     }
                   }

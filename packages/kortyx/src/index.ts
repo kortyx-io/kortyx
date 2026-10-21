@@ -16,6 +16,7 @@ export type {
   EvalExecution,
   EvalExpectation,
   EvalGradeInput,
+  EvalGradingRequest,
   EvalHandlerRef,
   EvalInterrupt,
   EvalIssue,
@@ -23,7 +24,9 @@ export type {
   EvalJudge,
   EvalJudgeEvidence,
   EvalJudgeOptions,
+  EvalJudgePrompt,
   EvalJudgeUsage,
+  EvalJudgeVariables,
   EvalObservation,
   EvalOutputExpectation,
   EvalOutputSelector,
@@ -46,10 +49,12 @@ export {
   createEvalRouteHandler,
   createEvals,
   createStudioEvalJudge,
+  defineJudgePrompt,
   defineSuite,
   EvalConfigurationError,
   EvalSuiteSchema,
   evalChecks,
+  evalJudgeVariablesSchema,
   getEvalSuiteRevision,
   parseEvalSuite,
 } from "@kortyx/agent";
@@ -190,6 +195,7 @@ export {
   definePrompt,
   localPromptSource,
   PromptError,
+  promptText,
   studioPromptSource,
 } from "@kortyx/prompts";
 export * from "@kortyx/providers";

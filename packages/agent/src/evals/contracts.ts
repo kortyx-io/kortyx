@@ -5,6 +5,10 @@ import { z } from "zod";
 import { EvalCheckSchema } from "./check-contracts";
 import { EvalEvidencePolicySchema } from "./evidence-policy";
 import {
+  EvalGradingRequestSchema,
+  EvalJudgePromptSchema,
+} from "./judge-prompt-contracts";
+import {
   EvalExecutionSettingsSchema,
   EvalSettingsSchema,
   ResolvedEvalSettingsSchema,
@@ -61,8 +65,21 @@ const expectation = z
         message: "Criterion IDs must be unique within a step.",
       });
   });
+export const EvalJudgeIdentitySchema = z
+  .object({
+    prompt: EvalJudgePromptSchema.optional(),
+    promptTemplates: z.literal(true).optional(),
+    model: z.object({ provider: id, id }).strict().optional(),
+    instructions: z.string().min(1).max(64_000).optional(),
+    id,
+    version: id,
+    location: z.enum(["app", "studio"]).optional(),
+  })
+  .strict();
+
 export const EvalSuiteSchema = z
   .object({
+    judge: EvalJudgeIdentitySchema.optional(),
     evidence: EvalEvidencePolicySchema.optional(),
     id,
     name: z.string().optional(),
@@ -255,7 +272,11 @@ export const EvalStepResultSchema = z
     judgeCalls: z.number().int().nonnegative().optional(),
     judgeUsage: z.array(EvalJudgeUsageSchema).optional(),
     criteria: z.array(
-      EvalVerdictSchema.extend({ id: z.string(), text: z.string() }),
+      EvalVerdictSchema.extend({
+        id: z.string(),
+        text: z.string(),
+        request: EvalGradingRequestSchema.optional(),
+      }),
     ),
   })
   .strict();
@@ -279,18 +300,11 @@ export const EvalCaseResultSchema = z
     errors: z.array(issue),
   })
   .strict();
-export const EvalJudgeIdentitySchema = z
-  .object({
-    instructions: z.string().min(1).max(64_000).optional(),
-    id,
-    version: id,
-    location: z.enum(["app", "studio"]).optional(),
-  })
-  .strict();
 const judge = EvalJudgeIdentitySchema;
 export const StudioEvalJudgeRequestSchema = z
   .object({
     environment: id,
+    prompt: EvalJudgePromptSchema.optional(),
     judge: EvalJudgeIdentitySchema,
     criterion: z
       .object({ id, text: z.string().trim().min(1).max(16_384) })
@@ -303,6 +317,7 @@ export const StudioEvalJudgeRequestSchema = z
   .strict();
 export const StudioEvalJudgeResponseSchema = z
   .object({
+    request: EvalGradingRequestSchema.optional(),
     judge: EvalJudgeIdentitySchema,
     verdict: EvalVerdictSchema,
     usage: z.array(EvalJudgeUsageSchema).optional(),

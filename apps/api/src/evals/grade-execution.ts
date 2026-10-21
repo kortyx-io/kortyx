@@ -1,4 +1,5 @@
 import type {
+  EvalGradingRequest,
   EvalJudge,
   EvalProgress,
   EvalRunResult,
@@ -52,7 +53,13 @@ export async function gradeEvalExecution(
 ): Promise<EvalRunResult> {
   const started = Date.now();
   const result = structuredClone(execution);
+  const prompt =
+    execution.judge?.prompt ?? execution.suite.judge?.prompt ?? judge.prompt;
+  if (prompt && !judge.promptTemplates)
+    throw new Error("Studio judge does not support prompt templates.");
   result.judge = {
+    ...(prompt ? { prompt } : {}),
+    ...(judge.promptTemplates ? { promptTemplates: true as const } : {}),
     id: judge.id,
     version: judge.version,
     location: "studio",
@@ -75,10 +82,15 @@ export async function gradeEvalExecution(
               ? { id: String(index), text: value }
               : value;
           step.judgeCalls = (step.judgeCalls ?? 0) + 1;
+          let request: EvalGradingRequest | undefined;
           const verdict = EvalVerdictSchema.parse(
             await awaitVerdict(
               () =>
                 judge.grade({
+                  ...(prompt ? { prompt } : {}),
+                  onRequest: (value) => {
+                    request = structuredClone(value);
+                  },
                   criterion,
                   onUsage: (usage) => {
                     if (!deadline.aborted) {
@@ -100,7 +112,11 @@ export async function gradeEvalExecution(
             ),
           );
           deadline.throwIfAborted();
-          step.criteria.push({ ...criterion, ...verdict });
+          step.criteria.push({
+            ...criterion,
+            ...verdict,
+            ...(request ? { request } : {}),
+          });
         }
         step.status = step.criteria.some((criterion) => !criterion.passed)
           ? "failed"

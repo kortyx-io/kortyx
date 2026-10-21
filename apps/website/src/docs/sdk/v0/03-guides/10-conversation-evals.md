@@ -276,12 +276,95 @@ and (by default) earlier steps in the same case. Successful tool results can
 support factual claims, while interrupt requests describe a human pause. Neither
 an internal plan nor a successful tool call is itself a user-facing answer.
 
-With `createEvalJudge`, write application-specific judging instructions in
-`expect.criteria`. There is no `prompt` option on `createEvalJudge`. Each criterion
-is graded separately, so another criterion's instructions are not shared context.
-Include the relevant field names and presentation rules in **every criterion that
-needs them**. A small application-owned string helper can avoid duplication in
-suite source while producing ordinary, serializable criteria strings.
+Use `defineJudgePrompt` for shared application-specific evaluation instructions.
+Keep each `expect.criteria` entry focused on that step's expected behavior. Each
+criterion is graded separately with the same selected prompt and evidence contract.
+
+```ts
+import { createEvalJudge, createEvals, defineJudgePrompt, defineSuite, promptText } from "kortyx";
+
+export const reportingPrompt = defineJudgePrompt({
+  id: "products/reporting-judge",
+  messages: ({ criterion, input, observation, reference, conversation }) => [
+    {
+      role: "system",
+      content: "Evaluate factual reporting. data.message is the visible answer; data.plan is internal. Accept equivalent wording and use successful tool results as evidence.",
+    },
+    {
+      role: "user",
+      content: promptText`
+Criterion: ${criterion.text}
+Current input: ${input}
+Current observation: ${observation}
+Reference facts: ${reference}
+Earlier conversation: ${conversation}
+`,
+    },
+  ],
+});
+
+export const reportingJudge = createEvalJudge({
+  model: judgeModel,
+  prompt: reportingPrompt,
+});
+
+const suite = defineSuite({
+  id: "products",
+  judge: reportingJudge,
+  cases: [{
+    id: "price",
+    steps: [{
+      message: "What does the blue backpack cost?",
+      expect: {
+        type: "answer",
+        criteria: ["Reports the blue backpack's price and currency accurately."],
+      },
+    }],
+  }],
+});
+
+const evals = createEvals({ agent, suites: [suite] });
+```
+
+The builder executes once with **typed variable references**, not live case data.
+`promptText` captures those references as ordinary `{{criterion.text}}` templates;
+Kortyx fills them and serializes objects/arrays during grading. Use `promptText`
+for symbolic interpolation; plain JavaScript interpolation is rejected. You can
+also supply a static message array using `{{variables}}`, which uses the same
+validation and rendering. Both forms produce the existing portable prompt content
+and version/hash contract. No Studio account or managed prompt asset is required.
+The template must include the criterion text and current observation. Unknown
+variable paths and modified content hashes fail explicitly.
+
+Available variables are `criterion` (`id`, `text`), `input`, `observation`,
+`reference`, and `conversation`. Observation contains text, structured outputs,
+selected compact events and interrupt data. Missing reference/interrupt data is
+`null`; absent events and history are empty arrays. Earlier conversation contains
+only inputs and observations, excluding previous verdicts. Existing evidence
+selection applies before injection: templates cannot restore filtered events or
+outputs. Framework protocol instructions and the structured verdict schema remain
+SDK-owned. Each criterion result records the actual messages used, protocol, and
+prompt identity; the full immutable template is saved with the selected judge.
+
+Import a different judge into each suite to change its model, prompt, or both.
+Suite definitions expose a portable judge identity for Studio/CLI discovery;
+executable provider objects and credentials stay private to the application.
+Studio judging uses the suite's prompt with the explicitly selected Studio model.
+It requires a backend advertising prompt-template support. Keep SDK, backend and
+CLI versions aligned when adopting this capability. Model selection remains
+explicit: choosing Studio judging does not run the suite's App model.
+
+The portable suite/prompt format supports future Studio authoring without changing
+this code authoring API. This release does not add a Studio suite editor or managed
+judge-prompt selection. A deserialized suite can be graded in Studio; local App
+grading requires its executable judge to be bound with `defineSuite({ judge })`.
+
+**Migration:** `createEvals({ judge })` remains an application-level fallback, is
+marked deprecated, and will be removed in the next major version. Move that judge
+to each `defineSuite({ judge })`. Without a custom prompt, `createEvalJudge({ model })`
+keeps the existing default rubric. Existing criteria strings and wrappers continue
+to work. When adopting a shared judge prompt, move repeated evaluator guidance out
+of criterion wrappers into that prompt and retain the step requirements.
 
 Describe your actual frontend contract: which output type and fields become chat
 messages, which appear as prose or cards, which are progress-only, which remain

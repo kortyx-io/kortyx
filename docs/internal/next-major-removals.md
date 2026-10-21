@@ -59,6 +59,29 @@ Replacement: `defineOutputContract(...)` with `useReason({ outputs: { emit, retu
 
 Runtime warning: `KORTYX_USE_REASON_OUTPUT_DEPRECATED`.
 
+## `createEvals` application-level judge fallback
+
+Deprecated in the release introducing `defineJudgePrompt` and suite-owned judges.
+
+- [ ] Remove `CreateEvalsOptions.judge` and its fallback selection in `createEvals`.
+- [ ] Remove the legacy manifest-level `judge` fallback in SDK routes, Studio and CLI.
+- [ ] Remove `KORTYX_EVAL_APPLICATION_JUDGE_DEPRECATED` and the once-per-process warning.
+- [ ] Migrate remaining examples and application consumers to `defineSuite({ judge })`.
+- [ ] Replace fallback compatibility tests with compile-time removal tests; retain per-suite selection, transport pinning, and evidence tests.
+- [ ] Document removal in the major release migration guide.
+
+Replacement:
+
+```ts
+const reportingJudge = createEvalJudge({ model, prompt: reportingPrompt });
+const suite = defineSuite({ id: "reporting", judge: reportingJudge, cases });
+const evals = createEvals({ agent, suites: [suite] });
+```
+
+The default `createEvalJudge({ model })` rubric remains supported. Existing
+criterion strings and wrappers continue working during this deprecation window.
+See the SDK Conversation evals guide for shared prompt migration.
+
 ## Process for adding entries
 
 Every future entry must name the public surface, replacement, first deprecated
