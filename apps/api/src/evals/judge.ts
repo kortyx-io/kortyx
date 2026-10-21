@@ -1,5 +1,4 @@
 import { createEvalJudge, type EvalJudge } from "@kortyx/agent";
-import type { EvalJudgeIdentity } from "@kortyx/agent/evals";
 import { createOpenAI } from "@kortyx/openai";
 import { createOpenRouter } from "@kortyx/openrouter";
 
@@ -44,17 +43,4 @@ export function loadStudioEvalJudge(
       : {}),
   });
   return { ...judge, location: "studio" };
-}
-
-/** Persist the full portable identity without undefined fields or executable bindings. */
-export function snapshotEvalJudge(judge: EvalJudgeIdentity) {
-  return {
-    id: judge.id,
-    version: judge.version,
-    ...(judge.location ? { location: judge.location } : {}),
-    ...(judge.instructions ? { instructions: judge.instructions } : {}),
-    ...(judge.prompt ? { prompt: judge.prompt } : {}),
-    ...(judge.promptTemplates ? { promptTemplates: true as const } : {}),
-    ...(judge.model ? { model: judge.model } : {}),
-  };
 }

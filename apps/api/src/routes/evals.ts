@@ -22,7 +22,7 @@ import {
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import type { EvalTargetAdapter } from "../evals/contracts";
-import { snapshotEvalJudge } from "../evals/judge";
+import { snapshotEvalJudge } from "../evals/judge-snapshot";
 import { freezeEvalPrompts } from "../evals/prompts";
 import {
   evalInstallationSettings,
