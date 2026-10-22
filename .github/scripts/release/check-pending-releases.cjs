@@ -39,7 +39,7 @@ module.exports = async ({ github, context, core }) => {
       );
       continue;
     }
-    const message = `Release PR #${pr.number} is merged but still untagged (${sha}). CI: ${ci?.conclusion ?? "missing"}; release: ${release?.conclusion ?? "missing"}. Re-run failed CI jobs for this exact commit first. Once CI is green, re-run Release / Orchestrate or dispatch it with operation=stable and release_commit=${sha}. Do not remove the pending label or bypass CI.`;
+    const message = `Release PR #${pr.number} is merged but still untagged (${sha}). CI: ${ci?.conclusion ?? "missing"}; release: ${release?.conclusion ?? "missing"}. Re-run transient failures for this exact commit first. Once CI is green, re-run Release / Orchestrate or dispatch it with operation=stable and release_commit=${sha}. Do not remove the pending label to bypass CI. If code changes are required and nothing was published, follow docs/releases/recover-unpublished-release.md to abort and replace the candidate.`;
     core.error(message);
     core.summary
       .addHeading(`Blocked release #${pr.number}`, 3)

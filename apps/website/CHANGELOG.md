@@ -1,20 +1,5 @@
 # Changelog
 
-## [0.55.0](https://github.com/kortyx-io/kortyx/compare/website-v0.54.1...website-v0.55.0) (2026-10-21)
-
-
-### Features
-
-* **evals:** add portable judge prompts and suite-owned judges ([9a11389](https://github.com/kortyx-io/kortyx/commit/9a11389203ac08ba9dbf1700e9838ad1b5b59d1c))
-* **evals:** add portable judge prompts and suite-owned judges ([18092cf](https://github.com/kortyx-io/kortyx/commit/18092cf0840933beeda98b6e3d17f774f2f4678d))
-
-
-### Bug Fixes
-
-* **studio:** align judge prompt drawer with prompt messages ([d3e5544](https://github.com/kortyx-io/kortyx/commit/d3e554494d4b2e0c754e27e4990333e27c385a56))
-* **studio:** clarify eval assessments and polish result controls ([2091401](https://github.com/kortyx-io/kortyx/commit/2091401f5c05bd6dac3d2f7e9077dd72c04f5cee))
-* **studio:** clarify eval evidence and polish result controls ([f6e7f9e](https://github.com/kortyx-io/kortyx/commit/f6e7f9ef8e4e0d16918d371a8ae64af0c1dbcd43))
-
 ## [0.54.1](https://github.com/kortyx-io/kortyx/compare/website-v0.54.0...website-v0.54.1) (2026-10-21)
 
 

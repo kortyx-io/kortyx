@@ -54,6 +54,9 @@ const readLatestProductNpmVersion = async (
       {
         headers: { accept: "application/json" },
         next: { revalidate: 3600 },
+        // Version discovery is optional; a stalled registry must not block
+        // static generation or a docs request beyond this short deadline.
+        signal: AbortSignal.timeout(3000),
       },
     );
     if (!response.ok) return null;
