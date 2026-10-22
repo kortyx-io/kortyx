@@ -8,6 +8,25 @@
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
 
+## [0.42.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.41.1...agent-v0.42.0) (2026-10-21)
+
+
+### Features
+
+* **evals:** add portable judge prompts and suite-owned judges ([9a11389](https://github.com/kortyx-io/kortyx/commit/9a11389203ac08ba9dbf1700e9838ad1b5b59d1c))
+* **evals:** add portable judge prompts and suite-owned judges ([18092cf](https://github.com/kortyx-io/kortyx/commit/18092cf0840933beeda98b6e3d17f774f2f4678d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.26.3
+    * @kortyx/prompts bumped to 0.3.0
+    * @kortyx/telemetry-contracts bumped to 0.20.1
+  * devDependencies
+    * @kortyx/hooks bumped to 0.35.4
+
 ## [0.41.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.41.0...agent-v0.41.1) (2026-10-21)
 
 

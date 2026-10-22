@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/kortyx-io/kortyx/compare/prompts-v0.2.4...prompts-v0.3.0) (2026-10-21)
+
+
+### Features
+
+* **evals:** add portable judge prompts and suite-owned judges ([9a11389](https://github.com/kortyx-io/kortyx/commit/9a11389203ac08ba9dbf1700e9838ad1b5b59d1c))
+* **evals:** add portable judge prompts and suite-owned judges ([18092cf](https://github.com/kortyx-io/kortyx/commit/18092cf0840933beeda98b6e3d17f774f2f4678d))
+
 ## [0.2.4](https://github.com/kortyx-io/kortyx/compare/prompts-v0.2.3...prompts-v0.2.4) (2026-10-21)
 
 
