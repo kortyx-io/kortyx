@@ -5,6 +5,21 @@
 - Return recoverable, bounded model feedback for invalid named interrupt requests. Preserve strict human responses, request quotas, approval gates, and tool-loop limits.
 - Replace child execution snapshots natively while reading legacy object and single-element array snapshots.
 
+## [0.35.4](https://github.com/kortyx-io/kortyx/compare/hooks-v0.35.3...hooks-v0.35.4) (2026-10-22)
+
+
+### Bug Fixes
+
+* **release:** replace unpublished eval release candidate ([#391](https://github.com/kortyx-io/kortyx/issues/391)) ([7d9898c](https://github.com/kortyx-io/kortyx/commit/7d9898cec73a6eaf1daf3504bc17520437a293d1))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.20.1
+    * @kortyx/prompts bumped to 0.3.0
+
 ## [0.35.3](https://github.com/kortyx-io/kortyx/compare/hooks-v0.35.2...hooks-v0.35.3) (2026-10-21)
 
 

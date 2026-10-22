@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.9](https://github.com/kortyx-io/kortyx/compare/otel-v0.9.8...otel-v0.9.9) (2026-10-22)
+
+
+### Bug Fixes
+
+* **release:** replace unpublished eval release candidate ([#391](https://github.com/kortyx-io/kortyx/issues/391)) ([7d9898c](https://github.com/kortyx-io/kortyx/commit/7d9898cec73a6eaf1daf3504bc17520437a293d1))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/hooks bumped to 0.35.4
+
 ## [0.9.8](https://github.com/kortyx-io/kortyx/compare/otel-v0.9.7...otel-v0.9.8) (2026-10-21)
 
 
