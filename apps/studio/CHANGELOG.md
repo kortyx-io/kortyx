@@ -1,33 +1,5 @@
 # Changelog
 
-## [0.25.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.24.1...studio-v0.25.0) (2026-10-21)
-
-
-### Features
-
-* **evals:** add portable judge prompts and suite-owned judges ([9a11389](https://github.com/kortyx-io/kortyx/commit/9a11389203ac08ba9dbf1700e9838ad1b5b59d1c))
-* **evals:** add portable judge prompts and suite-owned judges ([18092cf](https://github.com/kortyx-io/kortyx/commit/18092cf0840933beeda98b6e3d17f774f2f4678d))
-
-
-### Bug Fixes
-
-* **studio:** align judge prompt drawer with prompt messages ([d3e5544](https://github.com/kortyx-io/kortyx/commit/d3e554494d4b2e0c754e27e4990333e27c385a56))
-* **studio:** clarify eval assessments and polish result controls ([2091401](https://github.com/kortyx-io/kortyx/commit/2091401f5c05bd6dac3d2f7e9077dd72c04f5cee))
-* **studio:** clarify eval evidence and polish result controls ([f6e7f9e](https://github.com/kortyx-io/kortyx/commit/f6e7f9ef8e4e0d16918d371a8ae64af0c1dbcd43))
-* **studio:** use shared slim scrollbar for metric strips ([ce74559](https://github.com/kortyx-io/kortyx/commit/ce745592bf89ed1e9bebedeb1c22da1ea71023b5))
-
-
-### Dependencies
-
-* The following workspace dependencies were updated
-  * dependencies
-    * @kortyx/prompts bumped to 0.3.0
-    * @kortyx/telemetry-contracts bumped to 0.20.1
-  * devDependencies
-    * @kortyx/agent bumped to 0.42.0
-    * @kortyx/telemetry bumped to 0.17.5
-    * kortyx bumped to 0.34.0
-
 ## [0.24.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.24.0...studio-v0.24.1) (2026-10-21)
 
 

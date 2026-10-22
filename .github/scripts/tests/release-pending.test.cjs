@@ -71,7 +71,8 @@ test("failed release CI makes preparation fail with exact-commit recovery", asyn
   assert.deepEqual(await check(f), [330]);
   assert.equal(f.failures.length, 1);
   assert.match(f.errors[0], /release_commit=exact-sha/);
-  assert.match(f.errors[0], /Do not remove the pending label or bypass CI/);
+  assert.match(f.errors[0], /Do not remove the pending label to bypass CI/);
+  assert.match(f.errors[0], /recover-unpublished-release\.md/);
   assert.ok(
     f.calls.every(
       (call) => call.head_sha === "exact-sha" && call.branch === "main",
