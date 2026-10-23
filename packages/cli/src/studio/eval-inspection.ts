@@ -1,4 +1,5 @@
 import { writeFile } from "node:fs/promises";
+import { EvalInspectionQuerySchema } from "@kortyx/agent/evals";
 import { type Command, InvalidArgumentError } from "commander";
 import { type ConnectionOptions, resolveConnection } from "../connections";
 import { parseEvalRunTarget, StudioEvalClient } from "./eval-client";
@@ -58,6 +59,23 @@ export async function readEvalInspection(
     event: options.event,
   }))
     if (value !== undefined) query[key] = String(value);
+  const parsed = EvalInspectionQuerySchema.safeParse({
+    ...query,
+    view: view === "comparison" ? "overview" : view,
+  });
+  if (!parsed.success)
+    throw new InvalidArgumentError(
+      "Invalid evaluation selection, cursor or content limit. Run the command with --help for supported bounds.",
+    );
+  if (
+    options.otherRepetition !== undefined &&
+    (!/^\d+$/.test(options.otherRepetition) ||
+      Number(options.otherRepetition) < 1 ||
+      Number(options.otherRepetition) > 20)
+  )
+    throw new InvalidArgumentError(
+      "Other repetition must be an integer from 1 to 20.",
+    );
   const result =
     view === "comparison"
       ? {

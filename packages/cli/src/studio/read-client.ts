@@ -1,4 +1,7 @@
-import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
+import {
+  redactDiagnosticText,
+  STUDIO_API_PROTOCOL_VERSION,
+} from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 import packageJson from "../../package.json";
 
@@ -119,7 +122,12 @@ export class StudioApiTransport {
         "Studio API request failed or timed out. Check the URL, network/VPN, and TLS. Redirects are not followed.",
       );
     }
-    const requestId = response.headers.get("x-request-id") ?? undefined;
+    const requestId = response.headers.get("x-request-id")
+      ? redactDiagnosticText(response.headers.get("x-request-id") ?? "").slice(
+          0,
+          128,
+        )
+      : undefined;
     const protocol = response.headers.get("x-kortyx-studio-api-version");
     this.compatibility = {
       protocolVersion:
@@ -129,9 +137,9 @@ export class StudioApiTransport {
             ? "invalid"
             : null,
       release:
-        response.headers
-          .get("x-kortyx-studio-release")
-          ?.match(/^[a-zA-Z0-9_.+-]{1,100}$/)?.[0] ?? null,
+        redactDiagnosticText(
+          response.headers.get("x-kortyx-studio-release") ?? "",
+        ).match(/^[a-zA-Z0-9_.+-]{1,100}$/)?.[0] ?? null,
     };
     if (
       this.compatibility.protocolVersion &&

@@ -94,7 +94,7 @@ for (const backend of [
             });
             await useInterrupt({
               id: "review",
-              input: { kind: "text", question: "Review completed preview?" },
+              request: { kind: "text", question: "Review completed preview?" },
             });
             return { data: result.returned?.data };
           },
@@ -157,6 +157,10 @@ for (const backend of [
       expect(review.status).toBe("suspended");
       if (review.status !== "suspended")
         throw new Error("Expected review pause");
+      expect(review.interrupt.input).toMatchObject({
+        kind: "text",
+        question: "Review completed preview?",
+      });
       expect(invoke).toHaveBeenCalledTimes(4);
       await restart();
       const completed = await agent().resume({

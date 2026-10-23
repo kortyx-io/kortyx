@@ -29,7 +29,7 @@ const cases = sql`coalesce((SELECT jsonb_agg(jsonb_build_object(
       'input', step->'input', 'reference', step->'reference', 'expectation', step->'expectation',
       'referencePresent', step ? 'reference', 'promptUsage', step->'observation'->'promptUsage')::text,'UTF8')),'hex'),
     'models', coalesce((SELECT jsonb_agg(DISTINCT prompt->'model') FROM jsonb_array_elements(step->'observation'->'promptUsage') prompt WHERE prompt->>'model' IS NOT NULL), '[]'::jsonb),
-    'prompts', coalesce(step->'observation'->'promptUsage','[]'::jsonb)))
+    'prompts', coalesce((SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', prompt->'id', 'version', prompt->'version', 'hash', prompt->'hash', 'model', prompt->'model'))) FROM jsonb_array_elements(step->'observation'->'promptUsage') prompt),'[]'::jsonb)))
     FROM jsonb_array_elements(attempt->'steps') step), '[]'::jsonb)))
   FROM jsonb_array_elements(${evalRuns.result}->'cases') attempt), '[]'::jsonb)`;
 

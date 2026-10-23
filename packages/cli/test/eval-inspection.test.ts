@@ -343,4 +343,21 @@ describe("bounded evaluation CLI", () => {
     });
     expect(JSON.stringify(error.toJSON())).not.toContain("TOP_SECRET");
   });
+  it("redacts credentials even when a server puts them in compatibility headers", async () => {
+    const client = new StudioReadClient(
+      "https://api.example.test",
+      key,
+      vi.fn<typeof fetch>(async () =>
+        Response.json(
+          { wrong: true },
+          { headers: { "x-kortyx-studio-release": key, "x-request-id": key } },
+        ),
+      ),
+    );
+    const error = await client
+      .get("/v1/studio/context", z.object({ version: z.number() }))
+      .catch((error) => error);
+    expect(JSON.stringify(error.toJSON())).not.toContain(key);
+    expect(error.toJSON().error.details.serverVersion).toBeNull();
+  });
 });

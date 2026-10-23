@@ -76,7 +76,7 @@ export async function inspectEvaluation(
     inspectionVersion: 1 as const,
     id,
     view: query.view,
-    data,
+    data: JSON.parse(JSON.stringify(data ?? null)) as unknown,
     page: paging,
     expand,
   });
@@ -304,6 +304,11 @@ export async function inspectEvaluation(
         .limit(1);
       if (!content)
         throw new TelemetryNotFoundError("Captured model event not found.");
+      const paging = page(
+        content.total,
+        [...content.content].length,
+        query.contentCursor,
+      );
       return envelope(
         {
           section: query.section,
@@ -311,11 +316,28 @@ export async function inspectEvaluation(
           offset: query.contentCursor,
           ...content,
         },
-        page(content.total, [...content.content].length, query.contentCursor),
+        paging,
+        paging.nextCursor === null
+          ? []
+          : [
+              {
+                command: `kortyx studio evals evidence ${id}`,
+                args: {
+                  suite: suite.id,
+                  case: query.caseId,
+                  repetition: String(query.repetition),
+                  turn: String(query.turn),
+                  section: "model",
+                  event: query.event,
+                  "content-cursor": String(paging.nextCursor),
+                  "content-limit": String(query.contentLimit),
+                },
+              },
+            ],
       );
     }
     default:
-      value = sql`${step}->${query.section}`;
+      value = sql`${step}->${query.section}::text`;
   }
   const text = evalEvidenceText(value);
   const [row] = await db
@@ -353,6 +375,7 @@ export async function inspectEvaluation(
               turn: String(query.turn),
               section: query.section,
               "content-cursor": String(paging.nextCursor),
+              "content-limit": String(query.contentLimit),
             },
           },
         ],
