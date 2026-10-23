@@ -152,6 +152,9 @@ it("rejects invalid SDK defaults and unsupported timer sizes", async () => {
   await expect(
     runner.run({ suiteId: suite.id, caseTimeoutMs: 2_147_483_648 }),
   ).rejects.toThrow("supported timer range");
+  await expect(
+    runner.run({ suiteId: suite.id, gradingTimeoutMs: 2_147_483_648 }),
+  ).rejects.toThrow("supported timer range");
 });
 it("returns a real original exception and cause without configuration, redacting only credentials", () => {
   const cause = new Error("Socket closed by upstream");
@@ -228,7 +231,9 @@ it("validates overrides at the HTTP boundary and forwards an allowed case timeou
       400,
     );
     expect(
-      await (await handler(request({ caseTimeoutMs: 500 }))).text(),
+      await (
+        await handler(request({ caseTimeoutMs: 500, gradingTimeoutMs: 1000 }))
+      ).text(),
     ).toContain('"passed"');
     expect(await (await handler(request())).text()).toContain('"passed"');
   } finally {

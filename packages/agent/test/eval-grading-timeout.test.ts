@@ -1,9 +1,6 @@
 import { expect, it, vi } from "vitest";
+import { EvalGradingTimeoutError, withEvalGradingTimeout } from "../src/evals";
 import { createEvalIssue } from "../src/evals/errors";
-import {
-  EvalGradingTimeoutError,
-  withEvalGradingTimeout,
-} from "../src/evals/grading-timeout";
 
 it("supports budgets above a minute, clears timers, and captures timeout facts", async () => {
   vi.useFakeTimers();
@@ -58,4 +55,44 @@ it("propagates cancellation before the grading deadline and ignores late results
   parent.abort(cancelled);
   expect(await pending).toBe(cancelled);
   finish("too late");
+  await Promise.resolve();
+  await Promise.resolve();
+});
+
+it.each([
+  0,
+  -1,
+  0.5,
+  2_147_483_648,
+  Infinity,
+])("rejects an unsupported grading budget: %s", async (timeoutMs) => {
+  await expect(
+    withEvalGradingTimeout(
+      () => "unused",
+      new AbortController().signal,
+      timeoutMs,
+    ),
+  ).rejects.toThrow(RangeError);
+});
+
+it("uses the built-in budget and preserves cancellation before execution starts", async () => {
+  const parent = new AbortController();
+  const run = vi.fn(() => "verdict");
+  expect(await withEvalGradingTimeout(run, parent.signal)).toBe("verdict");
+  const cancelled = new Error("Cancelled before grading");
+  parent.abort(cancelled);
+  await expect(withEvalGradingTimeout(run, parent.signal)).rejects.toBe(
+    cancelled,
+  );
+  expect(run).toHaveBeenCalledOnce();
+});
+
+it("does not start a judge when cancelled before its scheduled callback", async () => {
+  const parent = new AbortController();
+  const run = vi.fn(() => "unused");
+  const pending = withEvalGradingTimeout(run, parent.signal);
+  const cancelled = new Error("Cancelled while scheduling grading");
+  parent.abort(cancelled);
+  await expect(pending).rejects.toBe(cancelled);
+  expect(run).not.toHaveBeenCalled();
 });

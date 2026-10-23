@@ -32,7 +32,7 @@ export async function withEvalGradingTimeout<T>(
     timeoutMs,
   );
   const signal = AbortSignal.any([parent, controller.signal]);
-  let abort: () => void = () => {};
+  let abort!: () => void;
   try {
     return await new Promise<T>((resolve, reject) => {
       abort = () => reject(signal.reason);
@@ -46,7 +46,6 @@ export async function withEvalGradingTimeout<T>(
           if (signal.aborted) reject(signal.reason);
           else resolve(value);
         }, reject);
-      if (signal.aborted) abort();
     });
   } finally {
     clearTimeout(timer);
