@@ -11,8 +11,10 @@ vi.mock("@/components/ui/sidebar", () => ({
 }));
 const router = { push: vi.fn() };
 const params = new URLSearchParams();
+const navigation = vi.hoisted(() => ({ pathname: null as string | null }));
 vi.mock("@/lib/scoped-navigation", () => ({
-  usePathname: () => studioPathname(window.location.pathname),
+  usePathname: () =>
+    navigation.pathname ?? studioPathname(window.location.pathname),
   useRouter: () => router,
   useSearchParams: () => params,
 }));
@@ -30,6 +32,7 @@ function Layer({ path }: { path: string }) {
 }
 let root: Root;
 beforeEach(() => {
+  navigation.pathname = null;
   vi.useFakeTimers();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   root = createRoot(document.createElement("div"));
@@ -63,6 +66,35 @@ async function finishMotion() {
 }
 
 describe.each(["", scope])("drawer history under %s", (prefix) => {
+  it("closes the browser's active drawer while the framework still reports its retained ancestor", async () => {
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    navigation.pathname = parent;
+    await render([parent, child]);
+    const back = backTo(`${prefix}${parent}`);
+    await act(() => controls.get(child)!.closeTop());
+    expect(controls.get(child)!.closing).toBe(true);
+    await finishMotion();
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe(`${prefix}${parent}`);
+  });
+
+  it("defers an early close until the browser reaches the newly shown drawer", async () => {
+    window.history.replaceState({}, "", `${prefix}${parent}`);
+    navigation.pathname = parent;
+    await render([parent, child]);
+    const back = backTo(`${prefix}${parent}`);
+    await act(() => controls.get(child)!.closeTop());
+    await finishMotion();
+    expect(back).not.toHaveBeenCalled();
+    expect(controls.get(child)!.closing).toBe(false);
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    navigation.pathname = child;
+    await render([parent, child]);
+    await finishMotion();
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe(`${prefix}${parent}`);
+  });
+
   it("closes to the list and reopens the same detail", async () => {
     window.history.replaceState({}, "", `${prefix}${child}`);
     await render([child]);
