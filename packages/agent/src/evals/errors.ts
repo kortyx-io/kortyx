@@ -10,6 +10,7 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 import type { Agent } from "../chat/create-agent";
+import { EvalGradingTimeoutError } from "./grading-timeout";
 import type { EvalIssue, EvalPhase } from "./types";
 
 const messages: Record<EvalPhase, string> = {
@@ -72,7 +73,15 @@ export function createEvalIssue(
     ...(exception ? { exception } : {}),
     ...(httpStatus ? { details: { httpStatus } } : {}),
     phase,
-    code: declared ? failure.code : (options.code ?? "EVAL_HOOK_FAILED"),
+    code:
+      error instanceof EvalGradingTimeoutError
+        ? error.code
+        : declared
+          ? failure.code
+          : (options.code ?? "EVAL_HOOK_FAILED"),
+    ...(error instanceof EvalGradingTimeoutError
+      ? { details: { timeoutMs: error.timeoutMs } }
+      : {}),
     message:
       originalMessage ??
       (declared

@@ -460,3 +460,27 @@ it("keeps instruction metadata out of legacy discovery and grading responses", a
     verdict,
   });
 });
+
+it("enforces a caller's grading timeout and returns readable timeout details", async () => {
+  const slow: EvalJudge = {
+    ...identity,
+    grade: (_input: EvalGradeInput) => new Promise<never>(() => {}),
+  };
+  const response = await request(app(slow), { ...body, gradingTimeoutMs: 10 });
+  expect(response.status).toBe(502);
+  expect(await response.json()).toMatchObject({
+    issue: {
+      code: "EVAL_GRADING_TIMEOUT",
+      details: { timeoutMs: 10 },
+      exception: {
+        data: {
+          message: "Grading exceeded its configured 0.01-second time limit.",
+        },
+      },
+    },
+  });
+  for (const gradingTimeoutMs of [0, -1, 0.5, 2_147_483_648])
+    expect((await request(app(), { ...body, gradingTimeoutMs })).status).toBe(
+      400,
+    );
+});

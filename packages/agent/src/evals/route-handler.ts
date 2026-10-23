@@ -197,7 +197,11 @@ export function createEvalRouteHandler({
         { error: "Unsupported or invalid scheduled attempt." },
         { status: 409 },
       );
-    for (const key of ["concurrency", "caseTimeoutMs"] as const) {
+    for (const key of [
+      "concurrency",
+      "caseTimeoutMs",
+      "gradingTimeoutMs",
+    ] as const) {
       const maximum = manifest.execution?.limits[key];
       const value = body[key] ?? manifest.execution?.defaults[key];
       if (maximum !== undefined && value !== undefined && value > maximum)

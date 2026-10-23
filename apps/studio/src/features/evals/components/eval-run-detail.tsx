@@ -181,6 +181,9 @@ export function EvalRunConfiguration({
         <KeyValue label="Case timeout">
           {formatDurationMs(run.resolvedSettings?.values.caseTimeoutMs)}
         </KeyValue>
+        <KeyValue label="Grading timeout">
+          {formatDurationMs(run.resolvedSettings?.values.gradingTimeoutMs)}
+        </KeyValue>
         <KeyValue label="Evaluation timeout">
           {formatDurationMs(run.resolvedSettings?.values.runTimeoutMs)}
         </KeyValue>

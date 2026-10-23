@@ -1004,20 +1004,20 @@ consumers first, then API and Studio together; older consumers retain legacy str
 const evals = createEvals({
   agent,
   suites: [suite],
-  defaults: { repetitions: 2, concurrency: 2, caseTimeoutMs: 120_000 },
-  limits: { concurrency: 4, caseTimeoutMs: 300_000 },
+  defaults: { repetitions: 2, concurrency: 2, caseTimeoutMs: 120_000, gradingTimeoutMs: 90_000 },
+  limits: { concurrency: 4, caseTimeoutMs: 300_000, gradingTimeoutMs: 180_000 },
 });
 // Direct SDK execution uses explicit run values, then configured SDK defaults.
-await evals.run({ suiteId: suite.id, caseTimeoutMs: 180_000 });
+await evals.run({ suiteId: suite.id, caseTimeoutMs: 180_000, gradingTimeoutMs: 120_000 });
 ```
 
 Studio resolves each field as: per-run override → Studio project default →
-explicit SDK default → SDK built-in default. Omitted values remain omitted until
+installation default → explicit SDK default → SDK built-in default. Omitted values remain omitted until
 resolution. The manifest's `execution` advertises declared defaults, limits and
 supported overrides. Application limits are ceilings, independent of precedence;
 an excessive value is rejected before setup, never silently clamped.
 
-SDK built-ins are one repetition, concurrency one and a 60-second case timeout.
+SDK built-ins are one repetition, concurrency one, a 60-second case timeout and a 60-second grading timeout per step. The grading budget is shared by all of that step’s criteria and resets for the next step. `EVAL_GRADING_TIMEOUT` records the configured limit and a readable diagnostic. Cancellation and the case/evaluation deadline can stop grading earlier.
 Repetitions and concurrency support 1–20; millisecond deadlines support positive
 integers up to 2,147,483,647. Setup, verification and cleanup budgets remain
 application-owned (`defaults.setupTimeoutMs`, `verificationTimeoutMs`,

@@ -214,6 +214,8 @@ export type EvalRunResult = {
   errors: EvalIssue[];
 };
 export type EvalGradeInput = {
+  /** The configured per-step budget, propagated to remote judges. */
+  gradingTimeoutMs?: number;
   prompt?: import("./judge-prompt-contracts").EvalJudgePrompt | undefined;
   onRequest?: (
     request: import("./judge-prompt-contracts").EvalGradingRequest,
@@ -283,6 +285,8 @@ export type EvalDefaults = {
   repetitions?: number;
   concurrency?: number;
   caseTimeoutMs?: number;
+  /** Time budget shared by all LLM criteria within one step. */
+  gradingTimeoutMs?: number;
   /** Params/setup admission allowance, independent of the execution deadline. */
   setupTimeoutMs?: number;
   verificationTimeoutMs?: number;
@@ -331,7 +335,11 @@ export type CreateEvalsOptions<
   evidenceFilters?: EvalEvidenceFilters;
   defaults?: EvalDefaults;
   /** Application-enforced ceilings for local and remote runs. */
-  limits?: { concurrency?: number; caseTimeoutMs?: number };
+  limits?: {
+    concurrency?: number;
+    caseTimeoutMs?: number;
+    gradingTimeoutMs?: number;
+  };
 };
 export type EvalProgress =
   | {
@@ -380,6 +388,8 @@ export type EvalProgress =
   | { type: "case-completed"; result: EvalCaseResult };
 export type EvalRunOptions = {
   caseTimeoutMs?: number;
+  /** Time budget shared by all LLM criteria within one step. */
+  gradingTimeoutMs?: number;
   promptSnapshot?: import("@kortyx/prompts").PromptSnapshot;
   /** Studio captures execution without invoking the code judge. Local runs default to app. */
   grading?: "app" | "studio";

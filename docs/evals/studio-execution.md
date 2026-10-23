@@ -264,13 +264,13 @@ For shared consumer capacity, bounded retries, detached executions and replica r
 **Settings → Evaluations** stores sparse project defaults in
 `projects.eval_defaults`. Reading uses the existing project Studio permission;
 saving requires `studio:write` through the installation's authorization adapter.
-The run drawer shows effective repetitions, concurrency, case timeout, overall
+The run drawer shows effective repetitions, concurrency, case timeout, grading timeout, overall
 evaluation timeout and judge, along with their source. Enter a value to override
 it for that run; Reset to default removes that override. There is no separate
 inherit mode. Project defaults apply to the whole project across targets and
 environments; application-specific defaults stay in the SDK.
 
-Per-field precedence is run override → Studio project default → SDK declared
+Per-field precedence is run override → Studio project default → installation default → SDK declared
 default → built-in. Installation timeout defaults sit below project defaults.
 The enqueue operation validates application ceilings and freezes effective values
 and sources on the evaluation and suite records, so edits do not change queued
@@ -331,3 +331,12 @@ advertises support. Older stored runs load without invented settings or timeout
 reasons. Roll back emitters first if reverting API/Studio; the added nullable
 columns and project defaults can remain. Browser case authoring is future work;
 the serializable settings contract also supports future Studio-authored suites.
+
+
+### Grading timeout
+
+`gradingTimeoutMs` follows the same field-by-field defaults and run override resolution as concurrency and case timeout. The built-in fallback is 60,000 ms per step, shared by that step’s criteria. Configure `KORTYX_EVAL_GRADING_TIMEOUT_MS` for an installation default or set a sparse project default in **Settings → Evaluations**. The launch drawer exposes **Grading timeout (seconds)**; resetting it removes the override. Enqueue freezes its value and source, and reruns retain that snapshot. Older saved Studio runs without the field read as the former 60-second built-in limit.
+
+Studio worker grading and SDK/HTTP judging honor the same selected budget. Cancellation and other execution deadlines still take precedence. App grading overrides require an application SDK advertising `gradingTimeoutMs`; Studio grading remains configurable with older consumers because the worker owns grading and does not forward the new field to them. Application grading ceilings reject excessive values before setup. A timed-out custom judge cannot keep the worker waiting indefinitely, even if it ignores its abort signal.
+
+The Studio CLI accepts `kortyx studio evals runs start <suite> --grading-timeout-ms 120000` for an explicit override; omit the flag to inherit project/application defaults.

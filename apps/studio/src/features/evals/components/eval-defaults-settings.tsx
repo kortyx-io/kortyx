@@ -37,7 +37,12 @@ export function EvalDefaultsSettings() {
     {
       defaults: {},
       limits: {},
-      overrides: ["repetitions", "concurrency", "caseTimeoutMs"],
+      overrides: [
+        "repetitions",
+        "concurrency",
+        "caseTimeoutMs",
+        "gradingTimeoutMs",
+      ],
     },
     settings?.installation,
   );

@@ -156,6 +156,9 @@ export function createEvalExecutionTransport({
         suiteId: body.suiteId,
         repetitions: body.repetitions,
         concurrency: body.concurrency,
+        ...(body.gradingTimeoutMs !== undefined
+          ? { gradingTimeoutMs: body.gradingTimeoutMs }
+          : {}),
         ...(body.caseTimeoutMs !== undefined
           ? { caseTimeoutMs: body.caseTimeoutMs }
           : {}),

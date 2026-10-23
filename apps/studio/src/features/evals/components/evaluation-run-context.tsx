@@ -57,6 +57,10 @@ export function EvaluationRunContext({ run }: { run: StudioEvaluationDetail }) {
                   {formatDurationMs(settings.values.caseTimeoutMs)} ·{" "}
                   {settingSource(settings.sources.caseTimeoutMs)}
                 </KeyValue>
+                <KeyValue label="Grading timeout">
+                  {formatDurationMs(settings.values.gradingTimeoutMs)} ·{" "}
+                  {settingSource(settings.sources.gradingTimeoutMs)}
+                </KeyValue>
                 <KeyValue label="Evaluation timeout">
                   {formatDurationMs(settings.values.runTimeoutMs)} ·{" "}
                   {settingSource(settings.sources.runTimeoutMs)}

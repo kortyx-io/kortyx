@@ -124,6 +124,7 @@ export function EvalSettingsSummary({
                       repetitions: "Repetitions per conversation",
                       concurrency: "Concurrent attempts",
                       caseTimeoutMs: "Case timeout",
+                      gradingTimeoutMs: "Grading timeout",
                       runTimeoutMs: "Evaluation timeout",
                       judge: "Judge",
                     }[key]

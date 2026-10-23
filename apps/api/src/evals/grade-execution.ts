@@ -3,45 +3,14 @@ import type {
   EvalJudge,
   EvalProgress,
   EvalRunResult,
-  EvalVerdict,
 } from "@kortyx/agent/evals";
 import {
   createEvalIssue,
+  DEFAULT_EVAL_GRADING_TIMEOUT_MS,
   EvalVerdictSchema,
   getEvalGradeEvidence,
+  withEvalGradingTimeout,
 } from "@kortyx/agent/evals";
-
-// Custom judges receive the abort signal, but the worker also stops waiting if
-// their implementation ignores it. Late completion is consumed and discarded.
-function awaitVerdict(
-  run: () => Promise<EvalVerdict> | EvalVerdict,
-  signal: AbortSignal,
-): Promise<EvalVerdict> {
-  signal.throwIfAborted();
-  return new Promise((resolve, reject) => {
-    const abort = () => {
-      signal.removeEventListener("abort", abort);
-      reject(signal.reason);
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    Promise.resolve()
-      .then(() => {
-        signal.throwIfAborted();
-        return run();
-      })
-      .then(
-        (value) => {
-          signal.removeEventListener("abort", abort);
-          resolve(value);
-        },
-        (error: unknown) => {
-          signal.removeEventListener("abort", abort);
-          reject(error);
-        },
-      );
-    if (signal.aborted) abort();
-  });
-}
 
 /** Grade captured public evidence without executing any application code again. */
 export async function gradeEvalExecution(
@@ -50,6 +19,7 @@ export async function gradeEvalExecution(
   signal: AbortSignal,
   onProgress: (event: EvalProgress) => Promise<void>,
   reportError?: (error: unknown) => Promise<string | undefined>,
+  gradingTimeoutMs = DEFAULT_EVAL_GRADING_TIMEOUT_MS,
 ): Promise<EvalRunResult> {
   const started = Date.now();
   const result = structuredClone(execution);
@@ -70,23 +40,21 @@ export async function gradeEvalExecution(
     for (const step of item.steps) {
       if (step.status !== "ungraded") continue;
       signal.throwIfAborted();
-      const gradingTimeout = AbortSignal.timeout(60_000);
       try {
-        const deadline = AbortSignal.any([signal, gradingTimeout]);
-        for (const [index, value] of (
-          step.expectation.criteria ?? []
-        ).entries()) {
-          deadline.throwIfAborted();
-          const criterion =
-            typeof value === "string"
-              ? { id: String(index), text: value }
-              : value;
-          step.judgeCalls = (step.judgeCalls ?? 0) + 1;
-          let request: EvalGradingRequest | undefined;
-          const verdict = EvalVerdictSchema.parse(
-            await awaitVerdict(
-              () =>
-                judge.grade({
+        await withEvalGradingTimeout(
+          async (deadline) => {
+            for (const [index, value] of (
+              step.expectation.criteria ?? []
+            ).entries()) {
+              deadline.throwIfAborted();
+              const criterion =
+                typeof value === "string"
+                  ? { id: String(index), text: value }
+                  : value;
+              step.judgeCalls = (step.judgeCalls ?? 0) + 1;
+              let request: EvalGradingRequest | undefined;
+              const verdict = EvalVerdictSchema.parse(
+                await judge.grade({
                   ...(prompt ? { prompt } : {}),
                   onRequest: (value) => {
                     request = structuredClone(value);
@@ -107,17 +75,20 @@ export async function gradeEvalExecution(
                     ? { reference: structuredClone(step.reference) }
                     : {}),
                   signal: deadline,
+                  gradingTimeoutMs,
                 }),
-              deadline,
-            ),
-          );
-          deadline.throwIfAborted();
-          step.criteria.push({
-            ...criterion,
-            ...verdict,
-            ...(request ? { request } : {}),
-          });
-        }
+              );
+              deadline.throwIfAborted();
+              step.criteria.push({
+                ...criterion,
+                ...verdict,
+                ...(request ? { request } : {}),
+              });
+            }
+          },
+          signal,
+          gradingTimeoutMs,
+        );
         step.status = step.criteria.some((criterion) => !criterion.passed)
           ? "failed"
           : "passed";
@@ -129,11 +100,6 @@ export async function gradeEvalExecution(
           code: "EVAL_GRADING_FAILED",
           ...(diagnosticId ? { diagnosticId } : {}),
         });
-        if (gradingTimeout.aborted) {
-          issue.code = "EVAL_GRADING_TIMEOUT";
-          issue.message = "Studio grading exceeded its 60-second time limit.";
-          issue.details = { timeoutMs: 60_000 };
-        }
         step.reason = issue.message;
         item.errors.push(issue);
       }

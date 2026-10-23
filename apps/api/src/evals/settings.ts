@@ -8,6 +8,8 @@ export function evalInstallationSettings(env: NodeJS.ProcessEnv = process.env) {
   const installation: EvalSettings = {};
   if (env.KORTYX_EVAL_RUN_TIMEOUT_MS !== undefined)
     installation.runTimeoutMs = Number(env.KORTYX_EVAL_RUN_TIMEOUT_MS);
+  if (env.KORTYX_EVAL_GRADING_TIMEOUT_MS !== undefined)
+    installation.gradingTimeoutMs = Number(env.KORTYX_EVAL_GRADING_TIMEOUT_MS);
   EvalSettingsSchema.parse(installation);
   const maxRunTimeoutMs = Number(
     env.KORTYX_EVAL_MAX_RUN_TIMEOUT_MS ?? 2_147_483_647,

@@ -21,6 +21,10 @@ import {
   validateEvidenceFilters,
 } from "./evidence";
 import { EvalEvidencePolicySchema } from "./evidence-policy";
+import {
+  DEFAULT_EVAL_GRADING_TIMEOUT_MS,
+  withEvalGradingTimeout,
+} from "./grading-timeout";
 import { validateJudgePrompt } from "./judge-prompt";
 import type { EvalGradingRequest } from "./judge-prompt-contracts";
 import { sameJudgePrompt } from "./judge-prompt-contracts";
@@ -177,6 +181,10 @@ export function createEvals<
       options.defaults?.caseTimeoutMs ?? 60_000,
       "caseTimeoutMs",
     ),
+    gradingTimeoutMs: positive(
+      options.defaults?.gradingTimeoutMs ?? DEFAULT_EVAL_GRADING_TIMEOUT_MS,
+      "gradingTimeoutMs",
+    ),
     setupTimeoutMs: positive(
       options.defaults?.setupTimeoutMs ??
         options.defaults?.caseTimeoutMs ??
@@ -208,13 +216,21 @@ export function createEvals<
       correlation,
       ...(code ? { code } : {}),
     });
-  for (const key of ["concurrency", "caseTimeoutMs"] as const) {
+  for (const key of [
+    "concurrency",
+    "caseTimeoutMs",
+    "gradingTimeoutMs",
+  ] as const) {
     const max = options.limits?.[key];
     if (max !== undefined && defaults[key] > positive(max, `limits.${key}`))
       throw new EvalConfigurationError(
         `${key} default exceeds its application limit.`,
       );
   }
+  if (defaults.gradingTimeoutMs > 2_147_483_647)
+    throw new EvalConfigurationError(
+      "gradingTimeoutMs exceeds the supported timer range.",
+    );
   return {
     listSuites(): EvalSuite[] {
       return clone(suites);
@@ -229,15 +245,24 @@ export function createEvals<
             ...(options.defaults?.concurrency !== undefined
               ? { concurrency: options.defaults.concurrency }
               : {}),
+            ...(options.defaults?.gradingTimeoutMs !== undefined
+              ? { gradingTimeoutMs: options.defaults.gradingTimeoutMs }
+              : {}),
             ...(options.defaults?.caseTimeoutMs !== undefined
               ? { caseTimeoutMs: options.defaults.caseTimeoutMs }
               : {}),
           },
           limits: options.limits ?? {},
-          overrides: ["repetitions", "concurrency", "caseTimeoutMs"] as (
+          overrides: [
+            "repetitions",
+            "concurrency",
+            "caseTimeoutMs",
+            "gradingTimeoutMs",
+          ] as (
             | "repetitions"
             | "concurrency"
             | "caseTimeoutMs"
+            | "gradingTimeoutMs"
           )[],
         },
         schemaVersion: 1 as const,
@@ -303,6 +328,14 @@ export function createEvals<
           args.caseTimeoutMs ?? defaults.caseTimeoutMs,
           "caseTimeoutMs",
         );
+        const gradingTimeoutMs = positive(
+          args.gradingTimeoutMs ?? defaults.gradingTimeoutMs,
+          "gradingTimeoutMs",
+        );
+        if (gradingTimeoutMs > 2_147_483_647)
+          throw new EvalConfigurationError(
+            "gradingTimeoutMs exceeds the supported timer range.",
+          );
         if (caseTimeoutMs > 2_147_483_647)
           throw new EvalConfigurationError(
             "caseTimeoutMs exceeds the supported timer range.",
@@ -310,6 +343,7 @@ export function createEvals<
         for (const [key, value] of [
           ["concurrency", concurrency],
           ["caseTimeoutMs", caseTimeoutMs],
+          ["gradingTimeoutMs", gradingTimeoutMs],
         ] as const) {
           const max = options.limits?.[key];
           if (max !== undefined && value > max)
@@ -706,53 +740,61 @@ export function createEvals<
                       evaluated.status = "ungraded";
                       attemptResult.status = "ungraded";
                     }
-                    for (const [criterionIndex, value] of (studioGrading
-                      ? []
-                      : (step.expect.criteria ?? [])
-                    ).entries()) {
-                      signal.throwIfAborted();
-                      const criterion =
-                        typeof value === "string"
-                          ? { id: String(criterionIndex), text: value }
-                          : value;
-                      evaluated.judgeCalls = (evaluated.judgeCalls ?? 0) + 1;
-                      let request: EvalGradingRequest | undefined;
-                      const verdict = EvalVerdictSchema.parse(
-                        await withEvalAttribution(undefined, () =>
-                          appJudge!.grade({
-                            ...(suite.judge?.prompt
-                              ? { prompt: suite.judge.prompt }
-                              : {}),
-                            onRequest: (value) => {
-                              request = clone(value);
-                            },
-                            criterion,
-                            onUsage: (usage) => {
-                              if (!signal.aborted) {
-                                evaluated.judgeUsage ??= [];
-                                evaluated.judgeUsage.push(clone(usage));
-                              }
-                            },
-                            input: clone(input),
-                            ...getEvalGradeEvidence(
-                              evaluated,
-                              attemptResult.steps.slice(0, -1),
-                            ),
-                            signal,
-                            ...(evaluated.reference !== undefined
-                              ? { reference: clone(evaluated.reference) }
-                              : {}),
-                          }),
-                        ),
+                    if (!studioGrading && step.expect.criteria?.length)
+                      await withEvalGradingTimeout(
+                        async (gradingSignal) => {
+                          for (const [criterionIndex, value] of (
+                            step.expect.criteria ?? []
+                          ).entries()) {
+                            gradingSignal.throwIfAborted();
+                            const criterion =
+                              typeof value === "string"
+                                ? { id: String(criterionIndex), text: value }
+                                : value;
+                            evaluated.judgeCalls =
+                              (evaluated.judgeCalls ?? 0) + 1;
+                            let request: EvalGradingRequest | undefined;
+                            const verdict = EvalVerdictSchema.parse(
+                              await withEvalAttribution(undefined, () =>
+                                appJudge!.grade({
+                                  ...(suite.judge?.prompt
+                                    ? { prompt: suite.judge.prompt }
+                                    : {}),
+                                  onRequest: (value) => {
+                                    request = clone(value);
+                                  },
+                                  criterion,
+                                  onUsage: (usage) => {
+                                    if (!gradingSignal.aborted) {
+                                      evaluated.judgeUsage ??= [];
+                                      evaluated.judgeUsage.push(clone(usage));
+                                    }
+                                  },
+                                  input: clone(input),
+                                  ...getEvalGradeEvidence(
+                                    evaluated,
+                                    attemptResult.steps.slice(0, -1),
+                                  ),
+                                  signal: gradingSignal,
+                                  gradingTimeoutMs,
+                                  ...(evaluated.reference !== undefined
+                                    ? { reference: clone(evaluated.reference) }
+                                    : {}),
+                                }),
+                              ),
+                            );
+                            gradingSignal.throwIfAborted();
+                            evaluated.criteria.push({
+                              ...criterion,
+                              ...verdict,
+                              ...(request ? { request } : {}),
+                            });
+                            if (!verdict.passed) evaluated.status = "failed";
+                          }
+                        },
+                        signal,
+                        gradingTimeoutMs,
                       );
-                      signal.throwIfAborted();
-                      evaluated.criteria.push({
-                        ...criterion,
-                        ...verdict,
-                        ...(request ? { request } : {}),
-                      });
-                      if (!verdict.passed) evaluated.status = "failed";
-                    }
                   }
                 }
                 await emit({

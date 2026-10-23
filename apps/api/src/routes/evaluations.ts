@@ -182,6 +182,7 @@ export function registerEvaluationRoutes(
                 "repetitions",
                 "concurrency",
                 "caseTimeoutMs",
+                "gradingTimeoutMs",
                 "runTimeoutMs",
               ].includes(key),
             ),
@@ -375,6 +376,10 @@ export function registerEvaluationRoutes(
               repetitions: request.repetitions,
               concurrency: request.concurrency,
               runTimeoutMs: request.runTimeoutMs,
+              ...(request.judge === "studio" ||
+              manifest.execution?.overrides.includes("gradingTimeoutMs")
+                ? { gradingTimeoutMs: request.gradingTimeoutMs }
+                : {}),
               resolvedSettings,
               ...(manifest.execution?.overrides.includes("caseTimeoutMs")
                 ? { caseTimeoutMs: request.caseTimeoutMs }

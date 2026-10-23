@@ -35,6 +35,13 @@ const fieldDefinitions = [
     max: 2_147_483_647 / 1000,
   },
   {
+    key: "gradingTimeoutMs",
+    label: "Grading timeout (seconds)",
+    help: "The time limit shared by all judge criteria for one step. Cancellation and the evaluation deadline can stop grading sooner.",
+    unit: 1000,
+    max: 2_147_483_647 / 1000,
+  },
+  {
     key: "runTimeoutMs",
     label: "Evaluation timeout (minutes)",
     help: "The time limit for the entire evaluation. This is separate from the time limit for one conversation.",
@@ -48,6 +55,7 @@ export function EvalSettingsFields({
   onChange,
   disabled,
   supportsCaseTimeout = true,
+  supportsGradingTimeout = true,
   limits,
   overrideSource = "run",
   fields,
@@ -59,9 +67,11 @@ export function EvalSettingsFields({
   overrideSource?: "run" | "studio";
   disabled?: boolean;
   supportsCaseTimeout?: boolean;
+  supportsGradingTimeout?: boolean;
   limits?: {
     concurrency?: number;
     caseTimeoutMs?: number;
+    gradingTimeoutMs?: number;
     runTimeoutMs?: number;
   };
 }) {
@@ -104,7 +114,8 @@ export function EvalSettingsFields({
                 value={Number.isFinite(value) ? value / field.unit : ""}
                 disabled={
                   disabled ||
-                  (field.key === "caseTimeoutMs" && !supportsCaseTimeout)
+                  (field.key === "caseTimeoutMs" && !supportsCaseTimeout) ||
+                  (field.key === "gradingTimeoutMs" && !supportsGradingTimeout)
                 }
                 onChange={(e) =>
                   onChange(
@@ -144,6 +155,11 @@ export function EvalSettingsFields({
                     : field.unit === 60000
                       ? " minutes"
                       : ""}
+                </p>
+              )}
+              {field.key === "gradingTimeoutMs" && !supportsGradingTimeout && (
+                <p className="text-xs text-muted-foreground">
+                  Update the application SDK to change App grading timeout.
                 </p>
               )}
               {field.key === "caseTimeoutMs" && !supportsCaseTimeout && (

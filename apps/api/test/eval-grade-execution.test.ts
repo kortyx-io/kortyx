@@ -246,7 +246,7 @@ it("stops waiting when a custom judge ignores cancellation", async () => {
       ...judge,
       grade: () => {
         started();
-        return new Promise(() => {});
+        return new Promise<never>(() => {});
       },
     },
     controller.signal,
@@ -609,4 +609,87 @@ it("grades a deserialized suite and its prompt through the same Studio runner wi
   expect(result.cases[0]?.steps[0]?.criteria[0]?.request?.messages).toEqual(
     invoke.mock.calls[0]?.[0],
   );
+});
+
+it("uses the configured grading budget above 60 seconds and preserves timeout diagnostics", async () => {
+  const execution = await capture();
+  vi.useFakeTimers();
+  try {
+    const grade = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 75_000));
+      return { passed: true, reason: "Recorded", evidence: [] };
+    });
+    const pending = gradeEvalExecution(
+      execution,
+      { ...judge, grade },
+      new AbortController().signal,
+      async () => {},
+      undefined,
+      120_000,
+    );
+    await vi.advanceTimersByTimeAsync(150_000);
+    expect((await pending).status).toBe("passed");
+    expect(grade.mock.calls).toHaveLength(2);
+    const diagnostic = vi.fn(
+      async (_error: unknown) => "10000000-0000-4000-8000-000000000099",
+    );
+    const stalled = gradeEvalExecution(
+      execution,
+      { ...judge, grade: () => new Promise<never>(() => {}) },
+      new AbortController().signal,
+      async () => {},
+      diagnostic,
+      90_000,
+    );
+    await vi.advanceTimersByTimeAsync(180_000);
+    const result = await stalled;
+    expect(result.cases[0]?.errors[0]).toMatchObject({
+      code: "EVAL_GRADING_TIMEOUT",
+      details: { timeoutMs: 90_000 },
+      diagnosticId: "10000000-0000-4000-8000-000000000099",
+      exception: {
+        data: {
+          message: "Grading exceeded its configured 90-second time limit.",
+        },
+      },
+    });
+    expect(diagnostic.mock.calls[0]?.[0]).toMatchObject({
+      code: "EVAL_GRADING_TIMEOUT",
+      timeoutMs: 90_000,
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("shares one grading budget across a step's criteria and discards late verdicts", async () => {
+  const execution = await capture();
+  const first = execution.cases[0]?.steps[0];
+  if (!first || !execution.cases[0]) throw new Error("Missing control step");
+  execution.cases[0].steps = [first];
+  first.expectation.criteria = ["First requirement", "Second requirement"];
+  vi.useFakeTimers();
+  try {
+    const grade = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 40_000));
+      return { passed: true, reason: "Supported", evidence: [] };
+    });
+    const pending = gradeEvalExecution(
+      execution,
+      { ...judge, grade },
+      new AbortController().signal,
+      async () => {},
+      undefined,
+      60_000,
+    );
+    await vi.advanceTimersByTimeAsync(60_000);
+    const result = await pending;
+    expect(result.cases[0]?.errors[0]?.code).toBe("EVAL_GRADING_TIMEOUT");
+    expect(grade).toHaveBeenCalledTimes(2);
+    expect(result.cases[0]?.steps[0]?.criteria).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(result.cases[0]?.steps[0]?.criteria).toHaveLength(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });

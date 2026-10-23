@@ -251,3 +251,13 @@ it.each([
   }));
   expect(mixedCaseResults(run).size).toBe(0);
 });
+
+it("preserves the frozen grading budget on Studio reruns", () => {
+  const { run, targets } = fixture();
+  run.request = {
+    ...run.request!,
+    grading: "studio",
+    gradingTimeoutMs: 180_000,
+  };
+  expect(failedRerunQuery([run], targets).launchGradingTimeout).toBe("180000");
+});

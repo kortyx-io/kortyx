@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { createEvals } from "../src/evals/create-evals";
 import { createEvalIssue } from "../src/evals/errors";
-import { EvalSettingsSchema, resolveEvalSettings } from "../src/evals/settings";
+import {
+  EvalSettingsSchema,
+  ResolvedEvalSettingsSchema,
+  resolveEvalSettings,
+} from "../src/evals/settings";
 
 const execution = {
   defaults: { concurrency: 2, caseTimeoutMs: 120_000 },
@@ -25,6 +29,7 @@ describe("evaluation settings precedence", () => {
         repetitions: 2,
         concurrency: 3,
         caseTimeoutMs: 120_000,
+        gradingTimeoutMs: 60_000,
         runTimeoutMs: 1_800_000,
         judge: "studio",
       },
@@ -32,6 +37,7 @@ describe("evaluation settings precedence", () => {
         repetitions: "studio",
         concurrency: "run",
         caseTimeoutMs: "sdk",
+        gradingTimeoutMs: "sdk-default",
         runTimeoutMs: "studio-default",
         judge: "studio-default",
       },
@@ -256,4 +262,101 @@ it("advertises an explicitly configured repetition default", () => {
     defaults: { repetitions: 3 },
   });
   expect(runner.describe().execution.defaults.repetitions).toBe(3);
+});
+
+it("resolves grading timeout through the same layers, checks App capabilities and reads legacy snapshots", () => {
+  const application = {
+    ...execution,
+    defaults: { ...execution.defaults, gradingTimeoutMs: 90_000 },
+    overrides: [...execution.overrides, "gradingTimeoutMs" as const],
+  };
+  const resolve = (run = {}, project = {}, installation = {}) =>
+    resolveEvalSettings(run, project, application, installation);
+  expect(resolve().values.gradingTimeoutMs).toBe(90_000);
+  expect(
+    resolve({}, {}, { gradingTimeoutMs: 100_000 }).values.gradingTimeoutMs,
+  ).toBe(100_000);
+  expect(
+    resolve({}, { gradingTimeoutMs: 120_000 }, { gradingTimeoutMs: 100_000 })
+      .values.gradingTimeoutMs,
+  ).toBe(120_000);
+  const selected = resolve(
+    { gradingTimeoutMs: 180_000 },
+    { gradingTimeoutMs: 120_000 },
+    { gradingTimeoutMs: 100_000 },
+  );
+  expect(selected.values.gradingTimeoutMs).toBe(180_000);
+  expect(selected.sources.gradingTimeoutMs).toBe("run");
+  expect(() =>
+    resolveEvalSettings(
+      { judge: "app", gradingTimeoutMs: 180_000 },
+      {},
+      execution,
+    ),
+  ).toThrow("Update the consumer SDK");
+  expect(
+    resolveEvalSettings(
+      { judge: "studio", gradingTimeoutMs: 180_000 },
+      {},
+      execution,
+    ).values.gradingTimeoutMs,
+  ).toBe(180_000);
+  expect(() =>
+    resolveEvalSettings(
+      { gradingTimeoutMs: 300_001 },
+      {},
+      { ...application, limits: { gradingTimeoutMs: 300_000 } },
+    ),
+  ).toThrow("application maximum");
+  const legacy = JSON.parse(JSON.stringify(selected));
+  delete legacy.values.gradingTimeoutMs;
+  delete legacy.sources.gradingTimeoutMs;
+  const restored = ResolvedEvalSettingsSchema.parse(legacy);
+  expect(restored.values.gradingTimeoutMs).toBe(60_000);
+  expect(restored.sources.gradingTimeoutMs).toBe("studio-default");
+});
+it("honors the configured App grading deadline, retains diagnostic details and runs cleanup", async () => {
+  const teardown = vi.fn();
+  const runner = createEvals({
+    agent: { streamChat: vi.fn() },
+    suites: [
+      {
+        ...suite,
+        cases: [
+          {
+            id: "one",
+            steps: [
+              {
+                message: "hello",
+                expect: { type: "answer", criteria: ["Correct"] },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    judge: {
+      id: "slow",
+      version: "1",
+      grade: () => new Promise<never>(() => {}),
+    },
+    execute: () => ({
+      observation: { type: "answer", text: "hello", structured: [] },
+    }),
+    defaults: { caseTimeoutMs: 5000, gradingTimeoutMs: 2000 },
+    teardown,
+  });
+  expect(runner.describe().execution.defaults.gradingTimeoutMs).toBe(2000);
+  expect(runner.describe().execution.overrides).toContain("gradingTimeoutMs");
+  const result = await runner.run({ suiteId: suite.id, gradingTimeoutMs: 10 });
+  expect(result.cases[0]?.errors[0]).toMatchObject({
+    code: "EVAL_GRADING_TIMEOUT",
+    details: { timeoutMs: 10 },
+    exception: {
+      data: {
+        message: "Grading exceeded its configured 0.01-second time limit.",
+      },
+    },
+  });
+  expect(teardown).toHaveBeenCalledOnce();
 });
