@@ -11,6 +11,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useSyncExternalStore,
 } from "react";
@@ -46,6 +47,11 @@ export function StudioQueryAdapter({ children }: { children: ReactNode }) {
     () => `${pathname}${search ? `?${search}` : ""}`,
   );
   const router = useRouter();
+  useEffect(() => {
+    // Next commits its history URL after rendering the destination. Recheck
+    // the store after that commit as well as on shallow writes and popstate.
+    window.dispatchEvent(new Event(QUERY_UPDATE_EVENT));
+  }, [pathname, search]);
   const updateUrl = useCallback<AdapterInterface["updateUrl"]>(
     (params, options) => {
       const url = new URL(window.location.href);
