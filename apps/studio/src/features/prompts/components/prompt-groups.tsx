@@ -674,13 +674,10 @@ function PromptGroupHeader({
           </Button>
         )}
         <div className="min-w-0 flex-1">
-          <h1
-            className="line-clamp-2 whitespace-normal break-words text-sm font-semibold"
-            title={title}
-          >
+          <h1 className="truncate text-sm font-semibold" title={title}>
             {title}
           </h1>
-          <p className="line-clamp-2 whitespace-normal break-words text-xs text-muted-foreground">
+          <p className="truncate text-xs text-muted-foreground">
             Candidate versions for testing
           </p>
         </div>

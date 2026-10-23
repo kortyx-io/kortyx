@@ -13,7 +13,6 @@ import {
   and,
   type asc,
   count,
-  desc,
   eq,
   gt,
   gte,

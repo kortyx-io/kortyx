@@ -12,7 +12,7 @@ import {
 import { statusMeta } from "@/features/runs/lib/constants";
 import type { Run, RunStatus, SortKey } from "@/features/runs/schema";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
-import { TruncatedText } from "@/features/telemetry/components/line-clamp-2 whitespace-normal break-wordsd-text";
+import { TruncatedText } from "@/features/telemetry/components/truncated-text";
 import {
   studioColumnFilters,
   studioValueColumn,

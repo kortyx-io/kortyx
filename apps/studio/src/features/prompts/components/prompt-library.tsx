@@ -257,9 +257,7 @@ export function PromptLibraryView({
                 className="flex min-w-0 flex-1 items-center gap-2 py-2 text-xs"
               >
                 <Folder className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="line-clamp-2 whitespace-normal break-words">
-                  {category.name}
-                </span>
+                <span className="truncate">{category.name}</span>
               </Link>
               {categoryActions(category)}
             </div>
