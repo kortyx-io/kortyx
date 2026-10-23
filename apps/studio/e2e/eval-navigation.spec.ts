@@ -557,6 +557,14 @@ test.describe("Eval drawer hardening", () => {
     await comparison
       .getByRole("button", { name: "Candidate", exact: true })
       .click();
+    // The tab's throttled URL update can remount its content. Wait for that
+    // transition before opening a menu owned by the newly selected tab.
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get("comparisonTab") === "candidate",
+    );
+    await expect(
+      comparison.locator('[data-detail-tab-content="candidate"]'),
+    ).toBeVisible();
     await comparison
       .getByRole("button", { name: "Candidate repetition", exact: true })
       .click();
