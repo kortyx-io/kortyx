@@ -44,22 +44,27 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-async function render(path?: string) {
+async function render(path?: string, secondary?: string) {
   await act(() =>
     root.render(
       <DetailStackProvider>
         <NavigationControl />
         <DetailDrawerHost>
-          {path ? (
-            <DetailDrawer
-              matchPath={path}
-              dismissPath="/runs"
-              title={path}
-              description="Recorded run"
-            >
-              <p>Saved payload for {path}</p>
-            </DetailDrawer>
-          ) : null}
+          {[path, secondary]
+            .filter((path) => path !== undefined)
+            .map((path) => (
+              <DetailDrawer
+                key={path}
+                matchPath={path}
+                dismissPath={
+                  path.startsWith("/sessions/") ? "/sessions" : "/runs"
+                }
+                title={path}
+                description="Recorded run"
+              >
+                <p>Saved payload for {path}</p>
+              </DetailDrawer>
+            ))}
         </DetailDrawerHost>
       </DetailStackProvider>,
     ),
@@ -79,6 +84,28 @@ async function restore(path: string, state: unknown) {
 }
 const drawer = (path: string) =>
   container.querySelector(`[data-detail-drawer="${path}"]`);
+
+it("unmounts a closed history layer even while Next retains its route registration", async () => {
+  window.history.replaceState({}, "", "/runs/first");
+  await render("/runs/first");
+  const runHistory = window.history.state;
+  await act(() => prepareNavigation?.("/sessions/parent"));
+  window.history.replaceState({}, "", "/sessions/parent");
+  await render("/runs/first", "/sessions/parent");
+  const sessionHistory = window.history.state;
+  await restore("/runs/first", runHistory);
+  // Both route payloads remain registered; history still owns presentation.
+  await render("/runs/first", "/sessions/parent");
+  await settle();
+  expect(drawer("/runs/first")?.getAttribute("data-state")).toBe("open");
+  expect(drawer("/sessions/parent")).toBeNull();
+  await restore("/sessions/parent", sessionHistory);
+  await settle();
+  expect(drawer("/sessions/parent")?.getAttribute("data-state")).toBe("open");
+  await restore("/runs/first", runHistory);
+  await settle();
+  expect(drawer("/sessions/parent")).toBeNull();
+});
 
 it("retains the mounted ancestor when Next releases its parallel slot", async () => {
   window.history.replaceState({}, "", "/runs/first");

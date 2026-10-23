@@ -90,6 +90,7 @@ const DetailDrawerHostContext =
 export const useDetailDrawer = () => useContext(DetailDrawerContext);
 
 export function DetailDrawerHost({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [drawers, setDrawers] = useState<HostedDetailDrawer[]>([]);
   const layers = useRetainedDetailLayers();
   const registrationCountsRef = useRef(new Map<string, number>());
@@ -167,6 +168,7 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
     <DetailDrawerHostContext.Provider value={value}>
       {children}
       {drawers.map((drawer) => {
+        const layer = layers.find((layer) => layer.id === drawer.matchPath);
         const retained =
           layers.findLast(
             (layer) =>
@@ -179,7 +181,12 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
           <RetainedDetailDrawer
             key={drawer.matchPath}
             {...drawer}
-            active={drawer.active || retained}
+            active={
+              retained ||
+              (drawer.active &&
+                !layer?.closing &&
+                pathname === drawer.matchPath)
+            }
           />
         );
       })}

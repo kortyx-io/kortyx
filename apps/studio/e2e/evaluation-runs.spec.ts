@@ -7,6 +7,8 @@ for (const scope of ["all", "selected"] as const) {
   test(`launches ${scope} suites as one evaluation and drills into suite results`, async ({
     page,
   }) => {
+    // This full journey includes launch, two reloads and multiple cold routes.
+    test.setTimeout(60_000);
     await page.goto("/evals/runs");
     await page
       .getByRole("button", { name: "Run evaluations", exact: true })
