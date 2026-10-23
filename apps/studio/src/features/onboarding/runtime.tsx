@@ -134,7 +134,8 @@ export function LearningRuntime(props: RuntimeProps) {
                 // rather than changing history behind their queued state.
                 await promptNavigation.current({
                   v: step.view.version,
-                  compareWith: step.view.compareWith ?? null,
+                  compareWith:
+                    "compareWith" in step.view ? step.view.compareWith : null,
                   detailView: "expanded",
                 });
               } else
