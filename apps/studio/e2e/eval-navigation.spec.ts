@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { EVAL_FIXTURE } from "./support/eval-fixture";
 import { EVAL_OPAQUE_CASES, EVAL_SUITE } from "./support/eval-plan";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
+import { setUrlSelection } from "./support/url-selection";
 
 const runPath = `/evals/runs/${EVAL_FIXTURE.candidate}`;
 const comparePath = `${runPath}/compare?baseline=${EVAL_FIXTURE.baseline}`;
@@ -163,9 +164,9 @@ test.describe("Eval route and drawer navigation", () => {
   test("persists comparison filters and attempts in URL", async ({ page }) => {
     await page.goto(comparePath);
     await page.getByRole("button", { name: "Filters", exact: true }).click();
-    await page
-      .getByRole("checkbox", { name: "Change: improved", exact: true })
-      .check();
+    await setUrlSelection(
+      page.getByRole("checkbox", { name: "Change: improved", exact: true }),
+    );
     await expect
       .poll(() =>
         new URL(page.url()).searchParams.get("tableFilters.eval-comparison"),
@@ -379,7 +380,9 @@ test.describe("Eval drawer hardening", () => {
           exact: true,
         }),
     ).toBeVisible();
-    await launch.getByRole("checkbox", { name: /Ambiguous role/ }).check();
+    await setUrlSelection(
+      launch.getByRole("checkbox", { name: /Ambiguous role/ }),
+    );
     await expect(
       launch
         .getByRole("group", { name: EVAL_SUITE.name!, exact: true })

@@ -21,6 +21,26 @@ const sessionRunLink = (session: Locator, runId: string) =>
     .getByRole("tabpanel")
     .locator(`a[href^="${path("runs", runId)}"]:not([href*="tab=feedback"])`);
 
+test("interrupt timing hydrates using the server timestamp when the browser clock differs", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    const readNow = Date.now;
+    Date.now = () => readNow() + 60_000;
+  });
+  await page.goto(path("interrupts", DRAWER_FIXTURE.interruptId));
+  await expect(page.locator("[data-interrupt-detail-id]")).toBeVisible();
+  await page.getByRole("button", { name: "Timeline", exact: true }).click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("interruptTab") === "timeline",
+  );
+  expect(
+    errors.filter((error) => /hydration|server rendered/i.test(error)),
+  ).toEqual([]);
+});
+
 async function openRow(page: Page, resource: string, id: string) {
   await page.goto(`/${resource}?q=${encodeURIComponent(id)}&range=All+time`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();

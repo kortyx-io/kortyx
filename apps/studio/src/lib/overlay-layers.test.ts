@@ -6,6 +6,14 @@ import {
 } from "@/lib/overlay-layers";
 
 describe("overlay layer contract", () => {
+  it("keeps a page-owned parent inspector clickable below its first route child", () => {
+    const pageInspector = detailInspectorZIndex(0, true);
+    expect(pageInspector.backdrop).toBeLessThan(OVERLAY_LAYERS.detailBackdrop);
+    expect(pageInspector.surface).toBeGreaterThan(
+      OVERLAY_LAYERS.detailBackdrop,
+    );
+    expect(pageInspector.surface).toBeLessThan(detailDrawerZIndex(0));
+  });
   it("orders stacked drawers and their inspector without collisions", () => {
     const session = detailDrawerZIndex(0);
     const run = detailDrawerZIndex(1);

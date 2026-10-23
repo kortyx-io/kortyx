@@ -6,6 +6,7 @@ import type {
 } from "@kortyx/telemetry-contracts";
 import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { CheckCircle2, CircleAlert, CirclePause, Clock3 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { DetailLink } from "@/components/detail/detail-link";
 import {
   DetailHeader,
@@ -28,11 +29,19 @@ import { studioDetailHref } from "@/lib/studio-routes";
 
 export function InterruptDetail({
   detail,
+  initialNow,
 }: {
   detail: StudioInterruptDetailResponse;
+  initialNow: number;
 }) {
   const { interrupt } = detail;
   const sampleProject = useStudioRouteScope()?.sampleProject === true;
+  const [now, setNow] = useState(initialNow);
+  useEffect(() => {
+    if (sampleProject) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [sampleProject]);
   const created = detail.events.find(
     (event) => event.type === "interrupt.created",
   );
@@ -56,7 +65,7 @@ export function InterruptDetail({
       : null;
   const timing = interruptTimingPresentation(
     interrupt,
-    sampleProject ? Date.parse(SAMPLE_PROJECT.referenceTime) : Date.now(),
+    sampleProject ? Date.parse(SAMPLE_PROJECT.referenceTime) : now,
   );
   const interactionLabel = interruptInteractionLabel(interrupt);
   return (

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { OUTPUT_SUITE } from "./support/eval-output-plan";
 import { EVAL_OPAQUE_SUITE, EVAL_SUITE } from "./support/eval-plan";
+import { setUrlSelection } from "./support/url-selection";
 
 for (const scope of ["all", "selected"] as const) {
   test(`launches ${scope} suites as one evaluation and drills into suite results`, async ({
@@ -32,15 +33,15 @@ for (const scope of ["all", "selected"] as const) {
       drawer.getByRole("button", { name: "Review conversation definitions" }),
     ).toHaveCount(0);
     if (scope === "selected") {
-      await drawer
-        .getByRole("radio", { name: "Selected suites", exact: true })
-        .check();
+      await setUrlSelection(
+        drawer.getByRole("radio", { name: "Selected suites", exact: true }),
+      );
       await expect(
         drawer.getByRole("button", { name: "Run evaluations", exact: true }),
       ).toBeDisabled();
-      await drawer
-        .getByRole("checkbox", { name: /E2E job conversations/ })
-        .check();
+      await setUrlSelection(
+        drawer.getByRole("checkbox", { name: /E2E job conversations/ }),
+      );
       await drawer
         .getByRole("button", { name: `Expand ${EVAL_SUITE.name}`, exact: true })
         .click();
@@ -50,9 +51,9 @@ for (const scope of ["all", "selected"] as const) {
           exact: true,
         }),
       ).toBeVisible();
-      await drawer
-        .getByRole("checkbox", { name: /Opaque suite identifiers/ })
-        .check();
+      await setUrlSelection(
+        drawer.getByRole("checkbox", { name: /Opaque suite identifiers/ }),
+      );
       await expect(
         drawer.getByRole("group", {
           name: `Conversations in ${EVAL_SUITE.name}`,
@@ -167,9 +168,9 @@ test("selects conversations independently across suites and persists mixed check
     .getByRole("button", { name: "Run evaluations", exact: true })
     .click();
   const drawer = page.getByRole("dialog", { name: "Run evaluations" });
-  await drawer
-    .getByRole("radio", { name: "Selected suites", exact: true })
-    .check();
+  await setUrlSelection(
+    drawer.getByRole("radio", { name: "Selected suites", exact: true }),
+  );
   for (const suite of [EVAL_SUITE, EVAL_OPAQUE_SUITE]) {
     await drawer
       .getByRole("button", { name: `Expand ${suite.name}`, exact: true })
@@ -178,9 +179,12 @@ test("selects conversations independently across suites and persists mixed check
       name: `Conversations in ${suite.name}`,
       exact: true,
     });
-    await conversations
-      .getByRole("checkbox", { name: "Ambiguous role", exact: true })
-      .check();
+    await setUrlSelection(
+      conversations.getByRole("checkbox", {
+        name: "Ambiguous role",
+        exact: true,
+      }),
+    );
     await expect(
       drawer.getByRole("checkbox", {
         name: `Select all conversations in ${suite.name}`,
@@ -192,7 +196,7 @@ test("selects conversations independently across suites and persists mixed check
     name: `Select all conversations in ${EVAL_SUITE.name}`,
     exact: true,
   });
-  await firstSuite.check();
+  await setUrlSelection(firstSuite);
   await expect(
     drawer
       .getByRole("group", {
@@ -204,17 +208,18 @@ test("selects conversations independently across suites and persists mixed check
   await expect(
     drawer.getByText("8 of 8 conversations selected", { exact: true }),
   ).toBeVisible();
-  await firstSuite.uncheck();
+  await setUrlSelection(firstSuite, false);
   await expect(
     drawer.getByText("0 of 8 conversations selected", { exact: true }),
   ).toBeVisible();
-  await drawer
-    .getByRole("group", {
-      name: `Conversations in ${EVAL_SUITE.name}`,
-      exact: true,
-    })
-    .getByRole("checkbox", { name: "Ambiguous role", exact: true })
-    .check();
+  await setUrlSelection(
+    drawer
+      .getByRole("group", {
+        name: `Conversations in ${EVAL_SUITE.name}`,
+        exact: true,
+      })
+      .getByRole("checkbox", { name: "Ambiguous role", exact: true }),
+  );
   await expect(firstSuite).toBeChecked({ indeterminate: true });
   await expect(page).toHaveURL((url) => {
     const selections = JSON.parse(

@@ -110,7 +110,10 @@ export function DetailInspectorDrawer({
 
   const closing =
     detailSurface.closing || detailSurface.nestedClosing || selfClosing;
-  const inspectorLayers = detailInspectorZIndex(detailSurface.layerZIndex);
+  const inspectorLayers = detailInspectorZIndex(
+    detailSurface.layerZIndex,
+    detailSurface.presentation === "route",
+  );
   const coveringLayer = useCoveringDetailLayer(inspectorLayers.surface);
 
   return (

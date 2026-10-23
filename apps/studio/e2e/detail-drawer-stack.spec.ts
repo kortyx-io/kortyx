@@ -238,7 +238,9 @@ test.describe("Studio detail drawer stack", () => {
     const session = drawer(page, sessionPath);
     await expect(session).toHaveAttribute("data-state", "open");
     await session.getByRole("button", { name: /^Runs \d+$/ }).click();
-    const link = session.getByRole("tabpanel").locator(`a[href^="${runPath}"]`);
+    const link = session
+      .getByRole("tabpanel")
+      .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true });
     await expect(link).toBeVisible();
     // Fire during the DOM commit's microtask, before passive React effects.
     // The newly active Run must own Escape, rather than the departing Session.
@@ -485,7 +487,10 @@ test.describe("Studio detail drawer stack", () => {
 
     await expect(drawer(page, sessionPath)).toHaveCSS("box-shadow", "none");
     await page.getByRole("button", { name: /^Runs \d+$/ }).click();
-    await page.getByRole("tabpanel").locator(`a[href^="${runPath}"]`).click();
+    await page
+      .getByRole("tabpanel")
+      .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true })
+      .click();
     await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
     await drawer(page, runPath)
       .getByRole("button", { name: "Expand detail" })
@@ -556,7 +561,7 @@ async function openRunFromSession(page: Page) {
   await session.getByRole("button", { name: /^Runs \d+$/ }).click();
   const runLink = session
     .getByRole("tabpanel")
-    .locator(`a[href^="${runPath}"]`);
+    .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true });
   await expect(runLink).toBeVisible();
   await runLink.click();
   // The first intercepted Run route is compiled on demand by the dev server.
