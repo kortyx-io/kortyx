@@ -18,9 +18,10 @@ export {
 } from "next/navigation";
 
 export function usePathname() {
-  const liveQuery = useContext(StudioQueryContext);
-  const pathname = useNextPathname();
-  return studioPathname(liveQuery?.pathname ?? pathname);
+  // A retained route's loading/detail payload still owns its original path.
+  // Only query state is shared: using the current child path here can register
+  // a departing loading screen as a different entity during history restore.
+  return studioPathname(useNextPathname());
 }
 export function useSearchParams() {
   const liveQuery = useContext(StudioQueryContext);
