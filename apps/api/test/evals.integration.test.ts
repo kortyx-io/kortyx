@@ -604,9 +604,36 @@ describe.skipIf(!url)(
         );
         const cliDetail = await runCli("runs", "get", run.id);
         expect(cliDetail.run.status).toBe("passed");
-        expect(
-          cliDetail.run.suites[0].caseResults[0].steps[1].criteria[0].passed,
-        ).toBe(true);
+        const attempts = await runCli(
+          "attempts",
+          run.id,
+          "--status",
+          "passed",
+          "--limit",
+          "1",
+        );
+        expect(attempts.page.returned).toBe(1);
+        const selected = [
+          run.id,
+          "--suite",
+          attempts.data[0].suiteRunId,
+          "--case",
+          "pick",
+          "--repetition",
+          "1",
+          "--turn",
+          "1",
+        ];
+        const turn = await runCli("turn", ...selected);
+        expect(turn.data.criteria[0].passed).toBe(true);
+        const criterionEvidence = await runCli(
+          "evidence",
+          ...selected,
+          "--section",
+          "criteria",
+          "--include-content",
+        );
+        expect(JSON.parse(criterionEvidence.data.content)[0].passed).toBe(true);
         expect(JSON.stringify(cliDetail)).not.toContain(
           "Paris job description",
         );

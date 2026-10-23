@@ -19,6 +19,99 @@ const call = (id: string, name: string, input: unknown) => ({
 });
 
 describe("bounded output schema correction", () => {
+  it("keeps a forbidden correction terminal across replay, even if its JSON is valid", async () => {
+    const provider = createProvider({
+      invokeResponses: [
+        call("bad", "kortyx_return__card", {}),
+        {
+          content: '{"version":"v2"}',
+          toolCalls: [{ id: "unsafe", name: "save", input: {} }],
+        },
+      ],
+    });
+    const execute = vi.fn(),
+      state = createState();
+    const reason = () =>
+      useReason({
+        id: "forbidden-repair",
+        model: provider.modelRef,
+        input: "Preview",
+        stream: false,
+        outputs: { return: { card } },
+        tools: [{ name: "save", inputSchema: {}, execute }],
+        toolExecution: { maxSteps: 5 },
+      });
+    await expect(
+      runWithHookContext({ node: createNode().node, state }, reason),
+    ).rejects.toMatchObject({
+      code: "REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED",
+    });
+    await expect(
+      runWithHookContext(
+        { node: createNode().node, state: JSON.parse(JSON.stringify(state)) },
+        reason,
+      ),
+    ).rejects.toMatchObject({
+      code: "REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED",
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(provider.invoke).toHaveBeenCalledTimes(2);
+  });
+  it("counts a failed provider request against the correction allowance", async () => {
+    const provider = createProvider({
+      invokeResponses: [call("bad", "kortyx_return__card", {})],
+    });
+    const state = createState();
+    const reason = () =>
+      useReason({
+        id: "provider-failed-repair",
+        model: provider.modelRef,
+        input: "Preview",
+        stream: false,
+        outputs: { return: { card } },
+        toolExecution: { maxSteps: 5 },
+      });
+    await expect(
+      runWithHookContext({ node: createNode().node, state }, reason),
+    ).rejects.toThrow("No mock invoke response configured");
+    await expect(
+      runWithHookContext(
+        { node: createNode().node, state: JSON.parse(JSON.stringify(state)) },
+        reason,
+      ),
+    ).rejects.toMatchObject({
+      code: "REASON_OUTPUT_SCHEMA_CORRECTION_EXHAUSTED",
+      failure: { details: { attempts: 1 } },
+    });
+    expect(provider.invoke).toHaveBeenCalledTimes(2);
+  });
+  it("accounts for both model responses in repaired output usage", async () => {
+    const provider = createProvider({
+      invokeResponses: [
+        {
+          ...call("bad", "kortyx_return__card", {}),
+          usage: { input: 2, output: 3, total: 5 },
+        },
+        {
+          content: '{"version":"v2"}',
+          usage: { input: 4, output: 5, total: 9 },
+        },
+      ],
+    });
+    const { result } = await runWithHookContext(
+      { node: createNode().node, state: createState() },
+      () =>
+        useReason({
+          model: provider.modelRef,
+          input: "Preview",
+          stream: false,
+          outputs: { return: { card } },
+          toolExecution: { maxSteps: 5 },
+        }),
+    );
+    expect(result.usage).toMatchObject({ input: 6, output: 8, total: 14 });
+    expect(result.steps).toHaveLength(2);
+  });
   it.each([
     "emit",
     "return",

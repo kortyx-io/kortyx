@@ -207,6 +207,7 @@ it("validates normalized Anthropic schemas against original constraints locally"
         model: provider("claude-sonnet-4-6"),
         input: "answer",
         stream: false,
+        schemaCorrections: 0,
         outputSchema: z.object({ value: z.number().min(10) }),
       }),
     ),

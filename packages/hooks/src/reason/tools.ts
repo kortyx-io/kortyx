@@ -534,8 +534,21 @@ export const runReasonToolLoop = async <
       attempts: 0,
       text: input.text,
       finishReason: input.finishReason,
+      toolDisallowed: false,
     };
+    const toolDisallowed = () =>
+      new KortyxError(
+        "REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED",
+        "Schema correction requested a tool.",
+        {
+          category: "validation",
+          safeMessage:
+            "Output correction cannot execute tools or request human input.",
+          retryable: false,
+        },
+      );
     for (;;) {
+      if (repair.toolDisallowed) throw toolDisallowed();
       try {
         const value = parseReasonOutputWithSchema({
           text: repair.text,
@@ -564,9 +577,9 @@ export const runReasonToolLoop = async <
         )
           throw error;
         input.invalidate?.();
+        if (schemaCorrections === 0) throw error;
         schemaRepairs[input.key] = repair;
         save();
-        if (schemaCorrections === 0) throw error;
         const reason =
           repair.attempts >= schemaCorrections
             ? "attempts_exhausted"
@@ -619,45 +632,52 @@ export const runReasonToolLoop = async <
           attempt: repair.attempts + 1,
           code: error.code,
         });
-        const correction = await reasonEngine(
-          {
-            ...useReasonArgs,
-            tools: [],
-            stream: false,
-            emit: false,
-            ...inferOutputFormat(input.schema, undefined),
-            messages: [
-              ...messages,
-              ...(pending?.toolCalls ?? [])
-                .filter(
-                  (call) =>
-                    !messages.some(
-                      (message) =>
-                        message.role === "tool" &&
-                        message.toolCallId === call.id,
-                    ),
-                )
-                .map(
-                  (call): KortyxPromptMessage => ({
-                    role: "tool",
-                    toolCallId: call.id,
-                    name: call.name,
-                    content:
-                      "This call has not completed. Do not assume its result.",
-                  }),
-                ),
-              { role: "assistant", content: repair.text },
-              {
-                role: "user",
-                content: withOutputGuardrails(feedback, input.schema),
-              },
-            ],
-          },
-          { ...(id ? { id } : {}), opId },
-        );
-        // The engine checks shared limits before invoking the provider. Count a
-        // completed request here so Continue cannot spend an attempt twice.
         repair.attempts += 1;
+        save();
+        let correction: RunReasonEngineResult;
+        try {
+          correction = await reasonEngine(
+            {
+              ...useReasonArgs,
+              tools: [],
+              stream: false,
+              emit: false,
+              ...inferOutputFormat(input.schema, undefined),
+              messages: [
+                ...messages,
+                ...(pending?.toolCalls ?? [])
+                  .filter(
+                    (call) =>
+                      !messages.some(
+                        (message) =>
+                          message.role === "tool" &&
+                          message.toolCallId === call.id,
+                      ),
+                  )
+                  .map(
+                    (call): KortyxPromptMessage => ({
+                      role: "tool",
+                      toolCallId: call.id,
+                      name: call.name,
+                      content:
+                        "This call has not completed. Do not assume its result.",
+                    }),
+                  ),
+                { role: "assistant", content: repair.text },
+                {
+                  role: "user",
+                  content: withOutputGuardrails(feedback, input.schema),
+                },
+              ],
+            },
+            { ...(id ? { id } : {}), opId },
+          );
+        } catch (error) {
+          if (isControlFlowError(error)) repair.attempts -= 1;
+          save();
+          throw error;
+        }
+        repair.toolDisallowed = Boolean(correction.toolCalls?.length);
         repair.text = correction.text;
         repair.finishReason = correction.finishReason;
         steps.push({
@@ -680,17 +700,7 @@ export const runReasonToolLoop = async <
         finalFinishReason = correction.finishReason;
         finalRaw = correction.raw;
         save();
-        if (correction.toolCalls?.length)
-          throw new KortyxError(
-            "REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED",
-            "Schema correction requested a tool.",
-            {
-              category: "validation",
-              safeMessage:
-                "Output correction cannot execute tools or request human input.",
-              retryable: false,
-            },
-          );
+        if (repair.toolDisallowed) throw toolDisallowed();
       }
     }
   };
@@ -1679,6 +1689,7 @@ interface ToolLoopCheckpoint {
     {
       attempts: number;
       text: string;
+      toolDisallowed?: boolean;
       finishReason?: KortyxFinishReason | undefined;
     }
   >;
