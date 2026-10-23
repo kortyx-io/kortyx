@@ -59,6 +59,23 @@ test("definition instructions stack above the conversation, search, expand and r
   );
   await page.goForward();
   await expect(reader).toBeInViewport();
+  // Forward restores the expanded presentation, which fully covers its parent.
+  // Return through its visible navigation before testing the stacked hit target.
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("detailView") === "expanded",
+  );
+  await reader
+    .getByRole("link", { name: "Back to conversation", exact: true })
+    .click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === suite && url.searchParams.get("definitionStep") === "1",
+  );
+  await definition
+    .getByRole("link", { name: "Judge instructions", exact: true })
+    .click();
+  await expect(reader).toBeInViewport();
+  await expect(page).not.toHaveURL(/detailView=expanded/);
   await definition.click({ position: { x: 12, y: 35 } });
   await expect(page).toHaveURL(
     (url) =>
