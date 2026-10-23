@@ -54,6 +54,8 @@ async function configured() {
           studioUrl: "https://studio.example.test",
           apiKeyEnv: "KORTYX_INSPECTION_TEST_KEY",
           environment: "development",
+          project: "Inspection test",
+          organization: "Kortyx",
         },
       ],
     },
