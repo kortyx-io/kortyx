@@ -83,6 +83,45 @@ test("definition instructions stack above the conversation, search, expand and r
   );
 });
 
+test("expanded judge history never expands its retained conversation", async ({
+  page,
+}) => {
+  await page.goto(
+    "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003",
+  );
+  await page
+    .getByRole("link", { name: "Shipment status and a follow-up", exact: true })
+    .click();
+  const conversation = page.locator(
+    '[data-detail-drawer="/evals/cases/10000000-0000-4000-8000-000000000004/order-status/1"]',
+  );
+  const openJudge = () =>
+    conversation
+      .getByRole("link", { name: "Judge instructions", exact: true })
+      .click();
+  await expect(conversation).toHaveAttribute("data-detail-expanded", "false");
+  await openJudge();
+  const reader = page.getByRole("dialog", {
+    name: "Judge instructions",
+    exact: true,
+  });
+  await reader
+    .getByRole("button", { name: "Expand detail", exact: true })
+    .click();
+  await expect(reader).toHaveAttribute("data-detail-expanded", "true");
+  await page.goBack();
+  await expect(conversation).toHaveAttribute("data-state", "open");
+  await expect(conversation).toHaveAttribute("data-detail-expanded", "false");
+  await page.goForward();
+  await expect(reader).toHaveAttribute("data-detail-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL((url) => url.pathname === result);
+  await expect(conversation).toHaveAttribute("data-detail-expanded", "false");
+  await openJudge();
+  await expect(reader).toHaveAttribute("data-detail-expanded", "false");
+  await expect(conversation).toHaveAttribute("data-detail-expanded", "false");
+});
+
 test("saved instructions open from a conversation and survive reload", async ({
   page,
 }) => {

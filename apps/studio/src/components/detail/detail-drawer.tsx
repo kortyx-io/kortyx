@@ -24,6 +24,8 @@ import { OverflowText } from "@/components/ui/overflow-tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
+import { usePathname } from "@/lib/scoped-navigation";
+import { studioPathname } from "@/lib/studio-routing";
 import { cn } from "@/lib/utils";
 
 type DetailDrawerContextValue = {
@@ -285,6 +287,7 @@ function DetailDrawerSurface({
   markSlotEntered,
 }: HostedDetailDrawer) {
   const { state, isMobile } = useSidebar();
+  const pathname = usePathname();
   const [{ detailView }, setDetailView] = useStudioQueryStates(
     detailViewParsers,
     { shallow: true },
@@ -296,7 +299,10 @@ function DetailDrawerSurface({
     id: matchPath,
     matchPath,
   });
-  const expandedRequested = detailView === "expanded" && layer.isTop;
+  // Closing a child makes its parent topmost before the child's URL leaves.
+  // That query belongs to the child and must never expand the retained parent.
+  const expandedRequested =
+    detailView === "expanded" && layer.isTop && pathname === matchPath;
   const expanded = expandedRequested || layer.expanded;
   const expandedView = expanded && !isMobile;
   // History and retained-ancestor links reopen layers in the shared stack.
@@ -352,8 +358,14 @@ function DetailDrawerSurface({
   ]);
 
   useEffect(() => {
-    if (expandedRequested) layer.expand();
-  }, [expandedRequested, layer.expand]);
+    if (
+      expandedRequested &&
+      studioPathname(window.location.pathname) === matchPath &&
+      new URLSearchParams(window.location.search).get("detailView") ===
+        "expanded"
+    )
+      layer.expand();
+  }, [expandedRequested, layer.expand, matchPath]);
 
   useEffect(() => {
     layer.setSplitOpen(nestedInspector.nestedOpen);
