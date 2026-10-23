@@ -64,6 +64,7 @@ it("allows one application transient retry and one separate schema correction wi
           model: provider("gpt-5.6-luna"),
           input: corrections ? "Correct count to a number." : "Return count.",
           outputSchema: z.object({ count: z.number() }),
+          schemaCorrections: 0,
           stream: false,
         });
         return { data: result.output };
@@ -187,6 +188,7 @@ it.each([
           model: provider("gpt-5.6-luna"),
           input: "Run",
           outputSchema: z.object({ count: z.number() }),
+          schemaCorrections: 0,
           stream: false,
         });
         return {};
@@ -268,6 +270,7 @@ for (const persistence of [
             input: "Run",
             stream: false,
             outputSchema: z.object({ count: z.number() }),
+            schemaCorrections: 0,
           });
           return {};
         }
