@@ -2,6 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { StudioQueryContext } from "@/lib/studio-query-context";
 import { studioPathname } from "@/lib/studio-routing";
 import { DetailDrawer, DetailDrawerHost } from "./detail-drawer";
 import { DETAIL_MOTION_DURATION_MS } from "./detail-motion";
@@ -14,8 +15,10 @@ import {
 vi.mock("@/components/ui/sidebar", () => ({
   useSidebar: () => ({ isMobile: false, state: "expanded" }),
 }));
+const navigation = vi.hoisted(() => ({ pathname: null as string | null }));
 vi.mock("@/lib/scoped-navigation", () => ({
-  usePathname: () => studioPathname(window.location.pathname),
+  usePathname: () =>
+    navigation.pathname ?? studioPathname(window.location.pathname),
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -32,6 +35,7 @@ function NavigationControl() {
   return null;
 }
 beforeEach(() => {
+  navigation.pathname = null;
   vi.useFakeTimers();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   container = document.createElement("div");
@@ -85,6 +89,38 @@ async function restore(path: string, state: unknown) {
 }
 const drawer = (path: string) =>
   container.querySelector(`[data-detail-drawer="${path}"]`);
+
+it("opens the committed drawer while Next still retains the list pathname", async () => {
+  const path = "/runs/first";
+  window.history.replaceState({}, "", path);
+  navigation.pathname = "/runs";
+  await act(() =>
+    root.render(
+      <StudioQueryContext.Provider
+        value={{
+          pathname: path,
+          searchParams: new URLSearchParams(),
+          updateUrl: vi.fn(),
+        }}
+      >
+        <DetailStackProvider>
+          <DetailDrawerHost>
+            <DetailDrawer
+              matchPath={path}
+              dismissPath="/runs"
+              title="Run"
+              description="Recorded run"
+            >
+              <p>Committed run payload</p>
+            </DetailDrawer>
+          </DetailDrawerHost>
+        </DetailStackProvider>
+      </StudioQueryContext.Provider>,
+    ),
+  );
+  expect(drawer(path)?.getAttribute("data-state")).toBe("open");
+  expect(drawer(path)?.textContent).toContain("Committed run payload");
+});
 
 it("retains different parallel slots sharing the same dismiss destination", async () => {
   const casePath = "/evals/cases/run/case/1";

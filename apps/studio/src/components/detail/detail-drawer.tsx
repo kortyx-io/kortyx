@@ -25,6 +25,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { usePathname } from "@/lib/scoped-navigation";
+import { StudioQueryContext } from "@/lib/studio-query-context";
 import { studioPathname } from "@/lib/studio-routing";
 import { cn } from "@/lib/utils";
 
@@ -91,7 +92,14 @@ const DetailDrawerHostContext =
 export const useDetailDrawer = () => useContext(DetailDrawerContext);
 
 export function DetailDrawerHost({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+  const routePathname = usePathname();
+  const liveQuery = useContext(StudioQueryContext);
+  // The host owns visibility across retained routes. Its browser destination
+  // must stay live even when Next retains an ancestor's pathname context.
+  // Individual loading/detail payloads still use their route-owned pathname.
+  const pathname = liveQuery?.pathname
+    ? studioPathname(liveQuery.pathname)
+    : routePathname;
   const [drawers, setDrawers] = useState<HostedDetailDrawer[]>([]);
   const layers = useRetainedDetailLayers();
   const registrationCountsRef = useRef(new Map<string, number>());
