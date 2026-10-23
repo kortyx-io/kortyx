@@ -188,6 +188,9 @@ test.describe("Studio detail drawer stack", () => {
           exact: tab === "Trace",
         })
         .click();
+      await expect(page).toHaveURL(
+        (url) => url.searchParams.get("tab") === tab.toLowerCase(),
+      );
       await run
         .getByRole("tabpanel")
         .locator(
@@ -238,6 +241,9 @@ test.describe("Studio detail drawer stack", () => {
     const session = drawer(page, sessionPath);
     await expect(session).toHaveAttribute("data-state", "open");
     await session.getByRole("button", { name: /^Runs \d+$/ }).click();
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get("sessionTab") === "runs",
+    );
     const link = session
       .getByRole("tabpanel")
       .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true });
@@ -559,6 +565,9 @@ async function openSessionDrawer(page: Page) {
 async function openRunFromSession(page: Page) {
   const session = drawer(page, sessionPath);
   await session.getByRole("button", { name: /^Runs \d+$/ }).click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("sessionTab") === "runs",
+  );
   const runLink = session
     .getByRole("tabpanel")
     .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true });
@@ -577,6 +586,9 @@ async function openRunFromSession(page: Page) {
 async function openTraceInspector(page: Page) {
   const run = drawer(page, runPath);
   await run.getByRole("button", { name: "Trace", exact: true }).click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("tab") === "trace",
+  );
   const traceRow = run
     .getByRole("tabpanel")
     .locator(

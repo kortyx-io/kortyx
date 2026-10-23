@@ -74,6 +74,11 @@ type DetailStackContextValue = {
 
 const DetailStackContext = createContext<DetailStackContextValue | null>(null);
 
+/** The host retains route payloads so history can revive an evicted Next slot. */
+export function useRetainedDetailLayers() {
+  return useContext(DetailStackContext)?.layers ?? [];
+}
+
 export function DetailStackProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
