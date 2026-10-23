@@ -111,8 +111,13 @@ it("distinguishes preflight request failures from accepted execution failures", 
     failure: { code: "NOT_FOUND" },
   });
 });
-it("preserves structured failure issues/usage without a hidden correction call", async () => {
-  const fetch = vi.fn(async () => googleResponse('{"draft":{"subject":5}}'));
+it("preserves the validation cause after bounded correction is exhausted", async () => {
+  const fetch = vi.fn(async (url) =>
+    googleResponse(
+      '{"draft":{"subject":5}}',
+      String(url).includes("streamGenerate"),
+    ),
+  );
   vi.stubGlobal("fetch", fetch);
   const response = await chat(
     request(command(false, "reason-structured-stream")),
@@ -122,10 +127,13 @@ it("preserves structured failure issues/usage without a hidden correction call",
     chunks.find((chunk: { type: string }) => chunk.type === "error"),
   ).toMatchObject({
     failure: {
-      code: "MODEL_OUTPUT_SCHEMA",
-      issues: expect.any(Array),
-      usage: { total: 5 },
+      code: "REASON_OUTPUT_SCHEMA_CORRECTION_EXHAUSTED",
+      cause: {
+        code: "MODEL_OUTPUT_SCHEMA",
+        issues: expect.any(Array),
+        usage: { total: 10 },
+      },
     },
   });
-  expect(fetch).toHaveBeenCalledOnce();
+  expect(fetch).toHaveBeenCalledTimes(2);
 });

@@ -53,10 +53,10 @@ for (const stream of [true, false]) {
     expect(fetch).toHaveBeenCalledOnce();
   });
 }
-it("keeps Canvas classifier schema failures distinct from transport failures", async () => {
+it("keeps exhausted Canvas classifier schema failures distinct from transport failures", async () => {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (_url, init) =>
+    vi.fn(async (_url) =>
       googleResponse(
         '{"intent":"invalid"}',
         String(_url).includes("streamGenerate"),
@@ -68,9 +68,12 @@ it("keeps Canvas classifier schema failures distinct from transport failures", a
     result.chunks.find((chunk: { type: string }) => chunk.type === "error"),
   ).toMatchObject({
     failure: {
-      code: "MODEL_OUTPUT_SCHEMA",
-      issues: expect.any(Array),
-      usage: { total: 5 },
+      code: "REASON_OUTPUT_SCHEMA_CORRECTION_EXHAUSTED",
+      cause: {
+        code: "MODEL_OUTPUT_SCHEMA",
+        issues: expect.any(Array),
+        usage: { total: 10 },
+      },
     },
   });
 });
@@ -91,4 +94,25 @@ it("preserves the successful classifier-to-chat path", async () => {
   ).toBe(false);
   expect(JSON.stringify(result)).toContain("Canvas success.");
   expect(calls).toBe(2);
+});
+
+it("repairs an invalid classifier result and continues to the chat response", async () => {
+  const replies = [
+    '{"intent":"invalid"}',
+    '{"intent":"general_chat"}',
+    "Canvas corrected.",
+  ];
+  const fetch = vi.fn(async (url) =>
+    googleResponse(
+      replies.shift() ?? "unexpected call",
+      String(url).includes("streamGenerate"),
+    ),
+  );
+  vi.stubGlobal("fetch", fetch);
+  const result = await (await POST(request(false))).json();
+  expect(
+    result.chunks.some((chunk: { type: string }) => chunk.type === "error"),
+  ).toBe(false);
+  expect(JSON.stringify(result)).toContain("Canvas corrected.");
+  expect(fetch).toHaveBeenCalledTimes(3);
 });

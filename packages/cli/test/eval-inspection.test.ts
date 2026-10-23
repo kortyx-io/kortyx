@@ -13,6 +13,7 @@ import {
 } from "../src/studio/eval-inspection";
 import { StudioReadClient } from "../src/studio/read-client";
 import { registerStudioReadCommands } from "../src/studio/read-command";
+import { sanitizeStudioData } from "../src/studio/read-output";
 
 const id = "10000000-0000-4000-8000-000000000252";
 const key = "ktyx_test_studio_testsecret";
@@ -64,6 +65,75 @@ async function configured() {
   return { connection: "staging", configHome: home, home };
 }
 describe("bounded evaluation CLI", () => {
+  it("rejects invalid page bounds and attempt selections before any request", async () => {
+    const options = await configured();
+    const request = vi.fn<typeof fetch>();
+    for (const selection of [
+      { limit: 101 },
+      { contentCursor: -1 },
+      { otherRepetition: "0" },
+      { otherRepetition: "21" },
+      { otherRepetition: "bad" },
+    ]) {
+      await expect(
+        readEvalInspection(id, { ...options, ...selection }, request),
+      ).rejects.toThrow(/Invalid evaluation|Other repetition/);
+    }
+    expect(request).not.toHaveBeenCalled();
+  });
+  it("retains diagnostic exception evidence while still redacting its credentials", () => {
+    const value = sanitizeStudioData(
+      {
+        exception: {
+          schemaVersion: 1,
+          data: {
+            message: "original exception",
+            authorization: "private",
+            output: "evidence",
+          },
+          capture: { status: "complete", omissions: [], redactions: [] },
+        },
+        output: "ordinary content",
+      },
+      false,
+    );
+    expect(value).toMatchObject({
+      exception: {
+        data: {
+          message: "original exception",
+          authorization: "[REDACTED]",
+          output: "evidence",
+        },
+      },
+      output: "[CONTENT OMITTED: use --include-content]",
+    });
+  });
+  it("keeps array indices but hides customer-owned record keys in schema diagnostics", async () => {
+    const client = new StudioReadClient(
+      "https://api.example.test",
+      key,
+      vi.fn<typeof fetch>(async () =>
+        Response.json({
+          rows: [{ count: "wrong" }],
+          labels: { CUSTOMER_SECRET: "wrong" },
+        }),
+      ),
+    );
+    const error = await client
+      .get(
+        "/v1/studio/context",
+        z.object({
+          rows: z.array(z.object({ count: z.number() })),
+          labels: z.record(z.string(), z.number()),
+        }),
+      )
+      .catch((error) => error);
+    expect(error.toJSON().error.details.issues).toEqual([
+      { path: ["rows", 0, "count"], code: "invalid_type" },
+      { path: ["labels", "[field]"], code: "invalid_type" },
+    ]);
+    expect(JSON.stringify(error.toJSON())).not.toContain("CUSTOMER_SECRET");
+  });
   it("compares selected attempts by recorded context, without comparing saved run IDs", async () => {
     const options = await configured();
     const date = "2026-10-23T00:00:00.000Z";

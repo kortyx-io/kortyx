@@ -904,6 +904,10 @@ describe("eval endpoint validation", () => {
       "evaluation UUID",
     );
     await expect(client.runs()).resolves.toMatchObject({ runs: [summary] });
+    await expect(client.run(id)).resolves.toEqual(detail);
+    await expect(client.evaluationResults(id)).resolves.toEqual(
+      evaluationResults,
+    );
     await expect(
       client.start({
         targetId: "hiring",

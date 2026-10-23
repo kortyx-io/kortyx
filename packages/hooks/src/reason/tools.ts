@@ -367,6 +367,8 @@ export const runReasonToolLoop = async <
     ...interruptDefinitions,
     ...outputDefinitions,
   ];
+  // Separate structured output is only needed when there are tools to separate.
+  separateOutput = toolDefinitions.length > 0 && separateOutput;
   let finalizing = checkpoint?.finalizing ?? false;
   let completed = Boolean(checkpoint?.terminalDraft);
   const schemaCorrections = useReasonArgs.schemaCorrections ?? 1;
@@ -635,6 +637,10 @@ export const runReasonToolLoop = async <
         });
         repair.attempts += 1;
         save();
+        const repairFormat = inferOutputFormat(
+          input.schema,
+          input.key === "$output" ? useReasonArgs.responseFormat : undefined,
+        );
         let correction: RunReasonEngineResult;
         try {
           correction = await reasonEngine(
@@ -643,7 +649,9 @@ export const runReasonToolLoop = async <
               tools: [],
               stream: false,
               emit: false,
-              ...inferOutputFormat(input.schema, undefined),
+              ...(repairFormat.responseFormat
+                ? { responseFormat: repairFormat.responseFormat }
+                : {}),
               messages: [
                 ...messages,
                 ...(pending?.toolCalls ?? [])
@@ -692,7 +700,7 @@ export const runReasonToolLoop = async <
         accumulateTokenUsage(correction.usage);
         aggregatedWarnings = mergeWarnings(
           aggregatedWarnings,
-          correction.warnings,
+          mergeWarnings(repairFormat.warnings, correction.warnings),
         );
         aggregatedProviderMetadata = mergeProviderMetadata(
           aggregatedProviderMetadata,

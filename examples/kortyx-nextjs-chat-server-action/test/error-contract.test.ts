@@ -64,10 +64,15 @@ it("returns a safe pre-execution failure rather than a Next.js error digest", as
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it("preserves schema validation metadata through the real structured workflow", async () => {
+it("preserves schema validation metadata after bounded correction through the real structured workflow", async () => {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => googleResponse('{"draft":{"subject":5}}')),
+    vi.fn(async (url) =>
+      googleResponse(
+        '{"draft":{"subject":5}}',
+        String(url).includes("streamGenerate"),
+      ),
+    ),
   );
   expect(
     (await run("reason-structured-stream")).find(
@@ -75,9 +80,12 @@ it("preserves schema validation metadata through the real structured workflow", 
     ),
   ).toMatchObject({
     failure: {
-      code: "MODEL_OUTPUT_SCHEMA",
-      issues: expect.any(Array),
-      usage: { total: 5 },
+      code: "REASON_OUTPUT_SCHEMA_CORRECTION_EXHAUSTED",
+      cause: {
+        code: "MODEL_OUTPUT_SCHEMA",
+        issues: expect.any(Array),
+        usage: { total: 10 },
+      },
     },
   });
 });

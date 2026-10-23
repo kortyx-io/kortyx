@@ -19,6 +19,56 @@ const call = (id: string, name: string, input: unknown) => ({
 });
 
 describe("bounded output schema correction", () => {
+  it("does not add a finalization pass for providers that separate tools from JSON when no tools exist", async () => {
+    const provider = createProvider({ invokeResponses: ['{"version":"v2"}'] });
+    const getModel = provider.provider.getModel.getMockImplementation();
+    if (!getModel) throw new Error("Missing provider fixture");
+    provider.provider.getModel.mockImplementation((...args) => ({
+      ...getModel(...args),
+      requiresSeparateStructuredOutput: true,
+    }));
+    const { result } = await runWithHookContext(
+      { node: createNode().node, state: createState() },
+      () =>
+        useReason({
+          model: provider.modelRef,
+          input: "Preview",
+          outputSchema: schema,
+          responseFormat: { type: "json" },
+        }),
+    );
+    expect(result.output).toEqual({ version: "v2" });
+    expect(provider.invoke).toHaveBeenCalledOnce();
+  });
+  it("retains an explicit provider schema when repairing a custom validator", async () => {
+    const custom = { safeParse: (value: unknown) => schema.safeParse(value) };
+    const wire = z.toJSONSchema(schema);
+    const provider = createProvider({
+      invokeResponses: [
+        { content: '{"version":"v1"}' },
+        { content: '{"version":"v2"}' },
+      ],
+    });
+    const { result } = await runWithHookContext(
+      { node: createNode().node, state: createState() },
+      () =>
+        useReason({
+          model: provider.modelRef,
+          input: "Preview",
+          stream: false,
+          outputSchema: custom,
+          responseFormat: { type: "json", schema: wire },
+        }),
+    );
+    expect(result.output).toEqual({ version: "v2" });
+    expect(provider.provider.getModel).toHaveBeenLastCalledWith(
+      "mock-model",
+      expect.objectContaining({
+        responseFormat: { type: "json", schema: wire },
+        tools: [],
+      }),
+    );
+  });
   it.each([
     "__proto__",
     "constructor",
