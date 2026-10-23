@@ -72,6 +72,27 @@ async function finishMotion() {
 }
 
 describe.each(["", scope])("drawer history under %s", (prefix) => {
+  it("keeps a removed child closed when a retained route registers it after history restoration", async () => {
+    window.history.replaceState({}, "", `${prefix}${parent}`);
+    await render([parent]);
+    const saved = window.history.state;
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    await render([parent, child]);
+    await act(() => {
+      window.history.replaceState(saved, "", `${prefix}${parent}`);
+      window.dispatchEvent(new PopStateEvent("popstate", { state: saved }));
+    });
+    await render([parent]);
+    await finishMotion();
+    await render([parent, child]);
+    await act(() => controls.get(child)?.reopen());
+    expect(controls.get(child)?.closing).toBe(true);
+    expect(controls.get(parent)?.isTop).toBe(true);
+    await act(() => prepareNavigation?.(child));
+    await act(() => controls.get(child)?.reopen());
+    expect(controls.get(child)?.closing).toBe(false);
+  });
+
   it("keeps a late departing registration closed until an intentional new navigation", async () => {
     window.history.replaceState({}, "", `${prefix}${parent}`);
     await render([parent]);

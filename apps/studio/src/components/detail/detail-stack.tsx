@@ -180,8 +180,9 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
         const registered = registerDetailLayer(current, registration);
         const target = historyTargetPathRef.current;
         // A retained Next tree can register its departing child after popstate.
-        // It must not revive that child above the restored history target.
-        return existing?.closing &&
+        // It must not revive that child above the restored history target,
+        // including after its exit timer has removed the previous layer.
+        return existing?.closing !== false &&
           target !== null &&
           target === studioPathname(window.location.pathname) &&
           !detailBasePathsFor(target).includes(target) &&
