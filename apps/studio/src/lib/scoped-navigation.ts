@@ -3,21 +3,29 @@
 import {
   usePathname as useNextPathname,
   useRouter as useNextRouter,
+  useSearchParams as useNextSearchParams,
 } from "next/navigation";
 import { useQueryStates } from "nuqs";
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { useStudioRouteScope } from "@/components/studio-route-provider";
+import { StudioQueryContext } from "./studio-query-context";
 import { studioHref, studioPathname } from "./studio-routing";
 
 export {
   useParams,
-  useSearchParams,
   useSelectedLayoutSegment,
   useSelectedLayoutSegments,
 } from "next/navigation";
 
 export function usePathname() {
-  return studioPathname(useNextPathname());
+  const liveQuery = useContext(StudioQueryContext);
+  const pathname = useNextPathname();
+  return studioPathname(liveQuery?.pathname ?? pathname);
+}
+export function useSearchParams() {
+  const liveQuery = useContext(StudioQueryContext);
+  const searchParams = useNextSearchParams();
+  return liveQuery?.searchParams ?? searchParams;
 }
 export function useRouter() {
   const router = useNextRouter();
