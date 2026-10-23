@@ -4,7 +4,11 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { studioPathname } from "@/lib/studio-routing";
 import { DETAIL_MOTION_DURATION_MS } from "./detail-motion";
-import { DetailStackProvider, useDetailStackLayer } from "./detail-stack";
+import {
+  DetailStackProvider,
+  useDetailStackLayer,
+  usePrepareDetailNavigation,
+} from "./detail-stack";
 
 vi.mock("@/components/ui/sidebar", () => ({
   useSidebar: () => ({ isMobile: false }),
@@ -23,7 +27,9 @@ const scope = "/projects/prj_0123456789abcdef01234567";
 const parent = "/prompts/parent";
 const child = "/prompts/child";
 const controls = new Map<string, ReturnType<typeof useDetailStackLayer>>();
+let prepareNavigation: ReturnType<typeof usePrepareDetailNavigation>;
 function Layer({ path }: { path: string }) {
+  prepareNavigation = usePrepareDetailNavigation();
   controls.set(
     path,
     useDetailStackLayer({ id: path, matchPath: path, dismissPath: "/prompts" }),
@@ -66,6 +72,28 @@ async function finishMotion() {
 }
 
 describe.each(["", scope])("drawer history under %s", (prefix) => {
+  it("keeps a late departing registration closed until an intentional new navigation", async () => {
+    window.history.replaceState({}, "", `${prefix}${parent}`);
+    await render([parent]);
+    const saved = window.history.state;
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    await render([parent, child]);
+    await act(() => {
+      window.history.replaceState(saved, "", `${prefix}${parent}`);
+      window.dispatchEvent(new PopStateEvent("popstate", { state: saved }));
+    });
+    await render([parent]);
+    await render([parent, child]);
+    await act(() => controls.get(child)?.reopen());
+    expect(controls.get(child)?.closing).toBe(true);
+    expect(controls.get(parent)?.isTop).toBe(true);
+    await act(() => controls.get(child)?.expand());
+    await act(() => prepareNavigation?.(child));
+    expect(controls.get(child)?.expanded).toBe(false);
+    await act(() => controls.get(child)?.reopen());
+    expect(controls.get(child)?.closing).toBe(false);
+  });
+
   it("does not save an early child registration into the ancestor's history entry", async () => {
     window.history.replaceState({}, "", `${prefix}${parent}`);
     navigation.pathname = parent;

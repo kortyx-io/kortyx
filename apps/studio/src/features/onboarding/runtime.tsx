@@ -209,19 +209,21 @@ export function LearningRuntime(props: RuntimeProps) {
     <RuntimeContext.Provider
       value={{ chapter: chapterId, mode, onExit, onPrevious }}
     >
-      {Tour}
-      {state.waiting && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="fixed right-4 bottom-4"
-          style={{ zIndex: OVERLAY_LAYERS.tour + 1 }}
-          data-studio-tour="true"
-          onClick={onExit}
-        >
-          Exit tour
-        </Button>
-      )}
+      <div data-studio-tour="true" className="contents">
+        {Tour}
+        {state.waiting && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="fixed right-4 bottom-4"
+            style={{ zIndex: OVERLAY_LAYERS.tour + 1 }}
+            data-studio-tour="true"
+            onClick={onExit}
+          >
+            Exit tour
+          </Button>
+        )}
+      </div>
     </RuntimeContext.Provider>
   );
 }

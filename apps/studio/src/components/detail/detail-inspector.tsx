@@ -128,6 +128,10 @@ export function DetailInspectorDrawer({
     >
       <SheetContent
         data-detail-inspector
+        data-detail-owner-closing={detailSurface.closing}
+        data-detail-nested-closing={detailSurface.nestedClosing}
+        data-detail-self-closing={selfClosing}
+        data-detail-open={open}
         data-detail-stacked={Boolean(coveringLayer)}
         showCloseButton={false}
         overlayClassName="pointer-events-none bg-overlay/45"

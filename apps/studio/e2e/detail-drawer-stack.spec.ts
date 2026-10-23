@@ -244,11 +244,9 @@ test.describe("Studio detail drawer stack", () => {
     await expect(page).toHaveURL(
       (url) => url.searchParams.get("sessionTab") === "runs",
     );
-    const link = session
-      .getByRole("tabpanel")
-      .getByRole("link", {
-        name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
-      });
+    const link = session.getByRole("tabpanel").getByRole("link", {
+      name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
+    });
     await expect(link).toBeVisible();
     // Fire during the DOM commit's microtask, before passive React effects.
     // The newly active Run must own Escape, rather than the departing Session.
@@ -572,11 +570,9 @@ async function openRunFromSession(page: Page) {
   await expect(page).toHaveURL(
     (url) => url.searchParams.get("sessionTab") === "runs",
   );
-  const runLink = session
-    .getByRole("tabpanel")
-    .getByRole("link", {
-      name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
-    });
+  const runLink = session.getByRole("tabpanel").getByRole("link", {
+    name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
+  });
   await expect(runLink).toBeVisible();
   await runLink.click();
   // The first intercepted Run route is compiled on demand by the dev server.
@@ -679,8 +675,13 @@ async function waitForSurfaceMotion(surface: Locator) {
   );
   await expect
     .poll(() =>
-      surface.evaluate((element) =>
-        element
+      surface.evaluate((element) => ({
+        state: element.getAttribute("data-state"),
+        ownerClosing: element.getAttribute("data-detail-owner-closing"),
+        nestedClosing: element.getAttribute("data-detail-nested-closing"),
+        selfClosing: element.getAttribute("data-detail-self-closing"),
+        open: element.getAttribute("data-detail-open"),
+        animations: element
           .getAnimations({ subtree: false })
           .filter((animation) => animation.playState === "running")
           .map((animation) => ({
@@ -692,9 +693,9 @@ async function waitForSurfaceMotion(surface: Locator) {
                   : animation.id,
             timing: animation.effect?.getTiming(),
           })),
-      ),
+      })),
     )
-    .toEqual([]);
+    .toMatchObject({ state: "open", animations: [] });
   // Finished animations may still have an animationend event queued. Drain
   // those entry events before installing an audit of the next close operation.
   await surface.evaluate(

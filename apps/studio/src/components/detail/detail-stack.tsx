@@ -163,7 +163,20 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     (registration: DetailLayerRegistration) => {
       clearTimer(`remove:${registration.id}`);
-      setLayers((current) => registerDetailLayer(current, registration));
+      setLayers((current) => {
+        const existing = current.find((layer) => layer.id === registration.id);
+        const registered = registerDetailLayer(current, registration);
+        const target = historyTargetPathRef.current;
+        // A retained Next tree can register its departing child after popstate.
+        // It must not revive that child above the restored history target.
+        return existing?.closing &&
+          target !== null &&
+          target === studioPathname(window.location.pathname) &&
+          !detailBasePathsFor(target).includes(target) &&
+          registration.matchPath !== target
+          ? setDetailLayerClosing(registered, registration.id, true)
+          : registered;
+      });
 
       return () => {
         clearTimer(`remove:${registration.id}`);
@@ -184,7 +197,19 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reopen = useCallback((id: string) => {
-    setLayers((current) => setDetailLayerClosing(current, id, false));
+    setLayers((current) => {
+      const target = historyTargetPathRef.current;
+      const layer = current.find((candidate) => candidate.id === id);
+      if (
+        layer?.closing &&
+        target !== null &&
+        target === studioPathname(window.location.pathname) &&
+        !detailBasePathsFor(target).includes(target) &&
+        layer.matchPath !== target
+      )
+        return current;
+      return setDetailLayerClosing(current, id, false);
+    });
   }, []);
 
   const expand = useCallback((id: string) => {
@@ -342,8 +367,23 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const prepareNavigation = useCallback(
     (href: string) => {
       cancelPendingNavigation();
+      historyTargetPathRef.current = null;
       saveCurrentStack();
       const pathname = studioPathname(href.split("?", 1)[0] ?? href);
+      if (
+        new URL(href, window.location.href).searchParams.get("detailView") !==
+        "expanded"
+      ) {
+        // A fresh visit starts in drawer mode. The previous occurrence keeps
+        // its expansion in its own saved history snapshot.
+        setLayers((current) =>
+          current.map((layer) =>
+            layer.matchPath === pathname
+              ? { ...layer, expanded: false }
+              : layer,
+          ),
+        );
+      }
       // Exiting layers remain mounted for their animation. Revisiting one is
       // a new child navigation, not a jump to a retained ancestor.
       if (
