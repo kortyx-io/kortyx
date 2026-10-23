@@ -435,6 +435,8 @@ test("automatically diagnoses provider and invalid JSON errors without capturing
                 input: "E2E_PRIVATE_PROMPT",
                 stream: false,
                 emit: false,
+                // Inspect the original validation fault, without output repair.
+                schemaCorrections: 0,
                 outputSchema: z.object({ title: z.string() }),
               });
               throw new Error("Expected a model fault");
