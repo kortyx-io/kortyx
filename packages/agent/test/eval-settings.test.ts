@@ -141,6 +141,13 @@ it("rejects invalid SDK defaults and unsupported timer sizes", async () => {
     createEvals({
       agent: { streamChat: vi.fn() },
       suites: [suite],
+      defaults: { gradingTimeoutMs: 2_147_483_648 },
+    }),
+  ).toThrow("supported timer range");
+  expect(() =>
+    createEvals({
+      agent: { streamChat: vi.fn() },
+      suites: [suite],
       defaults: { concurrency: 3 },
       limits: { concurrency: 2 },
     }),

@@ -736,16 +736,18 @@ export function createEvals<
                       suite.evidence,
                       evidenceFilters,
                     );
-                    if (studioGrading && step.expect.criteria?.length) {
+                    const criteria = step.expect.criteria;
+                    if (studioGrading && criteria?.length) {
                       evaluated.status = "ungraded";
                       attemptResult.status = "ungraded";
                     }
-                    if (!studioGrading && step.expect.criteria?.length)
+                    if (!studioGrading && criteria?.length)
                       await withEvalGradingTimeout(
                         async (gradingSignal) => {
-                          for (const [criterionIndex, value] of (
-                            step.expect.criteria ?? []
-                          ).entries()) {
+                          for (const [
+                            criterionIndex,
+                            value,
+                          ] of criteria.entries()) {
                             gradingSignal.throwIfAborted();
                             const criterion =
                               typeof value === "string"
