@@ -94,7 +94,9 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (pathname !== studioPathname(window.location.pathname)) return;
     const basePaths = detailBasePathsFor(pathname);
-    const isDetail = basePaths.some((base) => pathname.startsWith(`${base}/`));
+    const isDetail =
+      !basePaths.includes(pathname) &&
+      basePaths.some((base) => pathname.startsWith(`${base}/`));
     if (!isDetail) setLayers(closeAllDetailLayers);
   }, [pathname]);
 
