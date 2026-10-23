@@ -21,6 +21,8 @@ import {
   defaultConnectionsHome,
   resolveConnection,
 } from "../connections";
+import { StudioEvalClient } from "./eval-client";
+import { evalReadCompatibility, readEvalInspection } from "./eval-inspection";
 import {
   analyzeStudioDiagnostics,
   buildStudioTimeline,
@@ -226,6 +228,15 @@ export const registerStudioReadCommands = (
     options: DetailOptions,
     entity?: StudioEntity,
   ) => {
+    if (
+      !entity &&
+      /^https?:\/\//i.test(input) &&
+      /\/evals\/(?:evaluations|runs)\//.test(new URL(input).pathname)
+    ) {
+      const result = await readEvalInspection(input, options, request);
+      print(result, options);
+      return;
+    }
     const target = parseStudioTarget(input, entity);
     const { connection, client } = await clientFor(options, target.url);
     const context = await client.get(
@@ -388,6 +399,9 @@ export const registerStudioReadCommands = (
         connection: connection.name,
         apiUrl: connection.apiUrl,
         context,
+        evalRead: await evalReadCompatibility(
+          new StudioEvalClient(connection.apiUrl, connection.apiKey, request),
+        ),
       },
       options,
     );

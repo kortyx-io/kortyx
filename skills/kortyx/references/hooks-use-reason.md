@@ -464,3 +464,31 @@ and persists across checkpoint resume. Only output tools are offered during that
 correction; completed business tools are not replayed. A provider requesting a
 business tool during correction produces `REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED`.
 Exhausted terminal-output corrections are validation errors, not provider faults.
+
+
+## Output schema correction
+
+`useReason` gives invalid emitted/returned contract payloads and ordinary
+`outputSchema` JSON one output-only repair pass by default. Set
+`schemaCorrections: 0` to disable repair, or choose an integer from 1 to 10.
+This is separate from `toolExecution.missingReturnCorrections`, which only
+handles a missing terminal control call.
+
+Correction receives the declared schema, invalid schema fields, the failed
+value, and completed tool/human results. Business tools and human-input tools
+are disabled during repair. A corrected emission continues the reason loop;
+a corrected return completes it. Invalid provisional streamed fields are
+invalidated before the validated final value is published.
+
+Every repair consumes `toolExecution.maxSteps` and the root execution budget,
+adds provider usage/cost, and retains its attempt count in the reason checkpoint.
+Resume and explicit Continue retain completed effects and the remaining repair
+allowance. Exhaustion uses `REASON_OUTPUT_SCHEMA_CORRECTION_EXHAUSTED`, with the
+contract, attempts and terminal reason; disabling repair preserves the original
+validation failure. Cancellation, provider errors/refusals, and output truncation
+are not schema repair requests. Provider-native decision schemas and the deprecated
+singular no-tool `interrupt` path retain their existing behavior.
+
+Keep side effects outside Kortyx tools idempotent: replaying node code still
+requires the application's existing guards. Never wrap the entire workflow in a
+retry just to repair a model-produced field.

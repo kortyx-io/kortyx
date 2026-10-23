@@ -77,7 +77,7 @@ secrets there.
 
 - Handle stable codes and fields rather than matching messages. Provider HTTP failures expose status, retry eligibility and available Retry-After; schema failures use `MODEL_OUTPUT_SCHEMA`, with original issues/cause available on the live ValidationError.
 - Treat `retryable === true` as eligibility, not permission to repeat an operation. `false` is terminal and `null` is unknown; never infer retryability from message prose. Authorization failures and refusals are not schema-correction requests.
-- Applications own separate retry/correction counters, prompt changes, idempotency and authorization to Continue. No helper silently grants another execution allowance.
+- `useReason` owns bounded output-only schema repair through `schemaCorrections` (default 1; 0 disables it). Applications still own provider retry policy, business idempotency and authorization to Continue. Repair shares existing execution limits and never grants another execution allowance.
 - `withRetries` excludes control flow but defaults to retrying ordinary errors; supply `retryOn` for selective recovery and forward `abortSignal`. Node `behavior.retry` is also broad. Do not wrap schema correction in an indiscriminate retry loop.
 - Child failures preserve a safe descriptor across checkpoints; failed calls remain cached. A deliberate child retry requires a distinct stable attempt ID. Parallel results keep input order.
 - Upgrade dependent packages together. Legacy message-only events/checkpoints remain readable but discarded metadata cannot be reconstructed; never require new fields from an old server. Preserve legacy display text while treating classification as unknown.

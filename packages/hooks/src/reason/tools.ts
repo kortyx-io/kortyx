@@ -49,13 +49,14 @@ import type {
   OutputContract,
   OutputContractEntry,
   OutputContractMap,
+  SchemaLike,
   UseReasonArgs,
   UseReasonResult,
   UseReasonStep,
 } from "../types";
 import { parseWithSchema } from "../validation";
 import { reasonEngine } from "./engine";
-import { interruptInputFeedback } from "./input-feedback";
+import { interruptInputFeedback, schemaPath } from "./input-feedback";
 import { inferOutputFormat } from "./output-format";
 import { createStructuredOutputStreamer } from "./output-stream";
 import { parseReasonOutputWithSchema } from "./parsing";
@@ -367,7 +368,24 @@ export const runReasonToolLoop = async <
     ...outputDefinitions,
   ];
   let finalizing = checkpoint?.finalizing ?? false;
-  let completed = false;
+  let completed = Boolean(checkpoint?.terminalDraft);
+  const schemaCorrections = useReasonArgs.schemaCorrections ?? 1;
+  if (
+    !Number.isSafeInteger(schemaCorrections) ||
+    schemaCorrections < 0 ||
+    schemaCorrections > 10
+  )
+    throw new KortyxError(
+      "INVALID_REASON_CORRECTION_POLICY",
+      "schemaCorrections must be an integer from 0 to 10.",
+      {
+        category: "configuration",
+        safeMessage: "schemaCorrections must be an integer from 0 to 10.",
+        retryable: false,
+      },
+    );
+  const schemaRepairs = checkpoint?.schemaRepairs ?? {};
+  let terminalDraft = checkpoint?.terminalDraft;
   const maxSteps = Math.max(1, useReasonArgs.toolExecution?.maxSteps ?? 3);
   const missingReturnCorrections =
     useReasonArgs.toolExecution?.missingReturnCorrections ?? 0;
@@ -436,14 +454,15 @@ export const runReasonToolLoop = async <
         !interruptByToolName.has(result.name) &&
         !outputByToolName.has(result.name),
     );
-  let finalText = "";
-  let finalRaw: unknown;
+  let finalText = terminalDraft?.text ?? "";
+  let finalRaw: unknown = terminalDraft?.raw;
   let finalOutput: TOutput | undefined;
   let aggregatedUsage = steps.reduce<KortyxUsage | undefined>(
     (usage, step) => mergeUsage(usage, step.usage),
     undefined,
   );
-  let finalFinishReason: KortyxFinishReason | undefined;
+  let finalFinishReason: KortyxFinishReason | undefined =
+    terminalDraft?.finishReason;
   let aggregatedProviderMetadata: KortyxProviderMetadata | undefined;
   let aggregatedWarnings = steps.reduce<KortyxWarning[] | undefined>(
     (warnings, step) => mergeWarnings(warnings, step.warnings),
@@ -489,6 +508,8 @@ export const runReasonToolLoop = async <
       emissions,
       outputContractCorrections,
       missingReturnAttempts,
+      schemaRepairs,
+      ...(terminalDraft ? { terminalDraft } : {}),
       ...(returned ? { returned } : {}),
       finalizing,
       ...(pending ? { pending } : {}),
@@ -497,6 +518,181 @@ export const runReasonToolLoop = async <
         : {}),
     } satisfies ToolLoopCheckpoint;
     ctx.stateDirty = true;
+  };
+
+  // Repair a value inside this operation, retaining its completed effects and
+  // the failed control call. Only JSON generation is allowed during repair.
+  const validateOutput = async <T>(input: {
+    key: string;
+    text: string;
+    schema: SchemaLike<T>;
+    label: string;
+    finishReason?: KortyxFinishReason | undefined;
+    invalidate?: (() => void) | undefined;
+  }): Promise<T> => {
+    const repair = schemaRepairs[input.key] ?? {
+      attempts: 0,
+      text: input.text,
+      finishReason: input.finishReason,
+    };
+    for (;;) {
+      try {
+        const value = parseReasonOutputWithSchema({
+          text: repair.text,
+          schema: input.schema,
+          label: input.label,
+          ...(repair.finishReason ? { finishReason: repair.finishReason } : {}),
+          ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
+        });
+        if (repair.attempts)
+          traceSpan?.addEvent?.("useReason.output.corrected", {
+            contract: input.label,
+            attempts: repair.attempts,
+          });
+        return value;
+      } catch (error) {
+        if (
+          ["content-filter", "error"].includes(
+            repair.finishReason?.unified ?? "",
+          ) ||
+          !(error instanceof ValidationError) ||
+          ![
+            "MODEL_OUTPUT_SCHEMA",
+            "SCHEMA_VALIDATION",
+            "INVALID_MODEL_JSON",
+          ].includes(error.code)
+        )
+          throw error;
+        input.invalidate?.();
+        schemaRepairs[input.key] = repair;
+        save();
+        if (schemaCorrections === 0) throw error;
+        const reason =
+          repair.attempts >= schemaCorrections
+            ? "attempts_exhausted"
+            : steps.length >= maxSteps
+              ? "model_budget_exhausted"
+              : undefined;
+        if (reason) {
+          traceSpan?.addEvent?.("useReason.output.correction.failed", {
+            contract: input.label,
+            attempts: repair.attempts,
+            reason,
+          });
+          throw new KortyxError(
+            "REASON_OUTPUT_SCHEMA_CORRECTION_EXHAUSTED",
+            `${input.label} failed schema correction (${reason}) after ${repair.attempts} correction attempts.`,
+            {
+              category: "validation",
+              operation: "useReason",
+              retryable: false,
+              safeMessage:
+                "Model output could not be corrected within the configured limits.",
+              cause: error,
+              details: {
+                contract: input.label,
+                attempts: repair.attempts,
+                schemaCorrections,
+                reason,
+                maxSteps: Number.isFinite(maxSteps) ? maxSteps : null,
+              },
+            },
+          );
+        }
+        let wireSchema: unknown;
+        try {
+          wireSchema = toJSONSchema(input.schema as never);
+        } catch {
+          /* Custom validators still receive bounded issue feedback. */
+        }
+        const issues = Array.isArray(error.issues)
+          ? error.issues
+              .slice(0, 8)
+              .map((issue: { path?: unknown[]; code?: string }) => ({
+                field: schemaPath(wireSchema, issue.path ?? []),
+                code: issue.code,
+              }))
+          : [];
+        const feedback = `Correct only ${input.label}. Invalid fields: ${JSON.stringify(issues)}. Return one valid JSON value matching the schema. Use the completed results above; do not call tools or request human input.`;
+        traceSpan?.addEvent?.("useReason.output.correction", {
+          contract: input.label,
+          attempt: repair.attempts + 1,
+          code: error.code,
+        });
+        const correction = await reasonEngine(
+          {
+            ...useReasonArgs,
+            tools: [],
+            stream: false,
+            emit: false,
+            ...inferOutputFormat(input.schema, undefined),
+            messages: [
+              ...messages,
+              ...(pending?.toolCalls ?? [])
+                .filter(
+                  (call) =>
+                    !messages.some(
+                      (message) =>
+                        message.role === "tool" &&
+                        message.toolCallId === call.id,
+                    ),
+                )
+                .map(
+                  (call): KortyxPromptMessage => ({
+                    role: "tool",
+                    toolCallId: call.id,
+                    name: call.name,
+                    content:
+                      "This call has not completed. Do not assume its result.",
+                  }),
+                ),
+              { role: "assistant", content: repair.text },
+              {
+                role: "user",
+                content: withOutputGuardrails(feedback, input.schema),
+              },
+            ],
+          },
+          { ...(id ? { id } : {}), opId },
+        );
+        // The engine checks shared limits before invoking the provider. Count a
+        // completed request here so Continue cannot spend an attempt twice.
+        repair.attempts += 1;
+        repair.text = correction.text;
+        repair.finishReason = correction.finishReason;
+        steps.push({
+          ...correction,
+          stepIndex: steps.length,
+          kind: "output",
+          toolCalls: [],
+          toolResults: [],
+        });
+        aggregatedUsage = mergeUsage(aggregatedUsage, correction.usage);
+        accumulateTokenUsage(correction.usage);
+        aggregatedWarnings = mergeWarnings(
+          aggregatedWarnings,
+          correction.warnings,
+        );
+        aggregatedProviderMetadata = mergeProviderMetadata(
+          aggregatedProviderMetadata,
+          correction.providerMetadata,
+        );
+        finalFinishReason = correction.finishReason;
+        finalRaw = correction.raw;
+        save();
+        if (correction.toolCalls?.length)
+          throw new KortyxError(
+            "REASON_OUTPUT_CORRECTION_TOOL_DISALLOWED",
+            "Schema correction requested a tool.",
+            {
+              category: "validation",
+              safeMessage:
+                "Output correction cannot execute tools or request human input.",
+              retryable: false,
+            },
+          );
+      }
+    }
   };
 
   const rememberInterrupt = (request: InterruptInput) => {
@@ -521,7 +717,7 @@ export const runReasonToolLoop = async <
       let stepIndex = pending
         ? (pendingStepIndex ?? steps.length - 1)
         : steps.length;
-      stepIndex < maxSteps;
+      !completed && stepIndex < maxSteps;
       stepIndex = steps.length
     ) {
       throwIfExecutionAborted(abortSignal);
@@ -531,8 +727,23 @@ export const runReasonToolLoop = async <
       });
 
       const reused = Boolean(pending);
-      const stream =
+      const configuredStream =
         useReasonArgs.stream ?? useReasonArgs.model.options?.streaming ?? true;
+      const noToolSchema =
+        useReasonArgs.outputSchema &&
+        !tools.length &&
+        !interruptConfig &&
+        !useReasonArgs.outputs;
+      const fields = useReasonArgs.structured?.fields;
+      const stream = noToolSchema
+        ? Boolean(
+            configuredStream &&
+              (useReasonArgs.emit ?? true) &&
+              fields &&
+              Object.keys(fields).length &&
+              shouldStreamStructured(useReasonArgs.structured),
+          )
+        : configuredStream;
       const emit = useReasonArgs.emit ?? true;
       let textStarted = false;
       const segmentId = `step-${stepIndex}`;
@@ -711,6 +922,8 @@ export const runReasonToolLoop = async <
           save();
           continue;
         }
+        terminalDraft = step;
+        save();
         completed = true;
         break;
       }
@@ -797,7 +1010,14 @@ export const runReasonToolLoop = async <
               `useReason reached outputs.maxEmissions (${useReasonArgs.outputs?.maxEmissions ?? 16}).`,
             );
           let data: unknown;
-          if (resolved.stream || hasEvidenceCalls) {
+          if (schemaRepairs[call.id]) {
+            data = await validateOutput({
+              key: call.id,
+              text: schemaRepairs[call.id]!.text,
+              schema: resolved.contract.schema,
+              label: `useReason output contract "${resolved.name}"`,
+            });
+          } else if (resolved.stream || hasEvidenceCalls) {
             if (resolved.stream && !stream)
               throw new Error(
                 `useReason streaming output contract "${resolved.name}" requires stream: true.`,
@@ -935,13 +1155,20 @@ export const runReasonToolLoop = async <
                   : {}),
               });
               save();
-              data = parseReasonOutputWithSchema({
+              data = await validateOutput({
+                key: call.id,
+                invalidate: () => {
+                  if (emit && resolved.stream)
+                    ctx.node.emit("structured_data_invalidated", {
+                      node: ctx.node.graph.node,
+                      streamId,
+                    });
+                },
                 text: outputStep.text,
                 schema: resolved.contract.schema,
                 ...(outputStep.finishReason
                   ? { finishReason: outputStep.finishReason }
                   : {}),
-                ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
                 label: `useReason output contract "${resolved.name}"`,
               });
             } catch (error) {
@@ -965,11 +1192,12 @@ export const runReasonToolLoop = async <
               throw error;
             }
           } else {
-            data = parseWithSchema(
-              resolved.contract.schema,
-              call.input,
-              `useReason output contract "${resolved.name}"`,
-            );
+            data = await validateOutput({
+              key: call.id,
+              text: JSON.stringify(call.input) ?? "",
+              schema: resolved.contract.schema,
+              label: `useReason output contract "${resolved.name}"`,
+            });
           }
           const entry = { contract: resolved.name, data };
           const emissionIndex = emissions.length;
@@ -1311,13 +1539,21 @@ export const runReasonToolLoop = async <
     }
 
     if (useReasonArgs.outputSchema && finalOutput === undefined) {
-      finalOutput = parseReasonOutputWithSchema({
+      finalOutput = await validateOutput({
+        key: "$output",
         text: finalText,
+        invalidate: () => {
+          if ((useReasonArgs.emit ?? true) && useReasonArgs.structured)
+            ctx.node.emit("structured_data_invalidated", {
+              node: ctx.node.graph.node,
+              streamId: opId,
+            });
+        },
         schema: useReasonArgs.outputSchema,
         ...(finalFinishReason ? { finishReason: finalFinishReason } : {}),
-        ...(aggregatedUsage ? { usage: aggregatedUsage } : {}),
         label: "useReason output",
       });
+      finalText = schemaRepairs.$output?.text ?? finalText;
     }
 
     if (finalOutput !== undefined) {
@@ -1437,4 +1673,13 @@ interface ToolLoopCheckpoint {
   finalizing?: boolean;
   outputContractCorrections?: number;
   missingReturnAttempts?: number;
+  terminalDraft?: RunReasonEngineResult;
+  schemaRepairs?: Record<
+    string,
+    {
+      attempts: number;
+      text: string;
+      finishReason?: KortyxFinishReason | undefined;
+    }
+  >;
 }

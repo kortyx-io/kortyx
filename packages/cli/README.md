@@ -547,3 +547,50 @@ Set `KORTYX_USAGE_TELEMETRY_DISABLED=1` before running `kortyx` to opt out, or
 Completion waits at most two seconds for usage delivery and preserves command
 results/errors. See the [shared helper reference](../usage-telemetry/README.md)
 for identity, loss, cohort labels and destination controls.
+
+
+## Bounded saved-evaluation investigation
+
+Deploy the Studio API with inspection protocol 1 before upgrading CLI readers.
+`studio doctor` reports `evalRead` capabilities separately from context/API
+connectivity. An unsupported server produces an explicit compatibility error;
+readers never fall back to downloading a complete evaluation.
+
+```bash
+kortyx studio inspect https://studio.example/evals/evaluations/EVALUATION_ID --connection staging --json
+kortyx studio evals attempts EVALUATION_ID --status error --limit 25 --connection staging --json
+kortyx studio evals attempts EVALUATION_ID --status failed --limit 25 --connection staging --json
+kortyx studio evals turn EVALUATION_ID --suite SUITE_RUN_ID --case CASE_ID --repetition 1 --turn 0 --connection staging --json
+kortyx studio evals evidence EVALUATION_ID --suite SUITE_RUN_ID --case CASE_ID --repetition 1 --turn 0 --section criteria --include-content --connection staging --json
+kortyx studio evals compare FIRST_EVALUATION_ID SECOND_EVALUATION_ID --connection staging --json
+```
+
+`runs get` and `overview` read small summaries, counts, recorded settings,
+identity/context metadata and a capped failure inventory. `--include-content`
+does not download every conversation. `attempts` filters by suite, case, status,
+failure phase and repetition before transmission. Pages include available,
+returned and omitted counts, continuation cursors, and expansion commands that
+retain the selected connection. Attempt pages default to 25 and cap at 100.
+
+`turn` returns saved verdict identifiers and runtime/diagnostic links without
+conversation content. `evidence` requires `--include-content` and selects one of
+`input`, `expectation`, `observation`, `criteria`, `verification`, `tools`,
+`output`, `interrupt`, `model`, `diagnostic` or `context`. Missing capture is
+explicit. Active turns may not yet have saved evidence. Model evidence first
+lists captured runtime event IDs; `--event UUID` expands one event. Retained
+private diagnostics remain behind the existing `studio diagnostics` reader and
+its `diagnostics:read` permission.
+
+Evidence is returned as JSON text fragments, with Unicode-character offsets and
+lengths. `--content-cursor` continues a fragment; `--content-limit` defaults to
+8,000 characters and caps at 32,768. Credentials are redacted on the server
+before slicing. Reassemble fragments before JSON parsing. `--output PATH` exports
+the current page into a new owner-only file (0600), refuses overwrite, and never
+starts an execution. Response safeguards remain: 512 KiB per inspection page and
+the existing 20 MiB transport ceiling. Reduce page/content limits if necessary.
+
+`compare` reuses bounded context/fixture fingerprints and recorded deployment,
+judge and settings facts; it returns the first changed fields without fetching
+transcripts. It does not invent missing historical model/prompt information.
+Schema mismatch errors include safe field paths, issue codes, request IDs and
+client/server versions, with received values omitted.

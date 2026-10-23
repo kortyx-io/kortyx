@@ -1766,6 +1766,7 @@ describe("useReason output flow", () => {
           stream: false,
           emit: true,
           outputSchema: PlanSchema,
+          schemaCorrections: 0,
         }),
       ),
     ).rejects.toThrow("useReason output validation failed");
@@ -1824,6 +1825,7 @@ describe("useReason output flow", () => {
           stream: false,
           emit: true,
           outputSchema: PlanSchema,
+          schemaCorrections: 0,
         }),
       ),
     ).rejects.toMatchObject({ code: "INVALID_MODEL_JSON" });

@@ -1,8 +1,11 @@
 import {
+  EvalInspectionCapabilitiesSchema,
+  EvalInspectionResponseSchema,
   StudioEvalDetailSchema,
   StudioEvalHistorySchema,
   StudioEvalStartRequestSchema,
   StudioEvalTargetsResponseSchema,
+  StudioEvaluationComparisonSchema,
   StudioEvaluationDetailSchema,
   StudioEvaluationHistorySchema,
   StudioEvaluationResultsSchema,
@@ -50,6 +53,39 @@ export const parseEvalRunTarget = (input: string) => {
 
 /** Only suite discovery, saved eval reads, enqueue and cooperative cancellation. */
 export class StudioEvalClient extends StudioApiTransport {
+  comparison(id: string) {
+    this.validateId(id);
+    return this.requestJson(
+      "GET",
+      `/v1/studio/evals/evaluations/${id}/comparison`,
+      StudioEvaluationComparisonSchema,
+    );
+  }
+  inspectionCapabilities() {
+    return this.requestJson(
+      "GET",
+      "/v1/studio/evals/inspection/capabilities",
+      EvalInspectionCapabilitiesSchema,
+    );
+  }
+  inspection(id: string, query: Record<string, string> = {}) {
+    this.validateId(id);
+    return this.requestJson(
+      "GET",
+      `/v1/studio/evals/inspection/${id}`,
+      EvalInspectionResponseSchema,
+      query,
+    ).catch((error) => {
+      if (error instanceof StudioReadError && error.status === 404)
+        throw new StudioReadError(
+          "eval_inspection_unavailable",
+          "Evaluation not found or this server lacks bounded eval inspection. Upgrade Studio API and CLI together; no full-result fallback was downloaded.",
+          error.status,
+          error.requestId,
+        );
+      throw error;
+    });
+  }
   evaluations() {
     return this.requestJson(
       "GET",

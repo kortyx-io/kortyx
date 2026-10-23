@@ -233,6 +233,8 @@ export type UseReasonArgs<
   TEmit extends OutputContractMap = OutputContractMap,
   TReturn extends OutputContractMap = OutputContractMap,
 > = {
+  /** Output-only schema repair passes per failed value (0–10). Defaults to 1; shares maxSteps and execution limits. Never reruns business tools. */
+  schemaCorrections?: number | undefined;
   model: ProviderModelRef;
   messages?: import("@kortyx/providers").KortyxPromptMessage[] | undefined;
   input: string;

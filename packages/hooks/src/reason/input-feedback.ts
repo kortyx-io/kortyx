@@ -4,7 +4,7 @@ const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
 /** Use only paths advertised in the tool schema, never user-authored record keys. */
-function schemaPath(schema: unknown, path: unknown[]): string {
+export function schemaPath(schema: unknown, path: unknown[]): string {
   let current = schema;
   let label = "";
   for (const part of path.slice(0, 8)) {

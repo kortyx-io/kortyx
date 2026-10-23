@@ -32,6 +32,7 @@ export {
   getErrorDiagnostic,
   putErrorDiagnosticPart,
 } from "./repositories/error-diagnostics";
+export { inspectEvaluation } from "./repositories/eval-inspection";
 export {
   getEvalLiveRun,
   getEvalLiveState,
