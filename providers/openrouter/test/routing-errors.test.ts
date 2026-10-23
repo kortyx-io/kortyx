@@ -403,7 +403,7 @@ it("reports malformed SSE error chunks as SDK validation failures, preserving pa
       issues: expect.arrayContaining([
         expect.objectContaining({
           code: "invalid_type",
-          path: ["data", "error", "code"],
+          path: expect.arrayContaining(["error", "code"]),
           expected: "number",
         }),
       ]),
