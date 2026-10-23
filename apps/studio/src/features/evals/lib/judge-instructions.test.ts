@@ -1,11 +1,10 @@
-import type {
-  EvalCaseResult,
-  EvalGradingRequest,
-  EvalStepResult,
-} from "@kortyx/agent/evals";
+import type { EvalGradingRequest } from "@kortyx/agent/evals";
 import { expect, it } from "vitest";
 import type { EvalDetail } from "../schema";
 import { savedJudgeInstructions } from "./judge-instructions";
+
+type EvalCaseResult = NonNullable<EvalDetail["result"]>["cases"][number];
+type EvalStepResult = EvalCaseResult["steps"][number];
 
 const request: EvalGradingRequest = {
   protocol: "eval-verdict-v1",
