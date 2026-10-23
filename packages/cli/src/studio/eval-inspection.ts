@@ -22,6 +22,7 @@ type Options = ConnectionOptions & {
   event?: string;
   output?: string;
   environment?: string;
+  otherRepetition?: string;
 };
 
 export async function readEvalInspection(
@@ -176,69 +177,141 @@ export function registerEvalInspectionCommands(
       .description(
         "Compare bounded evaluation metadata and report the first changed fields.",
       ),
-  ).action(async (left: string, right: string, options: Options) => {
-    const [a, b] = await Promise.all([
-      readEvalInspection(left, options, request, "comparison"),
-      readEvalInspection(right, options, request, "comparison"),
-    ]);
-    const firstDifferences: Array<{
-      field: string;
-      left: unknown;
-      right: unknown;
-    }> = [];
-    const walk = (x: unknown, y: unknown, path: string) => {
-      if (
-        firstDifferences.length >= 20 ||
-        JSON.stringify(x) === JSON.stringify(y)
-      )
-        return;
-      if (
-        x &&
-        y &&
-        typeof x === "object" &&
-        typeof y === "object" &&
-        !Array.isArray(x) &&
-        !Array.isArray(y)
-      ) {
-        const xx = x as Record<string, unknown>,
-          yy = y as Record<string, unknown>;
-        for (const key of new Set([...Object.keys(xx), ...Object.keys(yy)]))
-          walk(xx[key], yy[key], path ? `${path}.${key}` : key);
-      } else
-        firstDifferences.push({
-          field: path,
-          left: x ?? null,
-          right: y ?? null,
-        });
-    };
-    // Revision/deployment/judge/settings facts precede timing/count changes.
-    for (const key of [
-      "metadata",
-      "judge",
-      "resolvedSettings",
-      "suites",
-      "counts",
-    ])
+  )
+    .option("--suite <id>", "Compare one suite ID.")
+    .option("--case <id>", "Compare one case ID.")
+    .option("--repetition <number>", "Left repetition.")
+    .option(
+      "--other-repetition <number>",
+      "Right repetition (defaults to the left repetition).",
+    )
+    .action(async (left: string, right: string, options: Options) => {
+      const [a, b] = await Promise.all([
+        readEvalInspection(left, options, request, "comparison"),
+        readEvalInspection(right, options, request, "comparison"),
+      ]);
+      const firstDifferences: Array<{
+        field: string;
+        left: unknown;
+        right: unknown;
+      }> = [];
+      const walk = (x: unknown, y: unknown, path: string) => {
+        if (
+          firstDifferences.length >= 20 ||
+          JSON.stringify(x) === JSON.stringify(y)
+        )
+          return;
+        if (
+          x &&
+          y &&
+          typeof x === "object" &&
+          typeof y === "object" &&
+          !Array.isArray(x) &&
+          !Array.isArray(y)
+        ) {
+          const xx = x as Record<string, unknown>,
+            yy = y as Record<string, unknown>;
+          for (const key of new Set([...Object.keys(xx), ...Object.keys(yy)]))
+            walk(xx[key], yy[key], path ? `${path}.${key}` : key);
+        } else
+          firstDifferences.push({
+            field: path,
+            left: x ?? null,
+            right: y ?? null,
+          });
+      };
+      const facts = (raw: unknown, repetition: string | number | undefined) => {
+        const run = raw as {
+          metadata?: unknown;
+          judge?: unknown;
+          resolvedSettings?: unknown;
+          suites?: Array<{
+            suiteId: string;
+            judge?: unknown;
+            resolvedSettings?: unknown;
+            definitions: Array<{ id: string; fingerprint: string }>;
+            cases: Array<{
+              caseId: string;
+              repetition: number;
+              status: string;
+              contexts: Array<{
+                index: number;
+                fingerprint: string;
+                models?: string[];
+                prompts?: unknown[];
+              }>;
+            }>;
+          }>;
+        };
+        return {
+          metadata: run.metadata,
+          judge: run.judge,
+          resolvedSettings: run.resolvedSettings,
+          suites: Object.fromEntries(
+            (run.suites ?? [])
+              .filter(
+                (suite) => !options.suite || suite.suiteId === options.suite,
+              )
+              .map((suite) => [
+                suite.suiteId,
+                {
+                  judge: suite.judge,
+                  resolvedSettings: suite.resolvedSettings,
+                  fixtures: Object.fromEntries(
+                    suite.definitions
+                      .filter(
+                        (item) => !options.case || item.id === options.case,
+                      )
+                      .map((item) => [item.id, item.fingerprint]),
+                  ),
+                  attempts: Object.fromEntries(
+                    suite.cases
+                      .filter(
+                        (item) =>
+                          (!options.case || item.caseId === options.case) &&
+                          (repetition === undefined ||
+                            item.repetition === Number(repetition)),
+                      )
+                      .map((item) => [
+                        repetition === undefined
+                          ? `${item.caseId}:${item.repetition}`
+                          : item.caseId,
+                        {
+                          status: item.status,
+                          turns: Object.fromEntries(
+                            item.contexts.map((context) => [
+                              String(context.index),
+                              context,
+                            ]),
+                          ),
+                        },
+                      ]),
+                  ),
+                },
+              ]),
+          ),
+        };
+      };
       walk(
-        (a.data as Record<string, unknown> | null)?.[key],
-        (b.data as Record<string, unknown> | null)?.[key],
-        key,
+        facts(a.data, options.repetition),
+        facts(b.data, options.otherRepetition ?? options.repetition),
+        "",
       );
-    log(
-      formatReadOutput(
-        sanitizeStudioData(
-          {
-            left: a.id,
-            right: b.id,
-            firstDifferences,
-            expand: [...a.expand, ...b.expand],
-          },
-          options.includeContent ?? false,
+      log(
+        formatReadOutput(
+          sanitizeStudioData(
+            {
+              left: a.id,
+              right: b.id,
+              firstDifferences,
+              expand: [...a.expand, ...b.expand],
+            },
+            options.includeContent ?? false,
+          ),
+          options.json ?? false,
         ),
-        options.json ?? false,
-      ),
-    );
-  });
+      );
+    });
 }
 
 export async function evalReadCompatibility(client: StudioEvalClient) {

@@ -120,9 +120,18 @@ export class StudioApiTransport {
       );
     }
     const requestId = response.headers.get("x-request-id") ?? undefined;
+    const protocol = response.headers.get("x-kortyx-studio-api-version");
     this.compatibility = {
-      protocolVersion: response.headers.get("x-kortyx-studio-api-version"),
-      release: response.headers.get("x-kortyx-studio-release"),
+      protocolVersion:
+        protocol && /^\d{1,3}$/.test(protocol)
+          ? protocol
+          : protocol
+            ? "invalid"
+            : null,
+      release:
+        response.headers
+          .get("x-kortyx-studio-release")
+          ?.match(/^[a-zA-Z0-9_.+-]{1,100}$/)?.[0] ?? null,
     };
     if (
       this.compatibility.protocolVersion &&

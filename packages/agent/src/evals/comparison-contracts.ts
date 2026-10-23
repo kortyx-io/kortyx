@@ -39,7 +39,21 @@ export const StudioEvaluationComparisonSchema = z.object({
               durationMs: z.number().nonnegative().optional(),
               costs: EvalCostsSchema.optional(),
               contexts: z.array(
-                z.object({ index: z.number(), fingerprint: z.string() }),
+                z.object({
+                  index: z.number(),
+                  fingerprint: z.string(),
+                  models: z.array(z.string()).optional(),
+                  prompts: z
+                    .array(
+                      z.object({
+                        id: z.string(),
+                        version: z.number(),
+                        hash: z.string(),
+                        model: z.string().optional(),
+                      }),
+                    )
+                    .optional(),
+                }),
               ),
             }),
           ),

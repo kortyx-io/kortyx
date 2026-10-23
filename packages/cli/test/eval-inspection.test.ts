@@ -62,6 +62,101 @@ async function configured() {
   return { connection: "staging", configHome: home, home };
 }
 describe("bounded evaluation CLI", () => {
+  it("compares selected attempts by recorded context, without comparing saved run IDs", async () => {
+    const options = await configured();
+    const date = "2026-10-23T00:00:00.000Z";
+    const request = vi.fn<typeof fetch>(async () =>
+      Response.json({
+        run: {
+          id,
+          name: "Comparison",
+          targetId: "app",
+          targetName: "App",
+          environment: "development",
+          selection: "all",
+          metadata: { source: "manual", commit: "recorded-deployment" },
+          status: "passed",
+          createdAt: date,
+          startedAt: date,
+          endedAt: date,
+          cancelRequestedAt: null,
+          suiteCount: 1,
+          completedSuites: 1,
+          totalAttempts: 2,
+          completedAttempts: 2,
+          counts: { passed: 2, failed: 0, error: 0, cancelled: 0 },
+          suites: [
+            {
+              id: "saved-run-id",
+              suiteId: "suite",
+              name: "Suite",
+              targetId: "app",
+              environment: "development",
+              status: "passed",
+              judge: "judge-fingerprint",
+              definitions: [
+                {
+                  id: "answer",
+                  name: "Answer",
+                  fingerprint: "fixture-fingerprint",
+                },
+              ],
+              cases: [1, 2].map((repetition) => ({
+                caseId: "answer",
+                repetition,
+                status: "passed",
+                contexts: [
+                  {
+                    index: 0,
+                    fingerprint: `context-${repetition}`,
+                    models: [`model-${repetition}`],
+                    prompts: [
+                      {
+                        id: "prompt",
+                        version: repetition,
+                        hash: `hash-${repetition}`,
+                      },
+                    ],
+                  },
+                ],
+              })),
+            },
+          ],
+        },
+      }),
+    );
+    const root = new Command("studio"),
+      output: string[] = [];
+    registerStudioEvalCommands(root, (text) => output.push(text), request);
+    await root.parseAsync(
+      [
+        "evals",
+        "compare",
+        id,
+        id,
+        "--suite",
+        "suite",
+        "--case",
+        "answer",
+        "--repetition",
+        "1",
+        "--other-repetition",
+        "2",
+        "--connection",
+        "staging",
+        "--config-home",
+        options.configHome,
+        "--json",
+      ],
+      { from: "user" },
+    );
+    expect(output[0]).toContain("model-1");
+    expect(output[0]).toContain("model-2");
+    expect(output[0]).not.toContain("saved-run-id");
+    expect(
+      request.mock.calls.every(([url]) => String(url).endsWith("/comparison")),
+    ).toBe(true);
+  });
   it("dispatches evaluation and saved suite URLs through generic inspect without fetching results", async () => {
     const options = await configured();
     for (const kind of ["evaluations", "runs"]) {

@@ -241,7 +241,7 @@ export async function inspectEvaluation(
       value = sql`jsonb_build_object('diagnosticId', ${step}->'observation'->'diagnosticId', 'failure', ${step}->'observation'->'failure')`;
       break;
     case "context":
-      value = sql`jsonb_build_object('metadata', ${evalRuns.request}->'metadata', 'judge', ${evalRuns.request}->'judge', 'resolvedSettings', ${evalRuns.request}->'resolvedSettings', 'suiteRevision', ${evalRuns.suiteRevision}, 'promptSnapshot', ${evalRuns.request}->'promptSnapshot')`;
+      value = sql`jsonb_build_object('metadata', ${evalRuns.request}->'metadata', 'judge', ${evalRuns.request}->'judge', 'resolvedSettings', ${evalRuns.request}->'resolvedSettings', 'suiteRevision', ${evalRuns.suiteRevision}, 'promptSnapshot', ${evalRuns.request}->'promptSnapshot', 'promptUsage', ${step}->'observation'->'promptUsage', 'fixture', (SELECT definition FROM jsonb_array_elements(${evalRuns.suite}->'cases') definition WHERE definition->>'id'=${query.caseId} LIMIT 1))`;
       break;
     case "model": {
       const [link] = await db
@@ -297,7 +297,7 @@ export async function inspectEvaluation(
       const [content] = await db
         .select({
           total: sql<number>`length(${text})`,
-          content: sql<string>`substring(${text} FROM ${query.contentCursor + 1} FOR ${query.contentLimit})`,
+          content: sql<string>`substring(${text} FROM ${query.contentCursor + 1}::integer FOR ${query.contentLimit}::integer)`,
         })
         .from(telemetryEvents)
         .where(where)
@@ -323,7 +323,7 @@ export async function inspectEvaluation(
       total: sql<number>`coalesce(length(${text}),0)`,
       content: sql<
         string | null
-      >`substring(${text} FROM ${query.contentCursor + 1} FOR ${query.contentLimit})`,
+      >`substring(${text} FROM ${query.contentCursor + 1}::integer FOR ${query.contentLimit}::integer)`,
       exists: sql<boolean>`${step} IS NOT NULL`,
     })
     .from(evalRuns)

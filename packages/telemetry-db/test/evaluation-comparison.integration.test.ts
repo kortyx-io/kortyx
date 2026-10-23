@@ -156,6 +156,25 @@ describe.skipIf(!url)("bounded evaluation comparisons on PostgreSQL", () => {
     );
     expect(changed.suites[0]?.cases[0]?.status).toBe("passed");
   });
+  it("exposes recorded prompt/model identities and fingerprints their changes without prompts", async () => {
+    const { id, childId } = await fixture();
+    const before = await getEvaluationComparison(client.db, scope, id);
+    await client.db
+      .update(evalRuns)
+      .set({
+        result: sql`jsonb_set(${evalRuns.result},'{cases,0,steps,0,observation,promptUsage}', '[{"id":"saved-prompt","version":2,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","environment":"development","snapshotRevision":"recorded-snapshot","model":"recorded-model"}]'::jsonb)`,
+      })
+      .where(eq(evalRuns.id, childId));
+    const after = await getEvaluationComparison(client.db, scope, id);
+    StudioEvaluationComparisonSchema.parse({ run: after });
+    const context = after.suites[0]?.cases[0]?.contexts[0];
+    expect(context?.models).toEqual(["recorded-model"]);
+    expect(context?.prompts?.[0]?.id).toBe("saved-prompt");
+    expect(context?.fingerprint).not.toBe(
+      before.suites[0]?.cases[0]?.contexts[0]?.fingerprint,
+    );
+    expect(JSON.stringify(after)).not.toContain("question");
+  });
   it("checks organization, project and environment before reading another evaluation", async () => {
     const { id } = await fixture();
     for (const denied of [

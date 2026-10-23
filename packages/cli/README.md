@@ -594,3 +594,5 @@ judge and settings facts; it returns the first changed fields without fetching
 transcripts. It does not invent missing historical model/prompt information.
 Schema mismatch errors include safe field paths, issue codes, request IDs and
 client/server versions, with received values omitted.
+
+To compare two repetitions of one case, use `evals compare ID ID --suite SUITE_ID --case CASE_ID --repetition 1 --other-repetition 2`. Saved model/prompt usage identities appear when captured; fixture and context fingerprints identify changes without exposing transcripts.
