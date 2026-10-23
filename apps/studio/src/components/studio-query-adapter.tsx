@@ -50,7 +50,12 @@ export function StudioQueryAdapter({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Next commits its history URL after rendering the destination. Recheck
     // the store after that commit as well as on shallow writes and popstate.
-    window.dispatchEvent(new Event(QUERY_UPDATE_EVENT));
+    const committed = new URL(window.location.href);
+    if (
+      committed.pathname === pathname &&
+      committed.searchParams.toString() === search
+    )
+      window.dispatchEvent(new Event(QUERY_UPDATE_EVENT));
   }, [pathname, search]);
   const updateUrl = useCallback<AdapterInterface["updateUrl"]>(
     (params, options) => {
