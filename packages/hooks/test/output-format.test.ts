@@ -24,8 +24,8 @@ describe("output schema inference", () => {
     z.object({ values: z.record(z.string(), z.number()) }),
     z.object({
       value: z.intersection(
-        z.object({ a: z.string() }),
-        z.object({ b: z.string() }),
+        z.string().regex(/^a/),
+        z.string().regex(/z$/),
       ),
     }),
     z.object({ value: z.tuple([z.string(), z.number()]) }),
@@ -39,6 +39,31 @@ describe("output schema inference", () => {
       responseFormat: { type: "json" },
       warnings: [{ feature: "outputSchema" }],
     });
+  });
+  it("infers object intersections that Zod can flatten into a strict schema", () => {
+    const result = inferOutputFormat(
+      z.object({
+        value: z.intersection(
+          z.object({ a: z.string() }),
+          z.object({ b: z.string() }),
+        ),
+      }),
+      undefined,
+    );
+    expect(result.responseFormat).toMatchObject({
+      type: "json",
+      schema: {
+        properties: {
+          value: {
+            type: "object",
+            properties: { a: { type: "string" }, b: { type: "string" } },
+            required: ["a", "b"],
+            additionalProperties: false,
+          },
+        },
+      },
+    });
+    expect(result.warnings).toBeUndefined();
   });
   it("preserves explicit formats and does nothing without a schema", () => {
     expect(
