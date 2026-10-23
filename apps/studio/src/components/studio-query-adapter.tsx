@@ -7,7 +7,13 @@ import {
   renderQueryString,
 } from "nuqs/adapters/custom";
 import { NuqsAdapter } from "nuqs/adapters/react";
-import { type ReactNode, useCallback, useContext, useMemo } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useContext,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import { StudioQueryContext } from "@/lib/studio-query-context";
 
 const SharedAdapter = createAdapterProvider(function useSharedAdapter() {
@@ -16,11 +22,29 @@ const SharedAdapter = createAdapterProvider(function useSharedAdapter() {
   return adapter;
 });
 
+const QUERY_UPDATE_EVENT = "kortyx:query-update";
+function subscribeToLocation(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  window.addEventListener(QUERY_UPDATE_EVENT, onChange);
+  return () => {
+    window.removeEventListener("popstate", onChange);
+    window.removeEventListener(QUERY_UPDATE_EVENT, onChange);
+  };
+}
+function currentLocation() {
+  return window.location.pathname + window.location.search;
+}
+
 export function StudioQueryAdapter({ children }: { children: ReactNode }) {
   // Read Next's live context outside retained parallel-route payloads. Their
   // cached context can otherwise hide Back/Forward and shallow URL updates.
   const pathname = usePathname();
   const search = useSearchParams().toString();
+  const location = useSyncExternalStore(
+    subscribeToLocation,
+    currentLocation,
+    () => `${pathname}${search ? `?${search}` : ""}`,
+  );
   const router = useRouter();
   const updateUrl = useCallback<AdapterInterface["updateUrl"]>(
     (params, options) => {
@@ -30,6 +54,7 @@ export function StudioQueryAdapter({ children }: { children: ReactNode }) {
         window.history[
           options.history === "push" ? "pushState" : "replaceState"
         ](null, "", url);
+        window.dispatchEvent(new Event(QUERY_UPDATE_EVENT));
         if (options.scroll) window.scrollTo(0, 0);
       } else {
         router[options.history === "push" ? "push" : "replace"](url.href, {
@@ -39,10 +64,14 @@ export function StudioQueryAdapter({ children }: { children: ReactNode }) {
     },
     [router],
   );
-  const adapter = useMemo<AdapterInterface>(
-    () => ({ pathname, searchParams: new URLSearchParams(search), updateUrl }),
-    [pathname, search, updateUrl],
-  );
+  const adapter = useMemo<AdapterInterface>(() => {
+    const url = new URL(location, "http://studio.local");
+    return {
+      pathname: url.pathname,
+      searchParams: url.searchParams,
+      updateUrl,
+    };
+  }, [location, updateUrl]);
   return (
     // The React adapter supplies Nuqs' popstate queue cleanup. The custom
     // adapter keeps Next navigation for server-backed updates and shares one
