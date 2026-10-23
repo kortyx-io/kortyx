@@ -23,10 +23,7 @@ describe("output schema inference", () => {
     z.object({ value: z.string().optional() }),
     z.object({ values: z.record(z.string(), z.number()) }),
     z.object({
-      value: z.intersection(
-        z.string().regex(/^a/),
-        z.string().regex(/z$/),
-      ),
+      value: z.intersection(z.string().regex(/^a/), z.string().regex(/z$/)),
     }),
     z.object({ value: z.tuple([z.string(), z.number()]) }),
     z.object({ value: z.string().transform((v) => v.length) }),
