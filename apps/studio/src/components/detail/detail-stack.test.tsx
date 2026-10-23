@@ -66,6 +66,25 @@ async function finishMotion() {
 }
 
 describe.each(["", scope])("drawer history under %s", (prefix) => {
+  it("does not save an early child registration into the ancestor's history entry", async () => {
+    window.history.replaceState({}, "", `${prefix}${parent}`);
+    navigation.pathname = parent;
+    await render([parent, child]);
+    expect(
+      window.history.state.__kortyxDetailStack.layers.map(
+        (layer: { id: string }) => layer.id,
+      ),
+    ).toEqual([parent]);
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    navigation.pathname = child;
+    await render([parent, child]);
+    expect(
+      window.history.state.__kortyxDetailStack.layers.map(
+        (layer: { id: string }) => layer.id,
+      ),
+    ).toEqual([parent, child]);
+  });
+
   it("closes the browser's active drawer while the framework still reports its retained ancestor", async () => {
     window.history.replaceState({}, "", `${prefix}${child}`);
     navigation.pathname = parent;

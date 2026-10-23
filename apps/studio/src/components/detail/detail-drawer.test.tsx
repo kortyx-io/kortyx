@@ -57,7 +57,10 @@ async function render(path?: string) {
   );
 }
 async function settle() {
-  await act(() => vi.advanceTimersByTimeAsync(DETAIL_MOTION_DURATION_MS * 3));
+  // Registration cleanup commits first; its exit effect schedules the next
+  // timer after React flushes that commit. Advance each phase in its own act.
+  for (let phase = 0; phase < 3; phase++)
+    await act(() => vi.advanceTimersByTimeAsync(DETAIL_MOTION_DURATION_MS));
 }
 async function restore(path: string, state: unknown) {
   await act(() => {
@@ -78,6 +81,15 @@ it("retains the mounted ancestor when Next releases its parallel slot", async ()
   await settle();
   expect(drawer("/runs/first")).toBe(original);
   expect(original?.getAttribute("data-state")).toBe("open");
+});
+
+it("closes retained payloads when a normal navigation returns to a list", async () => {
+  window.history.replaceState({}, "", "/runs/first");
+  await render("/runs/first");
+  window.history.replaceState({}, "", "/runs");
+  await render();
+  await settle();
+  expect(drawer("/runs/first")).toBeNull();
 });
 
 it("revives an unmounted payload from history when Next restores an empty slot", async () => {

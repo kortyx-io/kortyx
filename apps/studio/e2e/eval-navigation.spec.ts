@@ -239,7 +239,9 @@ test.describe("Eval drawer hardening", () => {
       .getByRole("button", { name: "Case definition", exact: true })
       .click();
     await expect(page).toHaveURL(/expand\.suite-definition-raw=true/);
-    const viewer = suite.locator("[data-payload-viewer]").last();
+    const viewer = suite.locator(
+      '[data-eval-disclosure="suite-definition-raw"] [data-payload-viewer]',
+    );
     await viewer
       .getByRole("button", { name: /Payload representation/ })
       .click();
@@ -255,10 +257,11 @@ test.describe("Eval drawer hardening", () => {
         exact: true,
       }),
     ).toHaveAttribute("aria-expanded", "true");
-    await expect(page.locator("[data-payload-viewer]").last()).toHaveAttribute(
-      "data-mode",
-      "yaml",
-    );
+    await expect(
+      page.locator(
+        '[data-eval-disclosure="suite-definition-raw"] [data-payload-viewer]',
+      ),
+    ).toHaveAttribute("data-mode", "yaml");
     await page
       .getByRole("button", {
         name: "Close conversation definition",

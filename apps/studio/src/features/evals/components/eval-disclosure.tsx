@@ -25,6 +25,7 @@ export function EvalDisclosure({
   );
   return (
     <div
+      data-eval-disclosure={scope}
       className={cn(
         "min-w-0",
         variant === "attached" ? "border-t bg-muted/40" : "space-y-2",

@@ -413,7 +413,7 @@ function DetailDrawerSurface({
     <>
       <section
         data-detail-drawer={matchPath}
-        data-entry-motion={slotEntered ? "preserve" : "enter"}
+        data-entry-motion={entered ? "preserve" : "enter"}
         data-state={closing ? "closed" : "open"}
         role="dialog"
         aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}

@@ -246,7 +246,9 @@ test.describe("Studio detail drawer stack", () => {
     );
     const link = session
       .getByRole("tabpanel")
-      .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true });
+      .getByRole("link", {
+        name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
+      });
     await expect(link).toBeVisible();
     // Fire during the DOM commit's microtask, before passive React effects.
     // The newly active Run must own Escape, rather than the departing Session.
@@ -495,7 +497,9 @@ test.describe("Studio detail drawer stack", () => {
     await page.getByRole("button", { name: /^Runs \d+$/ }).click();
     await page
       .getByRole("tabpanel")
-      .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true })
+      .getByRole("link", {
+        name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
+      })
       .click();
     await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
     await drawer(page, runPath)
@@ -570,7 +574,9 @@ async function openRunFromSession(page: Page) {
   );
   const runLink = session
     .getByRole("tabpanel")
-    .getByRole("link", { name: DRAWER_FIXTURE.runId, exact: true });
+    .getByRole("link", {
+      name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
+    });
   await expect(runLink).toBeVisible();
   await runLink.click();
   // The first intercepted Run route is compiled on demand by the dev server.
@@ -597,6 +603,7 @@ async function openTraceInspector(page: Page) {
     .first();
   await expect(traceRow).toBeVisible();
   await traceRow.click();
+  await expect(page).toHaveURL((url) => Boolean(url.searchParams.get("trace")));
   await expect(inspector(page)).toBeVisible();
   await waitForSurfaceMotion(inspector(page));
 }
@@ -675,10 +682,19 @@ async function waitForSurfaceMotion(surface: Locator) {
       surface.evaluate((element) =>
         element
           .getAnimations({ subtree: false })
-          .some((animation) => animation.playState === "running"),
+          .filter((animation) => animation.playState === "running")
+          .map((animation) => ({
+            name:
+              "animationName" in animation
+                ? animation.animationName
+                : "transitionProperty" in animation
+                  ? animation.transitionProperty
+                  : animation.id,
+            timing: animation.effect?.getTiming(),
+          })),
       ),
     )
-    .toBe(false);
+    .toEqual([]);
   // Finished animations may still have an animationend event queued. Drain
   // those entry events before installing an audit of the next close operation.
   await surface.evaluate(

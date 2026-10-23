@@ -67,7 +67,15 @@ export function EvalJudgeInstructionsReader({
         {showHeader ? (
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link href={backHref} aria-label="Back to conversation">
+              <Link
+                href={backHref}
+                aria-label="Back to conversation"
+                onNavigate={(event) => {
+                  if (!navigation) return;
+                  event.preventDefault();
+                  navigation.close();
+                }}
+              >
                 <ArrowLeft />
               </Link>
             </Button>

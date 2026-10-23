@@ -91,11 +91,21 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const timersRef = useRef(new Map<string, number>());
   const pendingCloseRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    if (pathname !== studioPathname(window.location.pathname)) return;
+    const basePaths = detailBasePathsFor(pathname);
+    const isDetail = basePaths.some((base) => pathname.startsWith(`${base}/`));
+    if (!isDetail) setLayers(closeAllDetailLayers);
+  }, [pathname]);
+
   const saveCurrentStack = useCallback(() => {
     if (historyTraversalRef.current) return;
     const browserPath = window.location.pathname;
     const path = studioPathname(browserPath);
-    const target = layers.find((layer) => layer.matchPath === path);
+    const targetIndex = layers.findLastIndex(
+      (layer) => layer.matchPath === path,
+    );
+    const target = layers[targetIndex];
     if (target?.closing) return;
     const isList = detailBasePathsFor(path).includes(path);
     if (!target && !isList && layers.length > 0) return;
@@ -112,6 +122,9 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
           layers: isList
             ? []
             : layers
+                // A child can register before its URL commits. It belongs to
+                // the next entry, never the still-current ancestor's snapshot.
+                .slice(0, targetIndex + 1)
                 .filter((layer) => !layer.closing)
                 .map((layer) => ({ ...layer, splitOpen: false })),
         },
