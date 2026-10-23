@@ -66,9 +66,12 @@ test("saved suite context explains its snapshot and settings without reprinting 
   page,
 }) => {
   await page.goto(`${evaluation}?suiteRun=${sample.evalRunId}`);
-  await page
-    .getByRole("button", { name: "Suite details", exact: true })
-    .click();
+  await expect(
+    page.getByRole("button", { name: "Suite details", exact: true }),
+  ).toHaveCount(0);
+  const detailsUrl = new URL(page.url());
+  detailsUrl.searchParams.set("evalTab", "definition");
+  await page.goto(detailsUrl.toString());
   const drawer = page.getByRole("dialog", {
     name: "Suite details",
     exact: true,
@@ -121,7 +124,7 @@ test("conversation results lead with selected metrics and assessment, with steps
     (url) => url.searchParams.get("caseStep") === "1",
   );
   await drawer
-    .getByRole("button", { name: "See more stats", exact: true })
+    .getByRole("button", { name: /See (more|less) stats/, exact: true })
     .click();
   await expect(
     drawer.getByText("Mean cost / repetition", { exact: true }),

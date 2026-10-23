@@ -1,5 +1,6 @@
 import {
   FeedbackSummarySchema,
+  STUDIO_TABLE_SORT_FIELDS,
   StudioCostSummarySchema,
   StudioPricingStatusSchema,
 } from "@kortyx/telemetry-contracts";
@@ -19,6 +20,9 @@ export const RunSortKeySchema = z.enum([
   "tokens",
   "cost",
   "status",
+  ...(Object.keys(
+    STUDIO_TABLE_SORT_FIELDS.runs,
+  ) as (keyof typeof STUDIO_TABLE_SORT_FIELDS.runs)[]),
 ]);
 export const ProviderSchema = z.string();
 export const EnvironmentSchema = z.string();

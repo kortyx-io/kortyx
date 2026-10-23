@@ -85,7 +85,9 @@ export function EvalComparison({
       render: (r) => (
         <Button variant="link" size="inline" className="max-w-full" asChild>
           <DetailLink href={caseHref(r.id)}>
-            <span className="truncate">{r.name}</span>
+            <span className="line-clamp-2 whitespace-normal break-words">
+              {r.name}
+            </span>
           </DetailLink>
         </Button>
       ),
@@ -331,7 +333,7 @@ export function EvalComparison({
             help={{ filters: studioHelp.filters, views: studioHelp.views }}
             columns={withStudioColumnHelp(columns, "evals")}
             tableId="eval-comparison"
-            className="rounded-none border-0 shadow-none"
+            variant="inline"
             data={
               query.change === "all"
                 ? rows

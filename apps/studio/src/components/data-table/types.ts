@@ -42,6 +42,8 @@ export type DataTableColumn<T, S extends string = never> = {
   help?: HelpDefinition;
   /** Set to make the column sortable; used as the URL/API sorting identifier. */
   sortKey?: S;
+  /** Opt out of automatic sorting on a local data column. */
+  sortable?: boolean;
   /** Optional raw sort value; defaults to the column’s first filter reader. */
   sortValue?: (row: T) => string | number | boolean | null | undefined;
   /** Initial column width in pixels. */

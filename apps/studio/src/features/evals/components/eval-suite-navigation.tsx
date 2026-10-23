@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { studioHelp } from "@/lib/studio-help";
+import { EvalSuiteStatusBar } from "./eval-suite-status-bar";
 
 export function EvalSuiteNavigation({
   suites,
@@ -24,6 +25,7 @@ export function EvalSuiteNavigation({
     name: string;
     description?: string;
     preview?: ReactNode;
+    statusCounts?: Record<string, number>;
   }[];
   selected: string | null;
   onSelect: (id: string | null) => void;
@@ -49,7 +51,7 @@ export function EvalSuiteNavigation({
         {overviewLabel}
       </Button>
       {suites.map((suite) => (
-        <Tooltip key={suite.id} delayDuration={250}>
+        <Tooltip key={suite.id}>
           <TooltipTrigger asChild>
             <Button
               variant={selected === suite.id ? "secondary" : "ghost"}
@@ -58,7 +60,7 @@ export function EvalSuiteNavigation({
               aria-current={selected === suite.id ? "page" : undefined}
               onClick={() => onSelect(suite.id)}
             >
-              <span className="min-w-0 text-left">
+              <span className="min-w-0 w-full text-left">
                 <span className="block truncate">
                   {loading ? <Skeleton className="h-5 w-32" /> : suite.name}
                 </span>
@@ -70,6 +72,9 @@ export function EvalSuiteNavigation({
                       suite.description
                     )}
                   </span>
+                ) : null}
+                {suite.statusCounts ? (
+                  <EvalSuiteStatusBar counts={suite.statusCounts} />
                 ) : null}
               </span>
             </Button>

@@ -151,7 +151,7 @@ test("conversation stats expand beneath the summary and the header shows its ID"
     drawer.getByRole("region", { name: "This repetition stats", exact: true }),
   ).toHaveCount(0);
   await drawer
-    .getByRole("button", { name: "See more stats", exact: true })
+    .getByRole("button", { name: /See (more|less) stats/, exact: true })
     .click();
   await expect(
     drawer.getByRole("region", { name: "This repetition stats", exact: true }),

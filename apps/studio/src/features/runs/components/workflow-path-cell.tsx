@@ -21,7 +21,7 @@ export function WorkflowPathCell({ path }: { path: string[] }) {
   const segments = pathSegments(path);
 
   return (
-    <p className="min-w-0 truncate text-xs text-muted-foreground">
+    <p className="min-w-0 line-clamp-2 whitespace-normal break-words text-xs text-muted-foreground">
       {segments.map((segment, index) => {
         const isLast = index === segments.length - 1;
         const isEllipsis = segment === "…";

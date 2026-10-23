@@ -26,10 +26,12 @@ export function EvalRerunFailed({
   run,
   canRun,
   matchPath,
+  suiteRunId,
 }: {
   run: EvalDetail | StudioEvalLiveDetail | StudioEvaluationDetail;
   canRun: boolean;
   matchPath?: string;
+  suiteRunId?: string | null;
 }) {
   const [query, setQuery] = useStudioQueryStates(evalSetupParsers, {
     shallow: true,
@@ -37,8 +39,13 @@ export function EvalRerunFailed({
   const [targets, setTargets] = useState<EvalTargets | null>(null);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
-  const hasFailures =
-    "suites" in run
+  const selectedSuite =
+    "suites" in run && suiteRunId
+      ? run.suites.find((suite) => suite.id === suiteRunId)
+      : undefined;
+  const hasFailures = selectedSuite
+    ? Boolean(selectedSuite.counts?.failed || selectedSuite.counts?.error)
+    : "suites" in run
       ? Boolean(run.counts.failed || run.counts.error)
       : [
           ...("cases" in run ? run.cases : recordedCaseResults(run).values()),
@@ -66,7 +73,8 @@ export function EvalRerunFailed({
       });
     return () => controller.abort();
   }, [canRun, hasFailures, query.launchRerun, query.launch, targets]);
-  if (!canRun || isActive(run.status) || !hasFailures) return null;
+  if (!canRun || isActive(selectedSuite?.status ?? run.status) || !hasFailures)
+    return null;
   const prepare = async () => {
     if (working) return;
     setWorking(true);
@@ -76,9 +84,10 @@ export function EvalRerunFailed({
         "suites" in run
           ? evalRequest(
               `evaluations/${encodeURIComponent(run.id)}/comparison`,
-            ).then(
-              (value) =>
-                StudioEvaluationComparisonSchema.parse(value).run.suites,
+            ).then((value) =>
+              StudioEvaluationComparisonSchema.parse(value).run.suites.filter(
+                (suite) => !suiteRunId || suite.id === suiteRunId,
+              ),
             )
           : [run],
         evalRequest("targets").then((value) =>

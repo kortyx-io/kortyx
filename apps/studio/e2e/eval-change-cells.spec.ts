@@ -89,7 +89,7 @@ test("run change counts and icon open a modal without changing row height or sel
   ).toHaveCount(0);
   const currentStats = modal.locator('[data-comparison-side="This run"]');
   await currentStats
-    .getByRole("button", { name: "See more stats", exact: true })
+    .getByRole("button", { name: /See (more|less) stats/, exact: true })
     .click();
   await expect(currentStats.getByRole("img", { name: /^Errors:/ })).toHaveCount(
     0,
@@ -226,7 +226,7 @@ test("comparison modal remains readable on mobile and repetitions stay independe
     .getAttribute("aria-label");
   await modal
     .locator('[data-comparison-side="This run"]')
-    .getByRole("button", { name: "See more stats", exact: true })
+    .getByRole("button", { name: /See (more|less) stats/, exact: true })
     .click();
   await expect(stats).toContainText("67% · 2/3");
   await expect(stats).toContainText("Total execution time");
@@ -337,7 +337,7 @@ test("modal changes its baseline, keeps the conversation and recovers from a fai
   const modal = page.locator("[data-eval-comparison-modal]");
   const current = modal.locator('[data-comparison-side="This run"]');
   await current
-    .getByRole("button", { name: "See more stats", exact: true })
+    .getByRole("button", { name: /See (more|less) stats/, exact: true })
     .click();
   await expect(current).toContainText("67% · 2/3");
   const values = current.locator(

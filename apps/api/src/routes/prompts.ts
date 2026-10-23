@@ -11,6 +11,7 @@ import {
   PromptVersionSchema,
 } from "@kortyx/prompts";
 import {
+  PROMPT_TABLE_SORT_KEYS,
   PromptDetailSchema,
   PromptLibrarySchema,
   PromptMutationSchema,
@@ -158,6 +159,8 @@ const list = createRoute({
   request: {
     query: z.object({
       search: z.string().max(200).optional(),
+      sort: z.enum(PROMPT_TABLE_SORT_KEYS).optional(),
+      dir: z.enum(["asc", "desc"]).optional(),
       tableFilters: z.string().max(32768).optional(),
       limit: z.coerce.number().int().min(1).max(200).optional(),
       categoryId: z.union([z.uuid(), z.literal("root")]).optional(),
@@ -366,6 +369,8 @@ export function registerPromptRoutes(
       query = c.req.valid("query");
     const data = await c.get("withTenantDatabase")((db) =>
       listPrompts(db, principal, {
+        ...(query.sort ? { sort: query.sort } : {}),
+        ...(query.dir ? { dir: query.dir } : {}),
         ...(query.limit !== undefined ? { limit: query.limit } : {}),
         ...(query.search ? { search: query.search } : {}),
         ...(query.tableFilters ? { tableFilters: query.tableFilters } : {}),

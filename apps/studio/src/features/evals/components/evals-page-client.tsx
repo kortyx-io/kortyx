@@ -198,11 +198,11 @@ export function EvalsPageClient({
             onClick={() => chooseRun(r.id)}
             className="max-w-full justify-start"
           >
-            <span className="truncate">
+            <span className="line-clamp-2 whitespace-normal break-words">
               {r.suiteName ?? displayName(r.suiteId)}
             </span>
           </Button>
-          <p className="truncate font-mono text-[10px] text-muted-foreground">
+          <p className="line-clamp-2 whitespace-normal break-words font-mono text-[10px] text-muted-foreground">
             {r.id.slice(0, 8)}
           </p>
         </div>
@@ -268,8 +268,10 @@ export function EvalsPageClient({
       defaultWidth: 240,
       render: (r) => (
         <div>
-          <p className="truncate text-xs">{r.targetName}</p>
-          <p className="truncate text-[11px] text-muted-foreground">
+          <p className="line-clamp-2 whitespace-normal break-words text-xs">
+            {r.targetName}
+          </p>
+          <p className="line-clamp-2 whitespace-normal break-words text-[11px] text-muted-foreground">
             {r.environment}
           </p>
         </div>
@@ -339,12 +341,12 @@ export function EvalsPageClient({
                 searchParams,
               )}
             >
-              <span className="truncate">
+              <span className="line-clamp-2 whitespace-normal break-words">
                 {r.suite.name ?? displayName(r.suite.id)}
               </span>
             </Link>
           </Button>
-          <p className="truncate font-mono text-[10px] text-muted-foreground">
+          <p className="line-clamp-2 whitespace-normal break-words font-mono text-[10px] text-muted-foreground">
             {r.suite.id}
           </p>
         </div>
@@ -376,7 +378,9 @@ export function EvalsPageClient({
       defaultWidth: 240,
       render: (r) => (
         <div>
-          <p className="truncate text-xs">{r.target.name}</p>
+          <p className="line-clamp-2 whitespace-normal break-words text-xs">
+            {r.target.name}
+          </p>
           <p className="text-[11px] text-muted-foreground">
             {r.target.environment}
           </p>

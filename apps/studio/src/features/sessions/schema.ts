@@ -1,4 +1,5 @@
 import {
+  STUDIO_TABLE_SORT_FIELDS,
   StudioCostSummarySchema,
   StudioPricingStatusSchema,
 } from "@kortyx/telemetry-contracts";
@@ -19,6 +20,9 @@ export const SessionSortKeySchema = z.enum([
   "cost",
   "runs",
   "status",
+  ...(Object.keys(
+    STUDIO_TABLE_SORT_FIELDS.sessions,
+  ) as (keyof typeof STUDIO_TABLE_SORT_FIELDS.sessions)[]),
 ]);
 const ProviderSchema = z.string();
 const EnvironmentSchema = z.string();

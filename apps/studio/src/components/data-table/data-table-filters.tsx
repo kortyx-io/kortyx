@@ -42,6 +42,7 @@ import type { useTableSearch } from "./use-table-search";
 export function DataTableFilterControls<T>({
   help,
   disabled = false,
+  variant = "standalone",
   tableId,
   searching,
   start,
@@ -62,6 +63,7 @@ export function DataTableFilterControls<T>({
   help?: { filters: HelpDefinition; views: HelpDefinition };
   tableId: string;
   disabled?: boolean;
+  variant?: "standalone" | "inline";
   searching: ReturnType<typeof useTableSearch>;
   start?: ReactNode;
   panelContainer: HTMLDivElement | null;
@@ -511,7 +513,11 @@ export function DataTableFilterControls<T>({
                 state.setOpen(false);
               }
             }}
-            className="relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
+            className={
+              variant === "inline"
+                ? "relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden bg-background"
+                : "relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
+            }
           >
             <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
               <div className="flex items-center gap-1">

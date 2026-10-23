@@ -1,3 +1,4 @@
+import { STUDIO_TABLE_SORT_FIELDS } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 
 export const InterruptStatusSchema = z.enum([
@@ -36,6 +37,9 @@ export const InterruptSortKeySchema = z.enum([
   "created",
   "age",
   "status",
+  ...(Object.keys(
+    STUDIO_TABLE_SORT_FIELDS.interrupts,
+  ) as (keyof typeof STUDIO_TABLE_SORT_FIELDS.interrupts)[]),
 ]);
 const EnvironmentSchema = z.string();
 

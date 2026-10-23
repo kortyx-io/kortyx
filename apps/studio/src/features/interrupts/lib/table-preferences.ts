@@ -5,6 +5,7 @@ import {
   type ListTablePreferences,
   parseListTablePreferences,
 } from "@/features/telemetry/lib/table-preferences";
+import { InterruptSortKeySchema } from "../schema";
 
 export const INTERRUPTS_TABLE_PREFERENCES_COOKIE =
   "kortyx_interrupts_table_prefs";
@@ -16,7 +17,7 @@ export function parseInterruptsTablePreferences(
   raw: string | undefined | null,
 ) {
   return parseListTablePreferences(raw, {
-    sortKeys: ["priority", "created", "age", "status"],
+    sortKeys: InterruptSortKeySchema.options,
     pageSizes: PAGE_SIZES,
     isViewQuery: (value): value is InterruptsViewQuery =>
       Boolean(value && typeof value === "object"),

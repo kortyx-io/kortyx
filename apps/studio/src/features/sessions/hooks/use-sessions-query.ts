@@ -22,6 +22,7 @@ import {
   useFilterPanelState,
   useStudioQueryStates,
 } from "@/lib/nuqs";
+import { SessionSortKeySchema } from "../schema";
 
 const sessionStatuses = [
   "running",
@@ -31,14 +32,7 @@ const sessionStatuses = [
   "failed",
   "cancelled",
 ] as const;
-const sortKeys = [
-  "activity",
-  "duration",
-  "tokens",
-  "cost",
-  "runs",
-  "status",
-] as const;
+const sortKeys = SessionSortKeySchema.options;
 
 type Changes = Partial<{
   q: string | null;

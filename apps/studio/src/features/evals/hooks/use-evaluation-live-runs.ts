@@ -16,9 +16,10 @@ export function useEvaluationLiveRuns(
   evaluationId: string,
   suiteRunIds: string[],
 ) {
-  const idsKey = JSON.stringify(suiteRunIds);
+  const idsKey = JSON.stringify([...new Set(suiteRunIds)].sort());
   const ids = useMemo<string[]>(() => JSON.parse(idsKey), [idsKey]);
-  const scope = `${evaluationId}:${idsKey}`;
+  const scope = evaluationId;
+  const refreshKey = `${evaluationId}:${idsKey}`;
   const [enabled] = useStudioQueryState(
     "live",
     parseAsBoolean.withDefault(true),
@@ -77,8 +78,18 @@ export function useEvaluationLiveRuns(
   }, [scope, ids]);
   useEffect(() => {
     request.current?.abort();
-    cache.current = { scope, runs: {} };
-    setSnapshot({ scope, runs: {}, failed: [], loading: ids.length > 0 });
+    // Adding suites during dispatch must not clear results already on screen.
+    const previous = cache.current.scope === scope ? cache.current.runs : {};
+    const runs = Object.fromEntries(
+      ids.flatMap((id) => (previous[id] ? [[id, previous[id]]] : [])),
+    );
+    cache.current = { scope, runs };
+    setSnapshot({
+      scope,
+      runs,
+      failed: [],
+      loading: ids.length > 0 && !Object.keys(runs).length,
+    });
     void read();
     return () => request.current?.abort();
   }, [scope, ids, read]);
@@ -88,7 +99,7 @@ export function useEvaluationLiveRuns(
     relatedResources: ["runs"],
     minRefreshIntervalMs: 1_000,
     refreshOnEnable: false,
-    refreshKey: scope,
+    refreshKey,
     refresh: read,
   });
   return {

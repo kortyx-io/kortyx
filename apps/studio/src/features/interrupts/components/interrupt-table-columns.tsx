@@ -24,10 +24,11 @@ import {
   type CompactStatusMeta,
 } from "@/features/telemetry/components/compact-status";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
-import { TruncatedText } from "@/features/telemetry/components/truncated-text";
+import { TruncatedText } from "@/features/telemetry/components/line-clamp-2 whitespace-normal break-wordsd-text";
 import {
   studioColumnFilters,
   studioValueColumn,
+  withStudioSorting,
 } from "@/features/telemetry/lib/column-filters";
 import {
   formatDateTime,
@@ -148,7 +149,7 @@ export function createInterruptColumns({
               </span>
               {interrupt.contract && (
                 <span
-                  className="truncate font-mono text-[10px] font-medium text-violet-600 dark:text-violet-400"
+                  className="line-clamp-2 whitespace-normal break-words font-mono text-[10px] font-medium text-violet-600 dark:text-violet-400"
                   title={`Interrupt contract: ${interrupt.contract}`}
                 >
                   {interrupt.contract}
@@ -156,14 +157,17 @@ export function createInterruptColumns({
               )}
               {interrupt.schemaId && (
                 <span
-                  className="truncate font-mono text-[10px] text-muted-foreground"
+                  className="line-clamp-2 whitespace-normal break-words font-mono text-[10px] text-muted-foreground"
                   title={interrupt.schemaId}
                 >
                   {interrupt.schemaId}
                 </span>
               )}
             </div>
-            <p className="truncate text-xs" title={interrupt.question}>
+            <p
+              className="line-clamp-2 whitespace-normal break-words text-xs"
+              title={interrupt.question}
+            >
               {interrupt.question}
             </p>
           </div>
@@ -177,8 +181,12 @@ export function createInterruptColumns({
       defaultWidth: 170,
       render: (interrupt) => (
         <div className="min-w-0 space-y-0.5 overflow-hidden text-xs">
-          <div className="truncate font-medium">{interrupt.workflow}</div>
-          <div className="truncate text-muted-foreground">{interrupt.node}</div>
+          <div className="line-clamp-2 whitespace-normal break-words font-medium">
+            {interrupt.workflow}
+          </div>
+          <div className="line-clamp-2 whitespace-normal break-words text-muted-foreground">
+            {interrupt.node}
+          </div>
         </div>
       ),
     },
@@ -203,8 +211,10 @@ export function createInterruptColumns({
       defaultWidth: 150,
       render: (interrupt) => (
         <div className="min-w-0 space-y-0.5 overflow-hidden text-xs">
-          <div className="truncate font-medium">{interrupt.user ?? "—"}</div>
-          <div className="truncate text-muted-foreground">
+          <div className="line-clamp-2 whitespace-normal break-words font-medium">
+            {interrupt.user ?? "—"}
+          </div>
+          <div className="line-clamp-2 whitespace-normal break-words text-muted-foreground">
             {interrupt.tenant ?? "—"}
           </div>
         </div>
@@ -227,7 +237,7 @@ export function createInterruptColumns({
         return (
           <p
             className={cn(
-              "truncate text-xs",
+              "line-clamp-2 whitespace-normal break-words text-xs",
               status === "pending" ? "text-muted-foreground" : "",
             )}
           >
@@ -253,7 +263,7 @@ export function createInterruptColumns({
         <div className="min-w-0 overflow-hidden text-xs">
           <p
             className={cn(
-              "truncate",
+              "line-clamp-2 whitespace-normal break-words",
               interrupt.resumeError
                 ? "text-red-700 dark:text-red-400"
                 : "text-muted-foreground",
@@ -262,7 +272,7 @@ export function createInterruptColumns({
             {interrupt.resumeOutcome ?? "—"}
           </p>
           {interrupt.resumeError && (
-            <p className="truncate text-[11px] text-red-700 dark:text-red-400">
+            <p className="line-clamp-2 whitespace-normal break-words text-[11px] text-red-700 dark:text-red-400">
               {interrupt.resumeError}
             </p>
           )}
@@ -278,7 +288,7 @@ export function createInterruptColumns({
         <DetailLink
           href={studioDetailHref("runs", interrupt.runId)}
           onClick={(event) => event.stopPropagation()}
-          className="block truncate font-mono text-xs text-muted-foreground hover:underline"
+          className="line-clamp-2 whitespace-normal break-words font-mono text-xs text-muted-foreground hover:underline"
         >
           {interrupt.runId}
         </DetailLink>
@@ -304,5 +314,8 @@ export function createInterruptColumns({
       studioValueColumn<Interrupt, InterruptSortKey>("interrupts", key),
     ),
   ];
-  return withStudioColumnHelp(columns, "interrupts");
+  return withStudioColumnHelp(
+    withStudioSorting(columns, "interrupts"),
+    "interrupts",
+  );
 }

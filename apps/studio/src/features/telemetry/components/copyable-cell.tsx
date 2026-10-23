@@ -22,7 +22,12 @@ export function CopyableCell({
         className,
       )}
     >
-      <span className="block truncate">{value}</span>
+      <span
+        title={value}
+        className="line-clamp-2 whitespace-normal break-words"
+      >
+        {value}
+      </span>
       <Button
         variant="secondary"
         size="icon-xs"

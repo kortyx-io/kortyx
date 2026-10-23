@@ -14,7 +14,10 @@ export function OverflowText({
   return (
     <span
       title={fullText || undefined}
-      className={cn("block min-w-0 truncate", className)}
+      className={cn(
+        "min-w-0 line-clamp-2 whitespace-normal break-words",
+        className,
+      )}
     >
       {children}
     </span>
@@ -34,7 +37,10 @@ export function OverflowBlock({
   return (
     <div
       title={fullText || undefined}
-      className={cn("min-w-0 truncate", className)}
+      className={cn(
+        "min-w-0 line-clamp-2 whitespace-normal break-words",
+        className,
+      )}
     >
       {children}
     </div>

@@ -19,8 +19,9 @@ import {
   useFilterPanelState,
   useStudioQueryStates,
 } from "@/lib/nuqs";
+import { RunSortKeySchema } from "../schema";
 
-const sortKeys: SortKey[] = ["started", "duration", "tokens", "cost", "status"];
+const sortKeys = RunSortKeySchema.options;
 
 const baseSearchParams = {
   feedback: parseAsStringLiteral([

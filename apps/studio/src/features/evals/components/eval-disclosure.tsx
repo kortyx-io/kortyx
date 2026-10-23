@@ -7,12 +7,14 @@ import { cn } from "@/lib/utils";
 export function EvalDisclosure({
   scope,
   label,
+  expandedLabel,
   children,
   defaultOpen = false,
   variant = "plain",
 }: {
   scope: string;
   label: string;
+  expandedLabel?: string;
   children: ReactNode;
   defaultOpen?: boolean;
   variant?: "plain" | "attached";
@@ -47,7 +49,7 @@ export function EvalDisclosure({
             variant === "attached" && "order-last",
           )}
         />
-        {label}
+        {open ? (expandedLabel ?? label) : label}
       </button>
       {open ? (
         <div

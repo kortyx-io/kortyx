@@ -6,6 +6,7 @@ import type {
   PromptLibrary,
   PromptMutation,
 } from "@kortyx/telemetry-contracts";
+import { PROMPT_TABLE_SORT_KEYS } from "@kortyx/telemetry-contracts";
 import {
   ChevronDown,
   ChevronRight,
@@ -96,6 +97,8 @@ export function PromptLibraryView({
       assetAction: parseAsStringLiteral(assetActions),
       actionAsset: parseAsString,
       q: parseAsString.withDefault(""),
+      sort: parseAsString.withDefault("name"),
+      dir: parseAsStringLiteral(["asc", "desc"] as const).withDefault("asc"),
       cursor: parseAsInteger.withDefault(0),
       pageSize: parseAsInteger.withDefault(20),
       archived: parseAsString.withDefault("false"),
@@ -122,7 +125,7 @@ export function PromptLibraryView({
     [importing, setImporting] = useState(false);
   const keyError = promptKeyError(key);
   const prepareDetailNavigation = usePrepareDetailNavigation();
-  const libraryPath = `library?${promptLibraryQuery({ q: query.q, cursor: query.cursor, pageSize: query.pageSize, archived: query.archived, tableFilters: query.tableFilters }, categoryId)}`;
+  const libraryPath = `library?${promptLibraryQuery({ q: query.q, cursor: query.cursor, pageSize: query.pageSize, archived: query.archived, tableFilters: query.tableFilters, sort: query.sort, dir: query.dir }, categoryId)}`;
   const {
     data: library,
     error: readError,
@@ -254,7 +257,9 @@ export function PromptLibraryView({
                 className="flex min-w-0 flex-1 items-center gap-2 py-2 text-xs"
               >
                 <Folder className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="truncate">{category.name}</span>
+                <span className="line-clamp-2 whitespace-normal break-words">
+                  {category.name}
+                </span>
               </Link>
               {categoryActions(category)}
             </div>
@@ -309,11 +314,11 @@ export function PromptLibraryView({
         <div className="min-w-0 space-y-1">
           <DetailLink
             href={`/prompts/${asset.id}`}
-            className="block truncate text-xs font-medium hover:underline"
+            className="line-clamp-2 whitespace-normal break-words text-xs font-medium hover:underline"
           >
             {asset.name}
           </DetailLink>
-          <p className="truncate font-mono text-[11px] text-muted-foreground">
+          <p className="line-clamp-2 whitespace-normal break-words font-mono text-[11px] text-muted-foreground">
             {asset.key}
           </p>
         </div>
@@ -330,7 +335,7 @@ export function PromptLibraryView({
       label: "Category",
       defaultWidth: 180,
       render: (asset) => (
-        <span className="block truncate text-xs text-muted-foreground">
+        <span className="line-clamp-2 whitespace-normal break-words text-xs text-muted-foreground">
           {categoryPath(categories, asset.categoryId)}
         </span>
       ),
@@ -590,7 +595,7 @@ export function PromptLibraryView({
           <div className="min-h-0 flex-1 overflow-hidden">
             <DataTable
               help={{ filters: studioHelp.filters, views: studioHelp.views }}
-              query={{ mode: "remote" }}
+              query={{ mode: "remote", defaults: { sort: "name", dir: "asc" } }}
               totalCount={library?.totalCount ?? 0}
               scopeFilters={[
                 {
@@ -604,7 +609,23 @@ export function PromptLibraryView({
                   ],
                 },
               ]}
-              columns={withStudioColumnHelp(columns, "prompts")}
+              columns={withStudioColumnHelp(
+                columns.map((column) => ({
+                  ...column,
+                  sortKey: PROMPT_TABLE_SORT_KEYS.find(
+                    (key) =>
+                      key ===
+                      (column.key === "live"
+                        ? "liveVersion"
+                        : column.key === "latest"
+                          ? "latestVersion"
+                          : column.key === "updated"
+                            ? "updatedAt"
+                            : column.key),
+                  ),
+                })),
+                "prompts",
+              )}
               tableId="prompts"
               search={{
                 label: "Search prompts",
@@ -658,7 +679,7 @@ export function PromptLibraryView({
                 </>
               }
               filterResource="prompts"
-              className="rounded-none border-0 shadow-none"
+              variant="inline"
               data={assets}
               getRowKey={(asset) => asset.id}
               emptyState={

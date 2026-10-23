@@ -123,33 +123,46 @@ export function EvalConversationTable({
       key: "case",
       label: "Conversation",
       defaultWidth: 300,
+      cellClassName: "[&>.table-cell-content]:line-clamp-none",
       filter: [
         columnFilter("case", "Conversation", "text", (row) => row.name),
         columnFilter("caseId", "Case ID", "text", (row) => row.caseId),
       ],
       render: (row) => (
-        <Button
-          variant="link"
-          size="inline"
-          className="max-w-full justify-start"
-          asChild
-        >
-          <DetailLink
-            onNavigate={inspected}
-            href={detailNavigationHref(
-              evalCaseHref(row.runId, row.caseId, row.defaultRepetition),
-              search,
-            )}
+        <div className="space-y-1">
+          <Button
+            variant="link"
+            size="inline"
+            className="max-w-full justify-start whitespace-normal text-left"
+            asChild
           >
-            <span className="truncate">{row.name}</span>
-          </DetailLink>
-        </Button>
+            <DetailLink
+              onNavigate={inspected}
+              href={detailNavigationHref(
+                evalCaseHref(row.runId, row.caseId, row.defaultRepetition),
+                search,
+              )}
+              title={row.name}
+            >
+              <span className="line-clamp-2 whitespace-normal break-words">
+                {row.name}
+              </span>
+            </DetailLink>
+          </Button>
+          <p
+            className="line-clamp-1 break-all font-mono text-[11px] text-muted-foreground"
+            title={row.caseId}
+          >
+            {row.caseId}
+          </p>
+        </div>
       ),
     },
     {
       key: "status",
       label: "Outcome",
       defaultWidth: 170,
+      sortValue: (row) => row.status,
       filter: columnFilter("status", "Repetition outcome", "enum", (row) => [
         ...new Set([row.status, ...row.repetitions.map((item) => item.status)]),
       ]),
@@ -333,7 +346,7 @@ export function EvalConversationTable({
       rowTone={(row) =>
         row.counts.failed || row.counts.error ? "danger" : undefined
       }
-      className="rounded-none border-0 shadow-none"
+      variant="inline"
       emptyState={({ hasFilters, clearFilters }) => (
         <div className="flex flex-col items-center gap-3 p-8 text-center">
           <p className="text-sm text-muted-foreground">

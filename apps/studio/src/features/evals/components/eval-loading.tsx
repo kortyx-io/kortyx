@@ -73,7 +73,7 @@ export function EvalTableSkeleton({
         header={header}
         toolbarStart={toolbar}
         search={{ placeholder: searchPlaceholder }}
-        className={embedded ? "rounded-none border-0 shadow-none" : undefined}
+        variant={embedded ? "inline" : "standalone"}
       />
     </section>
   );

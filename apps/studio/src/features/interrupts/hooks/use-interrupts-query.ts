@@ -21,6 +21,7 @@ import {
   useFilterPanelState,
   useStudioQueryStates,
 } from "@/lib/nuqs";
+import { InterruptSortKeySchema } from "../schema";
 
 const interruptStatuses = [
   "pending",
@@ -42,7 +43,7 @@ const outcomes = [
   "expired before resume",
   "cancelled",
 ] as const;
-const sortKeys = ["priority", "created", "age", "status"] as const;
+const sortKeys = InterruptSortKeySchema.options;
 
 type Changes = Partial<{
   q: string | null;

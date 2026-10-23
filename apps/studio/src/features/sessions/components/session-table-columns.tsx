@@ -21,10 +21,11 @@ import {
   type CompactStatusMeta,
 } from "@/features/telemetry/components/compact-status";
 import { CopyableCell } from "@/features/telemetry/components/copyable-cell";
-import { TruncatedText } from "@/features/telemetry/components/truncated-text";
+import { TruncatedText } from "@/features/telemetry/components/line-clamp-2 whitespace-normal break-wordsd-text";
 import {
   studioColumnFilters,
   studioValueColumn,
+  withStudioSorting,
 } from "@/features/telemetry/lib/column-filters";
 import { costDisplay } from "@/lib/cost";
 import {
@@ -150,8 +151,10 @@ export function createSessionColumns({
       defaultWidth: 160,
       render: (session) => (
         <div className="min-w-0 space-y-0.5 overflow-hidden text-xs">
-          <div className="truncate font-medium">{session.user ?? "—"}</div>
-          <div className="truncate text-muted-foreground">
+          <div className="line-clamp-2 whitespace-normal break-words font-medium">
+            {session.user ?? "—"}
+          </div>
+          <div className="line-clamp-2 whitespace-normal break-words text-muted-foreground">
             {session.tenant ?? "—"}
           </div>
         </div>
@@ -193,7 +196,7 @@ export function createSessionColumns({
         ) : (
           <div className="flex min-w-0 items-center gap-2 overflow-hidden text-xs text-muted-foreground">
             {session.checkpoints !== undefined && (
-              <span className="truncate">
+              <span className="line-clamp-2 whitespace-normal break-words">
                 {session.checkpoints} checkpoint
                 {session.checkpoints === 1 ? "" : "s"}
               </span>
@@ -253,7 +256,7 @@ export function createSessionColumns({
       render: (session) => (
         <p
           className={cn(
-            "max-w-full truncate text-xs",
+            "max-w-full line-clamp-2 whitespace-normal break-words text-xs",
             session.latestError
               ? "text-red-700 dark:text-red-400"
               : "text-muted-foreground",
@@ -279,5 +282,8 @@ export function createSessionColumns({
       "tenantId",
     ].map((key) => studioValueColumn<Session, SessionSortKey>("sessions", key)),
   ];
-  return withStudioColumnHelp(columns, "sessions");
+  return withStudioColumnHelp(
+    withStudioSorting(columns, "sessions"),
+    "sessions",
+  );
 }

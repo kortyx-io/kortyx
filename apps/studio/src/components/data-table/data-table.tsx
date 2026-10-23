@@ -44,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { columnLayout, columnWidths } from "./column-layout";
 import { DataTableFilterControls } from "./data-table-filters";
 import type { SavedTableView } from "./saved-table-views";
+import { sortableColumns } from "./sortable-columns";
 import {
   CurrentTablePreference,
   useTablePreferenceEntry,
@@ -70,6 +71,8 @@ export type DataTableProps<T, S extends string = string> = {
   columns: DataTableColumn<T, S>[];
   /** All tables persist layout automatically. Seeds can migrate older preferences. */
   initialLayout?: Partial<DataTableLayout>;
+  /** Embedded tables share their parent border and have a flush filter panel. */
+  variant?: "standalone" | "inline";
   query?: DataTableQueryConfig<S>;
   totalCount?: number;
   /** Reserve the real column layout while initial records are being fetched. */
@@ -110,13 +113,17 @@ const CELL_BASE = "max-w-0 overflow-hidden border-b px-3 py-3.5 align-middle";
 export function DataTable<T, S extends string = string>(
   props: DataTableProps<T, S>,
 ) {
+  const columns = sortableColumns(
+    props.columns,
+    props.query?.mode !== "remote",
+  );
   const entry = useTablePreferenceEntry(props.tableId);
   const persistence = useTablePreferenceSnapshot(entry);
   return (
     <CurrentTablePreference.Provider value={entry}>
       <DataTableProvider
         key={props.tableId}
-        columns={props.columns}
+        columns={columns}
         initialLayout={props.initialLayout}
         persistKey={
           entry ? undefined : `kortyx.table.${props.tableId}.layout.v1`
@@ -124,8 +131,8 @@ export function DataTable<T, S extends string = string>(
         preferenceLayout={
           persistence?.hydrated
             ? (persistence.preferences.defaults.layout ?? {
-                widths: columnWidths(props.columns),
-                ...columnLayout(props.columns),
+                widths: columnWidths(columns),
+                ...columnLayout(columns),
                 pinned: {},
               })
             : undefined
@@ -136,7 +143,7 @@ export function DataTable<T, S extends string = string>(
             : undefined
         }
       >
-        <DataTableContent {...props} />
+        <DataTableContent<T, string> {...props} columns={columns} />
       </DataTableProvider>
     </CurrentTablePreference.Provider>
   );
@@ -144,6 +151,7 @@ export function DataTable<T, S extends string = string>(
 
 function DataTableContent<T, S extends string>({
   tableId,
+  variant = "standalone",
   search,
   toolbarStart,
   filterResource,
@@ -373,12 +381,14 @@ function DataTableContent<T, S extends string>({
         data-page-help-records={data.length}
         className={cn(
           "flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
+          variant === "inline" && "rounded-none border-0 shadow-none",
           className,
         )}
       >
         {header}
         <DataTableFilterControls
           disabled={loading}
+          variant={variant}
           help={help}
           tableId={tableId}
           searching={searching}
@@ -536,6 +546,15 @@ function DataTableContent<T, S extends string>({
                                   draggedColumn === column || undefined
                                 }
                                 title={definition.cellTitle?.(item)}
+                                onMouseEnter={(event) => {
+                                  event.currentTarget.title =
+                                    definition.cellTitle?.(item) ??
+                                    (
+                                      event.currentTarget.innerText ??
+                                      event.currentTarget.textContent ??
+                                      ""
+                                    ).trim();
+                                }}
                                 className={cn(
                                   CELL_BASE,
                                   definition.cellClassName,
@@ -550,7 +569,13 @@ function DataTableContent<T, S extends string>({
                                   ...getPinnedColumnStyle(column),
                                 }}
                               >
-                                <div className="min-w-0 overflow-hidden">
+                                <div
+                                  className={cn(
+                                    "table-cell-content min-w-0 whitespace-normal break-words",
+                                    definition.filter !== false &&
+                                      "line-clamp-2",
+                                  )}
+                                >
                                   {definition.render(item)}
                                 </div>
                               </td>
@@ -614,7 +639,11 @@ function DataTableContent<T, S extends string>({
         ref={setFilterContainer}
         className={cn(
           "h-full min-h-0 shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] max-sm:absolute max-sm:inset-y-0 max-sm:right-0 max-sm:z-30",
-          filtering.open ? "ml-2 w-72 max-w-full" : "ml-0 w-0",
+          filtering.open
+            ? variant === "inline"
+              ? "w-72 max-w-full border-l"
+              : "ml-2 w-72 max-w-full"
+            : "ml-0 w-0",
         )}
       />
     </div>

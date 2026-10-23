@@ -15,10 +15,12 @@ export function EvalSuiteDetails({
   title,
   suite,
   configuration,
+  showTrigger = true,
 }: {
   title: string;
   suite: EvalSuite;
   configuration: ReactNode;
+  showTrigger?: boolean;
 }) {
   const [selection, setSelection] = useStudioQueryState(
     "evalTab",
@@ -48,22 +50,24 @@ export function EvalSuiteDetails({
   if (selection === "context") sections.reverse();
   return (
     <>
-      <Button
-        variant="secondary"
-        size="sm"
-        data-page-help="suite-details"
-        onClick={() => {
-          studioFeature("studio.inspect", {
-            surface: "evals",
-            action: "inspect",
-            tab: "definition",
-          });
-          void setSelection("definition");
-        }}
-      >
-        <FileText />
-        Suite details
-      </Button>
+      {showTrigger ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          data-page-help="suite-details"
+          onClick={() => {
+            studioFeature("studio.inspect", {
+              surface: "evals",
+              action: "inspect",
+              tab: "definition",
+            });
+            void setSelection("definition");
+          }}
+        >
+          <FileText />
+          Suite details
+        </Button>
+      ) : null}
       <DetailInspectorDrawer
         open={selection === "definition" || selection === "context"}
         onClose={() => {

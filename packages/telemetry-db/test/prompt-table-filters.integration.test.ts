@@ -67,6 +67,15 @@ describe.skipIf(!process.env.DATABASE_URL)("prompt table filtering", () => {
       });
       expect(page.totalCount).toBe(2);
       expect(page.assets.map((row) => row.name)).toEqual(["Beta"]);
+      const descending = await listPrompts(client.db, scope, {
+        tableFilters,
+        sort: "name",
+        dir: "desc",
+        offset: 1,
+        limit: 1,
+      });
+      expect(descending.totalCount).toBe(2);
+      expect(descending.assets.map((row) => row.name)).toEqual(["Alpha"]);
       const literal = await listPrompts(client.db, scope, {
         tableFilters: JSON.stringify({
           match: "all",

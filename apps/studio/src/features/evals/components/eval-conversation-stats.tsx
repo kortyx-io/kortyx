@@ -29,6 +29,7 @@ export function EvalConversationStats({
     <EvalDisclosure
       scope={`${scope}-more-stats`}
       label="See more stats"
+      expandedLabel="See less stats"
       variant="attached"
     >
       <div className="flex flex-col gap-4 py-3">

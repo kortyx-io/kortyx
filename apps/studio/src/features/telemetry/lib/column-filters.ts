@@ -1,9 +1,13 @@
 import {
   STUDIO_TABLE_FIELDS,
+  STUDIO_TABLE_SORT_FIELDS,
   type StudioTableResource,
   type TableFilterValue,
 } from "@kortyx/telemetry-contracts";
-import type { DataTableFilter } from "@/components/data-table/types";
+import type {
+  DataTableColumn,
+  DataTableFilter,
+} from "@/components/data-table/types";
 import { valueColumn } from "@/components/data-table/value-column";
 
 const columnFields: Record<StudioTableResource, Record<string, string[]>> = {
@@ -255,4 +259,19 @@ export function studioValueColumn<T, S extends string = never>(
     filter,
     ...(format ? { format } : {}),
   });
+}
+
+/** Keep remote header controls aligned with the API's allowlisted sort expressions. */
+export function withStudioSorting<T, S extends string>(
+  columns: DataTableColumn<T, S>[],
+  resource: StudioTableResource,
+) {
+  return columns.map((column) => ({
+    ...column,
+    sortKey:
+      column.sortKey ??
+      (Object.hasOwn(STUDIO_TABLE_SORT_FIELDS[resource], column.key)
+        ? (column.key as S)
+        : undefined),
+  }));
 }

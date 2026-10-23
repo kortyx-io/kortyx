@@ -166,6 +166,23 @@ export function EvaluationDetail({
                     status={run.status}
                     termination={run.termination}
                   />
+                  <EvalRerunFailed
+                    run={run}
+                    canRun={canRun}
+                    suiteRunId={query.suiteRun}
+                  />
+                  {canRun && isActive(run.status) ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={cancelling || Boolean(run.cancelRequestedAt)}
+                      onClick={() => void cancel()}
+                    >
+                      {run.cancelRequestedAt
+                        ? "Cancelling…"
+                        : "Cancel remaining work"}
+                    </Button>
+                  ) : null}
                   <Button
                     variant="secondary"
                     size="icon-sm"
@@ -177,21 +194,6 @@ export function EvaluationDetail({
                   >
                     <RefreshCw />
                   </Button>
-                  {!query.suiteRun ? (
-                    <EvalRerunFailed run={run} canRun={canRun} />
-                  ) : null}
-                  {canRun && isActive(run.status) ? (
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      disabled={cancelling || Boolean(run.cancelRequestedAt)}
-                      onClick={() => void cancel()}
-                    >
-                      {run.cancelRequestedAt
-                        ? "Cancelling…"
-                        : "Cancel remaining work"}
-                    </Button>
-                  ) : null}
                   <LiveRefreshButton
                     enabled={query.live}
                     status={live.status}
@@ -284,7 +286,6 @@ export function EvaluationDetail({
             <div className="min-h-0 flex-1">
               <EvaluationSuiteWorkspace
                 evaluation={run}
-                canRun={canRun}
                 comparison={comparison}
               />
             </div>

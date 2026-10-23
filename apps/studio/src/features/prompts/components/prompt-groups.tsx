@@ -288,11 +288,11 @@ export function PromptGroupsView({
                     <div className="min-w-0">
                       <DetailLink
                         href={`/prompts/${member.promptId}?v=${member.version}`}
-                        className="block truncate text-xs font-medium hover:underline"
+                        className="line-clamp-2 whitespace-normal break-words text-xs font-medium hover:underline"
                       >
                         {member.name ?? asset?.name ?? "Unavailable prompt"}
                       </DetailLink>
-                      <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                      <p className="mt-1 line-clamp-2 whitespace-normal break-words font-mono text-[11px] text-muted-foreground">
                         {member.key ?? asset?.key ?? member.promptId}
                       </p>
                     </div>
@@ -417,7 +417,7 @@ export function PromptGroupsView({
               }}
               data={library.groups}
               getRowKey={(group) => group.id}
-              className="rounded-none border-0 shadow-none"
+              variant="inline"
               emptyState={
                 <p className="p-10 text-center text-xs text-muted-foreground">
                   No test groups match these filters.
@@ -674,10 +674,13 @@ function PromptGroupHeader({
           </Button>
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm font-semibold" title={title}>
+          <h1
+            className="line-clamp-2 whitespace-normal break-words text-sm font-semibold"
+            title={title}
+          >
             {title}
           </h1>
-          <p className="truncate text-xs text-muted-foreground">
+          <p className="line-clamp-2 whitespace-normal break-words text-xs text-muted-foreground">
             Candidate versions for testing
           </p>
         </div>

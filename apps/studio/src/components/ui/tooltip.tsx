@@ -8,13 +8,15 @@ import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
 function TooltipProvider({
-  delayDuration = 0,
+  delayDuration = 1_000,
+  skipDelayDuration = 0,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (
     <TooltipPrimitive.Provider
       data-slot="tooltip-provider"
       delayDuration={delayDuration}
+      skipDelayDuration={skipDelayDuration}
       {...props}
     />
   );

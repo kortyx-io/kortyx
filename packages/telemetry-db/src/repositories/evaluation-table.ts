@@ -1,6 +1,7 @@
 import {
   EMPTY_TABLE_FILTERS,
   EVALUATION_TABLE_FILTER_FIELDS,
+  EVALUATION_TABLE_SORT_KEYS,
   matchesTableFilters,
   TableFiltersSchema,
   type TableFilterValue,
@@ -127,13 +128,25 @@ export async function listEvaluationTable(
   const cursor = Math.max(0, Number(query.cursor) || 0),
     size = Math.min(250, Math.max(1, Number(query.pageSize) || 20));
   const direction = query.dir === "asc" ? 1 : -1;
-  const compare = (a: Summary, b: Summary) =>
-    direction *
-    ((query.sort === "name"
-      ? a.name.localeCompare(b.name)
-      : query.sort === "status"
-        ? a.status.localeCompare(b.status)
-        : a.createdAt.localeCompare(b.createdAt)) || a.id.localeCompare(b.id));
+  const sortKey =
+    EVALUATION_TABLE_SORT_KEYS.find((key) => key === query.sort) ?? "created";
+  const readSort = (run: Summary) =>
+    evaluationFilterValue(run, sortKey === "created" ? "createdAt" : sortKey);
+  const compare = (a: Summary, b: Summary) => {
+    const left = readSort(a),
+      right = readSort(b);
+    // Missing prices/times remain last in either direction.
+    if (left == null || left === "")
+      return right == null || right === "" ? a.id.localeCompare(b.id) : 1;
+    if (right == null || right === "") return -1;
+    const delta =
+      typeof left === "number" && typeof right === "number"
+        ? left - right
+        : String(left).localeCompare(String(right), undefined, {
+            numeric: true,
+          });
+    return direction * (delta || a.id.localeCompare(b.id));
+  };
   let runs: Summary[] = [];
   let totalCount = 0;
   const values = new Set<string>();

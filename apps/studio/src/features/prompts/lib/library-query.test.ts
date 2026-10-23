@@ -18,6 +18,8 @@ it("preserves the requested category, search, archive state and page on first pa
     cursor: "40",
     limit: "20",
     archived: "true",
+    sort: "name",
+    dir: "asc",
     categoryId: "root",
   });
   expect(promptLibraryQuery({ q: ["ambiguous", "values"] })).toBe(
@@ -43,4 +45,15 @@ it("requests the next page from shared table numeric state with the same server 
   expect(client).toBe(
     promptLibraryQuery({ q: "header/", cursor: "10", pageSize: "10" }),
   );
+});
+
+it("preserves sort and direction in both server and client requests", () => {
+  expect(
+    new URLSearchParams(
+      promptLibraryQuery({ sort: "updatedAt", dir: "desc" }),
+    ).get("sort"),
+  ).toBe("updatedAt");
+  expect(
+    promptLibraryQuery({ sort: "updatedAt", dir: "desc", cursor: 20 }),
+  ).toBe(promptLibraryQuery({ sort: "updatedAt", dir: "desc", cursor: "20" }));
 });
