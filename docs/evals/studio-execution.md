@@ -340,3 +340,7 @@ the serializable settings contract also supports future Studio-authored suites.
 Studio worker grading and SDK/HTTP judging honor the same selected budget. Cancellation and other execution deadlines still take precedence. App grading overrides require an application SDK advertising `gradingTimeoutMs`; Studio grading remains configurable with older consumers because the worker owns grading and does not forward the new field to them. Application grading ceilings reject excessive values before setup. A timed-out custom judge cannot keep the worker waiting indefinitely, even if it ignores its abort signal.
 
 The Studio CLI accepts `kortyx studio evals runs start <suite> --grading-timeout-ms 120000` for an explicit override; omit the flag to inherit project/application defaults.
+
+### Historical judge instructions
+
+The Judge instructions view prefers the final execution's saved judge prompt or legacy instructions. If that snapshot is unavailable, it exposes exact messages from recorded grading requests, labelled **Recorded grading request**, with their case, attempt, step and criterion. Multiple grading calls remain separate. Completed step/case progress is sufficient even while a run is unfinished or after it is interrupted; final grading records supersede duplicate progress copies. An unfinished run without either source shows a pending snapshot message, while a terminal historical execution without either source shows **Instructions not recorded**. Neither the current configured judge nor queued configuration replaces missing execution evidence.

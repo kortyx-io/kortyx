@@ -48,6 +48,63 @@ it("renders saved instructions as inert text and has no Copy button", () => {
   expect(markup).toContain("Saved snapshot");
 });
 
+it("labels rendered grading messages as recorded evidence, preserving multiple system messages", () => {
+  const markup = renderToStaticMarkup(
+    <EvalJudgeInstructionsReader
+      context="Saved execution"
+      historical
+      snapshotPending
+      backHref="/evals/runs"
+      recordedRequests={[
+        {
+          key: "request",
+          caseId: "S01-discovery-city",
+          repetition: 1,
+          stepIndex: 0,
+          criterionId: "city",
+          criterion: "Report the saved city",
+          request: {
+            protocol: "eval-verdict-v1",
+            messages: [
+              { role: "system", content: "Kortyx verdict protocol" },
+              { role: "system", content: "Saved application instructions" },
+              {
+                role: "user",
+                content: "Criterion and evidence <script>unsafe()</script>",
+              },
+            ],
+          },
+        },
+      ]}
+    />,
+  );
+  expect(markup).toContain("Recorded grading request");
+  expect(markup).toContain("final judge snapshot is not yet available");
+  expect(markup).toContain("System Message 1");
+  expect(markup).toContain("System Message 2");
+  expect(markup).toContain("User Message 3");
+  expect(markup).toContain("S01-discovery-city");
+  expect(markup).toContain("Report the saved city");
+  expect(markup).toContain("&lt;script&gt;");
+  expect(markup).not.toContain("<script");
+  expect(markup).not.toContain("Instructions not recorded.");
+  expect(markup).not.toContain("Saved snapshot");
+});
+
+it("explains that an unfinished snapshot is pending when no grading requests exist yet", () => {
+  const markup = renderToStaticMarkup(
+    <EvalJudgeInstructionsReader
+      context="Saved execution"
+      historical
+      snapshotPending
+      backHref="/evals/runs"
+    />,
+  );
+  expect(markup).toContain("Judge snapshot is not yet available.");
+  expect(markup).toContain("No grading requests have been recorded yet.");
+  expect(markup).not.toContain("Instructions not recorded.");
+});
+
 it("separates saved messages into read-only cards and highlights template variables", () => {
   const markup = renderToStaticMarkup(
     <EvalJudgeInstructionsReader
