@@ -235,7 +235,7 @@ export function EvaluationDetail({
                 ]}
               />
               <div
-                className="data-table-body-scroll mt-2 flex min-w-0 gap-0 overflow-x-auto rounded-md border bg-muted/20"
+                className="mt-2 grid min-w-0 grid-cols-2 rounded-md border bg-muted/20 @xl:grid-cols-4 @5xl:grid-cols-8 [&>div]:min-w-0"
                 data-tour-surface="evaluation-metrics"
               >
                 <Metric

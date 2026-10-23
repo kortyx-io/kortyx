@@ -107,6 +107,7 @@ export function EvalConversationTable({
             key: "suite",
             label: "Suite",
             defaultWidth: 180,
+            cellTitle: (row: ConversationTableRow) => row.suiteName,
             filter: columnFilter(
               "suite",
               "Suite",

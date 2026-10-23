@@ -496,7 +496,33 @@ test("inline conversation tables keep a flush filter panel and native full-text 
   await cell.hover();
   await expect(cell).toHaveAttribute("title", /Shipment status/);
   await expect(cell).toContainText(sample.caseId);
+  const suiteCell = page
+    .locator('[data-row-key] td[data-column="suite"]')
+    .first();
+  await expect(suiteCell).toHaveAttribute("title", /Support quality/);
   await expect(
     page.getByRole("button", { name: "Suite details", exact: true }),
   ).toHaveCount(0);
+});
+
+test("evaluation metrics remain visible without horizontal scrolling on narrow screens", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await page.goto(evaluationPath);
+  const metrics = page.locator('[data-tour-surface="evaluation-metrics"]');
+  await expect(metrics).toContainText("Execution settings");
+  expect(
+    await metrics.evaluate(
+      (element) => element.scrollWidth - element.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+  const bounds = await metrics.boundingBox();
+  if (!bounds) throw new Error("Missing evaluation metrics");
+  for (const metric of await metrics.locator(":scope > div").all()) {
+    const box = await metric.boundingBox();
+    if (!box) throw new Error("Missing metric");
+    expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
+  }
 });
