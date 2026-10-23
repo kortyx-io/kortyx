@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { studioPathname } from "@/lib/studio-routing";
 import { DetailDrawer, DetailDrawerHost } from "./detail-drawer";
 import { DETAIL_MOTION_DURATION_MS } from "./detail-motion";
+import { DetailSlotPresence } from "./detail-slot-presence";
 import {
   DetailStackProvider,
   usePrepareDetailNavigation,
@@ -84,6 +85,55 @@ async function restore(path: string, state: unknown) {
 }
 const drawer = (path: string) =>
   container.querySelector(`[data-detail-drawer="${path}"]`);
+
+it("retains different parallel slots sharing the same dismiss destination", async () => {
+  const casePath = "/evals/cases/run/case/1";
+  const judgePath = "/evals/judges/run/run";
+  const renderJudgeStack = async (showJudge: boolean) => {
+    await act(() =>
+      root.render(
+        <DetailStackProvider>
+          <NavigationControl />
+          <DetailDrawerHost>
+            <DetailSlotPresence dismissPath="/evals/cases">
+              <DetailDrawer
+                matchPath={casePath}
+                dismissPath="/evals/cases"
+                title="Case"
+                description="Case evidence"
+              >
+                <p>Original case payload</p>
+              </DetailDrawer>
+            </DetailSlotPresence>
+            <DetailSlotPresence dismissPath="/evals/judges">
+              {showJudge ? (
+                <DetailDrawer
+                  matchPath={judgePath}
+                  dismissPath="/evals/cases"
+                  title="Judge"
+                  description="Saved instructions"
+                >
+                  <p>Saved judge payload</p>
+                </DetailDrawer>
+              ) : null}
+            </DetailSlotPresence>
+          </DetailDrawerHost>
+        </DetailStackProvider>,
+      ),
+    );
+  };
+  window.history.replaceState({}, "", casePath);
+  await renderJudgeStack(false);
+  const original = drawer(casePath);
+  await act(() => prepareNavigation?.(judgePath));
+  window.history.replaceState({}, "", judgePath);
+  await renderJudgeStack(true);
+  await settle();
+  expect(drawer(judgePath)?.getAttribute("data-state")).toBe("open");
+  expect(drawer(casePath)).toBe(original);
+  expect(original?.getAttribute("data-state")).toBe("open");
+  expect(original?.textContent).toContain("Original case payload");
+});
 
 it("unmounts a closed history layer even while Next retains its route registration", async () => {
   window.history.replaceState({}, "", "/runs/first");

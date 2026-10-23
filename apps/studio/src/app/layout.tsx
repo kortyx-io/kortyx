@@ -84,10 +84,16 @@ export default async function RootLayout({
                 <SidebarLayout
                   detailSlots={
                     <DetailDrawerHost>
-                      <DetailSlotPresence dismissPath="/prompts">
+                      <DetailSlotPresence
+                        dismissPath="/prompts"
+                        slotKey="prompt-details"
+                      >
                         {promptDrawer}
                       </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/prompts">
+                      <DetailSlotPresence
+                        dismissPath="/prompts"
+                        slotKey="prompt-groups-list"
+                      >
                         {promptGroupsDrawer}
                       </DetailSlotPresence>
                       <DetailSlotPresence dismissPath="/prompts/groups">

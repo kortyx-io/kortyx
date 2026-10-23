@@ -66,6 +66,7 @@ const detailViewParsers = {
 };
 
 type DetailDrawerRegistration = {
+  slotKey: string;
   customHeader?: boolean;
   children: ReactNode;
   description: string;
@@ -163,6 +164,9 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(() => ({ register }), [register]);
+  const slotsByPath = new Map(
+    drawers.map((drawer) => [drawer.matchPath, drawer.slotKey]),
+  );
 
   return (
     <DetailDrawerHostContext.Provider value={value}>
@@ -172,7 +176,7 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
         const retained =
           layers.findLast(
             (layer) =>
-              layer.dismissPath === drawer.dismissPath && !layer.closing,
+              slotsByPath.get(layer.id) === drawer.slotKey && !layer.closing,
           )?.id === drawer.matchPath;
         // Next can discard a parallel slot while an ancestor is covered, or
         // restore an empty slot on Forward. Keep its last server payload for
@@ -263,6 +267,7 @@ export function DetailDrawer({
         dismissPath,
         markSlotEntered: slotMotion.markEntered,
         matchPath,
+        slotKey: slotMotion.slotKey ?? dismissPath,
         slotEntered: slotMotion.entered,
         title,
       }),
@@ -275,6 +280,7 @@ export function DetailDrawer({
       matchPath,
       slotMotion.entered,
       slotMotion.markEntered,
+      slotMotion.slotKey,
       title,
     ],
   );
