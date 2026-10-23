@@ -19,6 +19,28 @@ const call = (id: string, name: string, input: unknown) => ({
 });
 
 describe("bounded output schema correction", () => {
+  it.each([
+    "__proto__",
+    "constructor",
+  ])("treats tool-call ID %s as a data key", async (id) => {
+    const provider = createProvider({
+      invokeResponses: [
+        call(id, "kortyx_return__card", {}),
+        { content: '{"version":"v2"}' },
+      ],
+    });
+    const { result } = await runWithHookContext(
+      { node: createNode().node, state: createState() },
+      () =>
+        useReason({
+          model: provider.modelRef,
+          input: "Preview",
+          stream: false,
+          outputs: { return: { card } },
+        }),
+    );
+    expect(result.returned?.data).toEqual({ version: "v2" });
+  });
   it("keeps a forbidden correction terminal across replay, even if its JSON is valid", async () => {
     const provider = createProvider({
       invokeResponses: [

@@ -384,7 +384,8 @@ export const runReasonToolLoop = async <
         retryable: false,
       },
     );
-  const schemaRepairs = checkpoint?.schemaRepairs ?? {};
+  const schemaRepairs: NonNullable<ToolLoopCheckpoint["schemaRepairs"]> =
+    Object.assign(Object.create(null), checkpoint?.schemaRepairs ?? {});
   let terminalDraft = checkpoint?.terminalDraft;
   const maxSteps = Math.max(1, useReasonArgs.toolExecution?.maxSteps ?? 3);
   const missingReturnCorrections =
