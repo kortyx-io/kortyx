@@ -175,6 +175,9 @@ async function openGenerationEventInspector(page: Page) {
   await expect(detailDrawer(page, runPath)).toHaveAttribute(
     "data-state",
     "open",
+    // This helper can be the first request for the intercepted Run route in
+    // a development-server shard; let its cold compilation finish.
+    { timeout: 16_000 },
   );
 
   await page.getByRole("button", { name: /^Events \d+$/ }).click();

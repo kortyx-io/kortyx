@@ -97,7 +97,10 @@ for (const scope of ["all", "selected"] as const) {
     await drawer
       .getByRole("button", { name: "Run evaluations", exact: true })
       .click();
-    await expect(page).toHaveURL(/\/evals\/evaluations\/[0-9a-f-]+$/);
+    // A shard may compile each destination for the first time here.
+    await expect(page).toHaveURL(/\/evals\/evaluations\/[0-9a-f-]+$/, {
+      timeout: 16_000,
+    });
     const parentPath = new URL(page.url()).pathname;
     const tableControls = page.locator(
       '[data-table-controls="evaluation-conversations"]',
@@ -145,7 +148,9 @@ for (const scope of ["all", "selected"] as const) {
     await page
       .getByRole("link", { name: "Ambiguous role", exact: true })
       .click();
-    await expect(page.getByText("Step 1 assessment")).toBeVisible();
+    await expect(page.getByText("Step 1 assessment")).toBeVisible({
+      timeout: 16_000,
+    });
     await page.goto(parentPath);
     await page
       .getByRole("button", { name: "Back to evaluation runs", exact: true })
