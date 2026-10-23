@@ -97,7 +97,19 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     const isDetail =
       !basePaths.includes(pathname) &&
       basePaths.some((base) => pathname.startsWith(`${base}/`));
-    if (!isDetail) setLayers(closeAllDetailLayers);
+    if (!isDetail) {
+      setLayers(closeAllDetailLayers);
+    } else if (historyTargetPathRef.current !== pathname) {
+      // A page navigation can land on a standalone detail without registering
+      // a drawer. Only an intentional DetailLink or history restore may carry
+      // an unrelated retained stack into the next route.
+      historyTargetPathRef.current = null;
+      setLayers((current) =>
+        current.some((layer) => layer.matchPath === pathname && !layer.closing)
+          ? current
+          : closeAllDetailLayers(current),
+      );
+    }
   }, [pathname]);
 
   const saveCurrentStack = useCallback(() => {
@@ -370,6 +382,7 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       historyTargetPathRef.current = null;
       saveCurrentStack();
       const pathname = studioPathname(href.split("?", 1)[0] ?? href);
+      historyTargetPathRef.current = pathname;
       if (
         new URL(href, window.location.href).searchParams.get("detailView") !==
         "expanded"
@@ -393,7 +406,6 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       // A link to a retained ancestor is a regular navigation, just like a
       // new entity link. Close its descendants before parallel slots update;
       // the requested query and browser Back/Forward entries stay intact.
-      historyTargetPathRef.current = pathname;
       setLayers((current) =>
         syncDetailLayersToHistoryPath(
           current,

@@ -5,7 +5,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { studioPathname } from "@/lib/studio-routing";
 import { DetailDrawer, DetailDrawerHost } from "./detail-drawer";
 import { DETAIL_MOTION_DURATION_MS } from "./detail-motion";
-import { DetailStackProvider } from "./detail-stack";
+import {
+  DetailStackProvider,
+  usePrepareDetailNavigation,
+} from "./detail-stack";
 
 vi.mock("@/components/ui/sidebar", () => ({
   useSidebar: () => ({ isMobile: false, state: "expanded" }),
@@ -22,6 +25,11 @@ vi.mock("@/lib/nuqs", async (original) => ({
 
 let container: HTMLDivElement;
 let root: Root;
+let prepareNavigation: ReturnType<typeof usePrepareDetailNavigation>;
+function NavigationControl() {
+  prepareNavigation = usePrepareDetailNavigation();
+  return null;
+}
 beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -40,6 +48,7 @@ async function render(path?: string) {
   await act(() =>
     root.render(
       <DetailStackProvider>
+        <NavigationControl />
         <DetailDrawerHost>
           {path ? (
             <DetailDrawer
@@ -76,6 +85,7 @@ it("retains the mounted ancestor when Next releases its parallel slot", async ()
   await render("/runs/first");
   const original = drawer("/runs/first");
   expect(original).not.toBeNull();
+  await act(() => prepareNavigation?.("/sessions/parent"));
   window.history.replaceState({}, "", "/sessions/parent");
   await render();
   await settle();
@@ -83,10 +93,14 @@ it("retains the mounted ancestor when Next releases its parallel slot", async ()
   expect(original?.getAttribute("data-state")).toBe("open");
 });
 
-it("closes retained payloads when a normal navigation returns to a list", async () => {
+it.each([
+  "/runs",
+  "/evals/suites/target/suite",
+  "/prompts/categories/folder",
+])("closes retained payloads when a normal navigation opens %s", async (path) => {
   window.history.replaceState({}, "", "/runs/first");
   await render("/runs/first");
-  window.history.replaceState({}, "", "/runs");
+  window.history.replaceState({}, "", path);
   await render();
   await settle();
   expect(drawer("/runs/first")).toBeNull();
