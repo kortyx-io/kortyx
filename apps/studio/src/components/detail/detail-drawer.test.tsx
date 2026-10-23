@@ -94,6 +94,12 @@ it("revives an unmounted payload from history when Next restores an empty slot",
   expect(drawer("/runs/first")?.textContent).toContain(
     "Saved payload for /runs/first",
   );
+  await restore("/runs", {});
+  expect(drawer("/runs/first")?.getAttribute("data-state")).toBe("closed");
+  await act(() => vi.advanceTimersByTimeAsync(DETAIL_MOTION_DURATION_MS - 1));
+  expect(drawer("/runs/first")).not.toBeNull();
+  await settle();
+  expect(drawer("/runs/first")).toBeNull();
 });
 
 it("mounts only the latest retained entity in a parallel slot and restores its predecessor", async () => {

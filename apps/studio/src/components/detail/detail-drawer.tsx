@@ -76,7 +76,6 @@ type DetailDrawerRegistration = {
 
 type HostedDetailDrawer = DetailDrawerRegistration & {
   active: boolean;
-  exiting: boolean;
 };
 
 type DetailDrawerHostContextValue = {
@@ -109,16 +108,14 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
         (registrationCountsRef.current.get(id) ?? 0) + 1,
       );
       clearTimer(`deactivate:${id}`);
-      clearTimer(`remove:${id}`);
       setDrawers((current) => {
         const existing = current.find(
           (candidate) => candidate.matchPath === id,
         );
-        if (!existing)
-          return [...current, { ...drawer, active: true, exiting: false }];
+        if (!existing) return [...current, { ...drawer, active: true }];
         return current.map((candidate) =>
           candidate.matchPath === id
-            ? { ...candidate, ...drawer, active: true, exiting: false }
+            ? { ...candidate, ...drawer, active: true }
             : candidate,
         );
       });
@@ -140,22 +137,10 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
           setDrawers((current) =>
             current.map((candidate) =>
               candidate.matchPath === id
-                ? { ...candidate, active: false, exiting: true }
+                ? { ...candidate, active: false }
                 : candidate,
             ),
           );
-          const removeTimer = window.setTimeout(() => {
-            timersRef.current.delete(`remove:${id}`);
-            if ((registrationCountsRef.current.get(id) ?? 0) > 0) return;
-            setDrawers((current) =>
-              current.map((candidate) =>
-                candidate.matchPath === id
-                  ? { ...candidate, exiting: false }
-                  : candidate,
-              ),
-            );
-          }, DETAIL_MOTION_DURATION_MS);
-          timersRef.current.set(`remove:${id}`, removeTimer);
         }, 0);
         timersRef.current.set(`deactivate:${id}`, deactivateTimer);
       };
@@ -188,16 +173,34 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
         // Next can discard a parallel slot while an ancestor is covered, or
         // restore an empty slot on Forward. Keep its last server payload for
         // this workspace's history, but mount it only while present or exiting.
-        return drawer.active || drawer.exiting || retained ? (
-          <DetailDrawerSurface
+        return (
+          <RetainedDetailDrawer
             key={drawer.matchPath}
             {...drawer}
             active={drawer.active || retained}
           />
-        ) : null;
+        );
       })}
     </DetailDrawerHostContext.Provider>
   );
+}
+
+function RetainedDetailDrawer(drawer: HostedDetailDrawer) {
+  const [mounted, setMounted] = useState(drawer.active);
+  useEffect(() => {
+    if (drawer.active) {
+      setMounted(true);
+      return;
+    }
+    // A history-restored payload has no live route registration to trigger
+    // cleanup. Give it the same exit motion as a route-owned surface.
+    const timer = window.setTimeout(
+      () => setMounted(false),
+      DETAIL_MOTION_DURATION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [drawer.active]);
+  return drawer.active || mounted ? <DetailDrawerSurface {...drawer} /> : null;
 }
 
 export function DetailSurfaceProvider({ children }: { children: ReactNode }) {
