@@ -274,9 +274,8 @@ test("explained eval headers can be dragged and still open their help", async ({
         headers.map((header) => header.getAttribute("data-column")),
       );
     await header.scrollIntoViewIfNeeded();
-    const title = header.getByRole("button", {
-      name: path === evaluation ? "Change" : "Changes",
-      exact: true,
+    const title = header.locator("button").filter({
+      hasText: path === evaluation ? /^Change$/ : /^Changes$/,
     });
     const helpTrigger = header.getByRole("button", {
       name:

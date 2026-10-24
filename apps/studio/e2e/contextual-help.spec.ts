@@ -375,7 +375,10 @@ test("touch help fits a narrow screen and can be dismissed outside", async ({
   await expect(card).toBeHidden();
   await page.goto("/runs?range=All+time&live=false");
   const header = page.locator('th[data-column="status"]');
-  await header.getByRole("button", { name: "Status", exact: true }).tap();
+  await header
+    .locator("button")
+    .filter({ hasText: /^Status$/ })
+    .tap();
   await expect(page).toHaveURL(/sort=status/);
   const sorted = page.url();
   await header.getByRole("button", { name: "About Status", exact: true }).tap();
