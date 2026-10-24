@@ -1,34 +1,31 @@
-import type {
-  EvalCaseResult,
-  EvalCosts,
-  EvalIssue,
-  EvalStepResult,
-  StudioEvalLiveDetail,
-} from "@kortyx/agent/evals";
+import type { EvalCosts, StudioEvalLiveDetail } from "@kortyx/agent/evals";
 import type { EvalDetail } from "../schema";
 import { sumCaseCosts } from "./cost";
 
+type RecordedCaseResult = NonNullable<EvalDetail["result"]>["cases"][number];
+type RecordedStepResult = RecordedCaseResult["steps"][number];
+
 export type CaseRow = {
-  environment?: string;
-  verification?: EvalCaseResult["verification"];
-  phaseDurationsMs?: EvalCaseResult["phaseDurationsMs"];
-  costs?: EvalCosts;
+  environment?: string | undefined;
+  verification?: RecordedCaseResult["verification"];
+  phaseDurationsMs?: RecordedCaseResult["phaseDurationsMs"];
+  costs?: EvalCosts | undefined;
   key: string;
   caseId: string;
   name: string;
   repetition: number;
   status: string;
-  sessionId?: string;
-  durationMs?: number;
-  steps: EvalStepResult[];
-  completedSteps?: number;
-  criteriaPassed?: number;
-  criteriaTotal?: number;
-  failures?: string[];
+  sessionId?: string | undefined;
+  durationMs?: number | undefined;
+  steps: RecordedStepResult[];
+  completedSteps?: number | undefined;
+  criteriaPassed?: number | undefined;
+  criteriaTotal?: number | undefined;
+  failures?: string[] | undefined;
   expectedSteps: number;
-  errors: EvalIssue[];
-  retryAt?: string;
-  httpStatus?: number;
+  errors: RecordedCaseResult["errors"];
+  retryAt?: string | undefined;
+  httpStatus?: number | undefined;
 };
 export const isActive = (status?: string) =>
   status === "queued" || status === "running";
@@ -37,7 +34,7 @@ export const displayName = (id: string) =>
 
 /** Recorded terminal outcomes, excluding statuses inferred from interrupted transport. */
 export function recordedCaseResults(run: EvalDetail) {
-  const results = new Map<string, EvalCaseResult>();
+  const results = new Map<string, RecordedCaseResult>();
   for (const { event } of run.events)
     if (event.type === "case-completed")
       results.set(
@@ -249,8 +246,8 @@ export type CaseGroup = {
   repetitions: CaseRow[];
   counts: ReturnType<typeof progressCounts>;
   status: string;
-  costs?: EvalCosts;
-  durationMs?: number;
+  costs?: EvalCosts | undefined;
+  durationMs?: number | undefined;
   defaultRepetition: number;
 };
 
@@ -261,14 +258,14 @@ export function groupCaseRows(
     mixedCases,
   }: { active?: boolean; mixedCases?: ReadonlySet<string> } = {},
 ): CaseGroup[] {
-  const groups = new Map<string, CaseRow[]>();
+  const groups = new Map<string, [CaseRow, ...CaseRow[]]>();
   for (const row of rows) {
-    const group = groups.get(row.caseId) ?? [];
-    group.push(row);
-    groups.set(row.caseId, group);
+    const group = groups.get(row.caseId);
+    if (group) group.push(row);
+    else groups.set(row.caseId, [row]);
   }
   return [...groups].map(([caseId, values]) => {
-    const repetitions = [...values].sort((a, b) => a.repetition - b.repetition);
+    const repetitions = values.sort((a, b) => a.repetition - b.repetition);
     const counts = progressCounts(repetitions);
     const statuses = new Set(repetitions.map((row) => row.status));
     const pending = repetitions.find((row) =>
@@ -328,7 +325,7 @@ export type ComparisonRow = {
   baseline: CaseRow[];
   candidate: CaseRow[];
   change: "improved" | "regressed" | "unchanged" | "incomplete" | "changed";
-  reason?: string;
+  reason?: string | undefined;
 };
 export function compareRuns(
   baseline: EvalDetail,

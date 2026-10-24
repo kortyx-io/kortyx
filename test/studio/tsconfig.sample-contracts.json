@@ -6,6 +6,10 @@
     "incremental": false,
     "types": ["node"]
   },
-  "include": ["../../apps/studio/src/features/sample-project/evaluations.ts"],
+  "include": [
+    "../../apps/studio/src/features/sample-project/evaluations.ts",
+    "../../apps/studio/src/features/evals/lib/presentation.ts",
+    "../../apps/studio/src/features/sample-project/http.ts"
+  ],
   "exclude": ["node_modules"]
 }

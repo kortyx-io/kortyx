@@ -2,23 +2,26 @@ import { randomUUID } from "node:crypto";
 import type {
   EvalCaseResult,
   EvalIssue,
-  EvalProgress,
   EvalStepResult,
   StudioEvalCaseSummary,
+  StudioEvalDetail,
 } from "@kortyx/agent/evals";
 
+type RecordedCase = NonNullable<StudioEvalDetail["result"]>["cases"][number];
+type RecordedProgress = StudioEvalDetail["events"][number]["event"];
+
 export type ProjectionStep = Pick<
-  EvalStepResult,
+  RecordedCase["steps"][number],
   "index" | "status" | "reason" | "judgeCalls" | "judgeUsage"
 > & {
   criteria: readonly { passed: boolean }[];
-  expectation: { criteria?: readonly unknown[] };
+  expectation: { criteria?: readonly unknown[] | undefined };
 };
-export type ProjectionCase = Omit<EvalCaseResult, "steps"> & {
+export type ProjectionCase = Omit<RecordedCase, "steps" | "verification"> & {
   steps: ProjectionStep[];
 };
 export type ProjectionProgress =
-  | Exclude<EvalProgress, { type: "step-completed" | "case-completed" }>
+  | Exclude<RecordedProgress, { type: "step-completed" | "case-completed" }>
   | {
       type: "step-completed";
       caseId: string;
@@ -61,7 +64,9 @@ const keyOf = (caseId: string, repetition: number) =>
   JSON.stringify([caseId, repetition]);
 const preview = (text: string) =>
   text.length > 2_000 ? `${text.slice(0, 2_000)}…` : text;
-export const compactIssue = (issue: EvalIssue): EvalIssue => ({
+export const compactIssue = (
+  issue: RecordedCase["errors"][number],
+): EvalIssue => ({
   phase: issue.phase,
   code: issue.code,
   message: preview(issue.message),
