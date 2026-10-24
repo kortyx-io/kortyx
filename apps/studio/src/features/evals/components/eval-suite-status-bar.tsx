@@ -82,22 +82,36 @@ export function EvalSuiteStatusBar({
       aria-label={label || "No conversation results"}
       viewBox={`0 0 ${total || 1} 1`}
       preserveAspectRatio="none"
-      className="mt-2 block size-full h-1 shrink-0 overflow-hidden rounded-full bg-muted outline-1 outline-foreground/15"
+      className="mt-2 block size-full h-1 shrink-0 overflow-hidden rounded-full bg-muted"
     >
-      {segments.map(([status, count]) => {
+      {segments.map(([status, count], index) => {
         const x = offset;
         offset += count;
         return (
-          <rect
-            key={status}
-            data-status={status}
-            x={x}
-            y={0}
-            width={count}
-            height={1}
-            fill="currentColor"
-            className={suiteStatusColors[status] ?? "text-muted-foreground/30"}
-          />
+          <g key={status}>
+            <rect
+              data-status={status}
+              x={x}
+              y={0}
+              width={count}
+              height={1}
+              fill="currentColor"
+              className={
+                suiteStatusColors[status] ?? "text-muted-foreground/30"
+              }
+            />
+            {index > 0 && (
+              <line
+                x1={x}
+                x2={x}
+                y1={0}
+                y2={1}
+                stroke="var(--background)"
+                strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+          </g>
         );
       })}
     </svg>
