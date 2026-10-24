@@ -429,6 +429,7 @@ async function readEvalLiveRuns(
     const projection = readOnlyProjections.get(row.id);
     if (
       projection &&
+      projection.pricingVersion === pricingVersion &&
       (row.revision === null ||
         row.dirtyBilling ||
         row.pricingVersion !== pricingVersion)
