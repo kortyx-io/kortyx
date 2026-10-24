@@ -17,8 +17,8 @@ it("represents all recorded and pending attempts without inventing running outco
     pending: 5,
   });
   const html = renderToStaticMarkup(<EvalSuiteStatusBar counts={counts} />);
-  expect(html).toContain("width:30%");
-  expect(html).toContain("width:50%");
+  expect(html).toContain('viewBox="0 0 10 1"');
+  expect(html).toContain('x="5" y="0" width="5" height="1"');
   expect(html).not.toContain("NaN");
 });
 it("uses live attempt statuses for queued, running and terminal proportions", () => {

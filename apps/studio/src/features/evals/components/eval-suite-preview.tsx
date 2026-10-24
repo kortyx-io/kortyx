@@ -67,7 +67,8 @@ export function EvalSuitePreview({
             <dt className="flex items-center gap-2 text-muted-foreground">
               <span
                 aria-hidden="true"
-                className={`size-2 shrink-0 rounded-full ${suiteStatusColors[status] ?? "bg-muted-foreground/30"}`}
+                className={`size-2 shrink-0 rounded-full ${suiteStatusColors[status] ?? "text-muted-foreground/30"}`}
+                style={{ backgroundColor: "currentColor" }}
               />
               {Object.hasOwn(suiteStatusLabels, status)
                 ? suiteStatusLabels[status]

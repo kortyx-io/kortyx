@@ -52,7 +52,7 @@ export function EvalSuiteNavigation({
         {overviewLabel}
       </Button>
       {suites.map((suite) => (
-        <Tooltip key={suite.id}>
+        <Tooltip key={suite.id} delayDuration={200}>
           <TooltipTrigger asChild>
             <Button
               variant={selected === suite.id ? "secondary" : "ghost"}

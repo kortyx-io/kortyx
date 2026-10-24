@@ -111,17 +111,11 @@ export function DataTableColumnHeader<T, S extends string>({
         onMenuOpenChange(true);
       }}
     >
-      <div
-        className={cn(
-          "flex min-w-0 items-center gap-1 group-hover:pr-5 group-focus-within:pr-5",
-          menuOpen && "pr-5",
-        )}
-      >
+      <div className="flex min-w-0 items-center gap-1">
         <div
           {...(canDrag ? attributes : {})}
           {...(canDrag ? listeners : {})}
-          // Help triggers stop bubbling to protect row actions. Activate the
-          // drag sensor in capture so explained headers remain draggable.
+          // Keep the label's drag gesture separate from the overlay controls.
           onPointerDown={undefined}
           onPointerDownCapture={(event) => {
             if (canDrag) listeners?.onPointerDown?.(event);
@@ -131,23 +125,25 @@ export function DataTableColumnHeader<T, S extends string>({
             canDrag && "cursor-grab touch-none active:cursor-grabbing",
           )}
         >
-          {column.help ? (
-            <InfoTooltip
-              label={`About ${column.help.label}`}
-              documentationUrl={column.help.documentationUrl}
-              trigger={title}
-              triggerAction={sortKey ? "preserve" : "toggle"}
-              disabled={isDragging}
-            >
-              {column.help.description}
-            </InfoTooltip>
-          ) : sortKey ? (
-            title
-          ) : (
-            <span className="block truncate">{label}</span>
-          )}
+          {sortKey ? title : <span className="block truncate">{label}</span>}
         </div>
       </div>
+      {column.help && (
+        <InfoTooltip
+          label={`About ${column.help.label}`}
+          documentationUrl={column.help.documentationUrl}
+          disabled={isDragging}
+          className={cn(
+            "absolute top-1/2 right-8 z-20 -translate-y-1/2 bg-muted",
+            "pointer-events-none opacity-0",
+            "group-hover:pointer-events-auto group-hover:opacity-100",
+            "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+            menuOpen && "pointer-events-auto opacity-100",
+          )}
+        >
+          {column.help.description}
+        </InfoTooltip>
+      )}
       <DropdownMenu open={menuOpen} onOpenChange={onMenuOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -159,7 +155,7 @@ export function DataTableColumnHeader<T, S extends string>({
               "absolute top-1/2 right-1 z-20 -translate-y-1/2",
               "pointer-events-none opacity-0",
               "group-hover:pointer-events-auto group-hover:opacity-100",
-              "focus:pointer-events-auto focus:opacity-100",
+              "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
               menuOpen && "pointer-events-auto opacity-100",
             )}
           >

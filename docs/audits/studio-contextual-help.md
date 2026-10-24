@@ -326,3 +326,12 @@ flat Studio index with task sections. It supersedes this audit's original sideba
 organization. All 58 help destinations remain supported through canonical pages,
 permanent redirects and historical heading forwarding; verification and release
 order are recorded in that follow-up audit.
+
+### Header controls follow-up (2026-10-24)
+
+The current shared header uses a separate help circle immediately left of the
+column menu. Both controls appear on hover or keyboard focus and overlay the
+label without changing its width. The title retains sorting and dragging; the
+help circle opens the explanation without sorting. This supersedes the earlier
+title-trigger decision above. Help still prefers the top edge when space permits,
+and opening another tooltip dismisses the previous card.

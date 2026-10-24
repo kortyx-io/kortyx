@@ -48,9 +48,20 @@ test("keeps suite context, previews its table facts, and opens conversation evid
     "background-color",
     await suite
       .locator('[data-status="passed"]')
-      .evaluate((element) => getComputedStyle(element).backgroundColor),
+      .evaluate((element) => getComputedStyle(element).fill),
   );
   await page.screenshot({ path: testInfo.outputPath("suite-preview.png") });
+  const otherSuite = navigation
+    .getByRole("button")
+    .filter({ hasNotText: /^(Support quality |All conversations$)/ })
+    .first();
+  const otherName = await otherSuite.locator("span").first().innerText();
+  await otherSuite.hover();
+  await expect(preview).toHaveCount(1);
+  await expect(preview).toContainText(otherName);
+  await suite.hover();
+  await expect(preview).toHaveCount(1);
+  await expect(preview).toContainText("Support quality");
   await suite.focus();
   await expect(preview).toBeVisible();
   await suite.click();

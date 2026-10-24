@@ -2,18 +2,18 @@ import type { StudioEvalRunSummary } from "@kortyx/agent/evals";
 import type { CaseRow } from "../lib/presentation";
 
 export const suiteStatusColors: Record<string, string> = {
-  passed: "bg-emerald-500",
-  failed: "bg-red-500",
-  error: "bg-red-700 dark:bg-red-400",
-  running: "bg-blue-500",
-  queued: "bg-muted-foreground/30",
-  pending: "bg-muted-foreground/30",
-  retrying: "bg-amber-500",
-  reconnecting: "bg-amber-500",
-  interrupted: "bg-amber-500",
-  ungraded: "bg-amber-500",
-  cancelled: "bg-muted-foreground/60",
-  "not-run": "bg-muted-foreground/30",
+  passed: "text-emerald-500",
+  failed: "text-red-500",
+  error: "text-red-700 dark:text-red-400",
+  running: "text-blue-500",
+  queued: "text-muted-foreground/30",
+  pending: "text-muted-foreground/30",
+  retrying: "text-amber-500",
+  reconnecting: "text-amber-500",
+  interrupted: "text-amber-500",
+  ungraded: "text-amber-500",
+  cancelled: "text-muted-foreground/60",
+  "not-run": "text-muted-foreground/30",
 };
 
 export const suiteStatusLabels: Record<string, string> = {
@@ -75,21 +75,31 @@ export function EvalSuiteStatusBar({
   const label = segments
     .map(([status, count]) => `${count} ${status}`)
     .join(" · ");
+  let offset = 0;
   return (
-    <span
+    <svg
       role="img"
       aria-label={label || "No conversation results"}
-      title={label || "No conversation results"}
-      className="mt-2 flex h-1 w-full overflow-hidden rounded-full bg-muted"
+      viewBox={`0 0 ${total || 1} 1`}
+      preserveAspectRatio="none"
+      className="mt-2 block size-full h-1 shrink-0 overflow-hidden rounded-full bg-muted"
     >
-      {segments.map(([status, count]) => (
-        <span
-          key={status}
-          data-status={status}
-          className={`h-full shrink-0 last:flex-1 ${suiteStatusColors[status] ?? "bg-muted-foreground/30"}`}
-          style={{ width: `${(count / total) * 100}%` }}
-        />
-      ))}
-    </span>
+      {segments.map(([status, count]) => {
+        const x = offset;
+        offset += count;
+        return (
+          <rect
+            key={status}
+            data-status={status}
+            x={x}
+            y={0}
+            width={count}
+            height={1}
+            fill="currentColor"
+            className={suiteStatusColors[status] ?? "text-muted-foreground/30"}
+          />
+        );
+      })}
+    </svg>
   );
 }

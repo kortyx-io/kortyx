@@ -122,7 +122,7 @@ export const PAGE_GUIDES = {
     overview:
       "Evaluation runs execute conversation suites against an application target. Progress counts recorded outcomes; a running evaluation can already contain completed, failed, and ungraded attempts.",
     content:
-      "The Changes column names the earlier reference run. Click a change count or the comparison icon to inspect saved evidence in a modal. Open an evaluation to filter its conversation table by suite; Comparison baseline chooses the earlier run. Open a conversation row for its normal detail drawer. Pass rate summarizes graded outcomes, not proof of production reliability.",
+      "The Changes column names the earlier reference run. Click a change count or the comparison icon to inspect saved evidence in a modal. Open an evaluation to filter its conversation table by suite; Comparison baseline chooses the earlier run. Open a conversation row for its normal detail drawer. Pass rate summarizes graded outcomes, not proof of production reliability. Hover or focus a column header to reveal its help circle and column menu.",
     example: "/evals/runs",
   },
   "eval-suites": {
