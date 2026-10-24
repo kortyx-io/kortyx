@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.20.2](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.1...telemetry-contracts-v0.20.2) (2026-10-24)
+
+
+### Bug Fixes
+
+* **studio:** refine eval controls, tables and grading timeouts ([646718b](https://github.com/kortyx-io/kortyx/commit/646718b95f0372a3f96d88a65fe1a4a709a31c34))
+* **studio:** refine evaluation controls and table presentation ([1397c06](https://github.com/kortyx-io/kortyx/commit/1397c064035c2291c300acafd221dc5cc36dbf11))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.3.1
+
 ## [0.20.1](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.0...telemetry-contracts-v0.20.1) (2026-10-22)
 
 

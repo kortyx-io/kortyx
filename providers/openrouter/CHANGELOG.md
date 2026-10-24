@@ -14,6 +14,13 @@
   automatic retry behavior unchanged.
 
 
+## [0.2.8](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.7...openrouter-v0.2.8) (2026-10-24)
+
+
+### Bug Fixes
+
+* **studio:** refine eval controls, tables and grading timeouts ([646718b](https://github.com/kortyx-io/kortyx/commit/646718b95f0372a3f96d88a65fe1a4a709a31c34))
+
 ## [0.2.7](https://github.com/kortyx-io/kortyx/compare/openrouter-v0.2.6...openrouter-v0.2.7) (2026-10-16)
 
 

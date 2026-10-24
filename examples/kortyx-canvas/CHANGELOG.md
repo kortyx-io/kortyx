@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.6](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.9.5...example-canvas-v0.9.6) (2026-10-24)
+
+
+### Bug Fixes
+
+* preserve provider schema behavior and cover bounded recovery consumers ([7182edf](https://github.com/kortyx-io/kortyx/commit/7182edf925ec92a03183d116d126065b51a08f96))
+* recover invalid reason output and bound evaluation inspection ([56528ab](https://github.com/kortyx-io/kortyx/commit/56528ab6a3c33dd64c594e4a0579cd85d31a0e47))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry bumped to 0.17.6
+    * kortyx bumped to 0.34.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.25.0
+
 ## [0.9.5](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.9.4...example-canvas-v0.9.5) (2026-10-22)
 
 

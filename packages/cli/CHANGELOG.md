@@ -5,6 +5,33 @@
 - Render queued, retrying and reconnecting eval dispatch updates without treating
   them as terminal case results.
 
+## [0.25.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.24.0...cli-v0.25.0) (2026-10-24)
+
+
+### Features
+
+* **evals:** configure grading deadlines with inherited defaults ([2c5d8d3](https://github.com/kortyx-io/kortyx/commit/2c5d8d3be9016d19da248712e9d2e887366ca0c6))
+
+
+### Bug Fixes
+
+* **cli:** compare recorded attempts and type evidence offsets ([a2b9b95](https://github.com/kortyx-io/kortyx/commit/a2b9b95b39b260d79b9ceba5edf362e141129136))
+* normalize inspection envelopes and harden compatibility diagnostics ([467de41](https://github.com/kortyx-io/kortyx/commit/467de41836e11ae6a13123fe22e51c23e4973496))
+* preserve provider schema behavior and cover bounded recovery consumers ([7182edf](https://github.com/kortyx-io/kortyx/commit/7182edf925ec92a03183d116d126065b51a08f96))
+* recover invalid reason output and bound evaluation inspection ([56528ab](https://github.com/kortyx-io/kortyx/commit/56528ab6a3c33dd64c594e4a0579cd85d31a0e47))
+* **runtime:** repair structured output and bound eval inspection ([f60d70d](https://github.com/kortyx-io/kortyx/commit/f60d70db1d9bbe3c71e0bdc856f0447fb12b8234))
+* **studio:** refine eval controls, tables and grading timeouts ([646718b](https://github.com/kortyx-io/kortyx/commit/646718b95f0372a3f96d88a65fe1a4a709a31c34))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.43.0
+    * @kortyx/prompts bumped to 0.3.1
+    * @kortyx/telemetry-contracts bumped to 0.20.2
+    * @kortyx/usage-telemetry bumped to 0.6.1
+
 ## [0.24.0](https://github.com/kortyx-io/kortyx/compare/cli-v0.23.1...cli-v0.24.0) (2026-10-22)
 
 

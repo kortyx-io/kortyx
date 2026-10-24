@@ -8,6 +8,35 @@
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
 
+## [0.43.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.42.0...agent-v0.43.0) (2026-10-24)
+
+
+### Features
+
+* **evals:** configure grading deadlines with inherited defaults ([2c5d8d3](https://github.com/kortyx-io/kortyx/commit/2c5d8d3be9016d19da248712e9d2e887366ca0c6))
+
+
+### Bug Fixes
+
+* **cli:** compare recorded attempts and type evidence offsets ([a2b9b95](https://github.com/kortyx-io/kortyx/commit/a2b9b95b39b260d79b9ceba5edf362e141129136))
+* **evals:** export grading deadlines and cover cancellation guards ([7c04d8f](https://github.com/kortyx-io/kortyx/commit/7c04d8f0147edf96bbd379fb31f72f03fe1b6e11))
+* normalize inspection envelopes and harden compatibility diagnostics ([467de41](https://github.com/kortyx-io/kortyx/commit/467de41836e11ae6a13123fe22e51c23e4973496))
+* recover invalid reason output and bound evaluation inspection ([56528ab](https://github.com/kortyx-io/kortyx/commit/56528ab6a3c33dd64c594e4a0579cd85d31a0e47))
+* **runtime:** repair structured output and bound eval inspection ([f60d70d](https://github.com/kortyx-io/kortyx/commit/f60d70db1d9bbe3c71e0bdc856f0447fb12b8234))
+* **studio:** refine eval controls, tables and grading timeouts ([646718b](https://github.com/kortyx-io/kortyx/commit/646718b95f0372a3f96d88a65fe1a4a709a31c34))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.26.4
+    * @kortyx/prompts bumped to 0.3.1
+    * @kortyx/usage-telemetry bumped to 0.6.1
+    * @kortyx/telemetry-contracts bumped to 0.20.2
+  * devDependencies
+    * @kortyx/hooks bumped to 0.35.5
+
 ## [0.42.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.41.1...agent-v0.42.0) (2026-10-22)
 
 
