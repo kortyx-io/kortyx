@@ -194,3 +194,18 @@ Drizzle histories against the same native journal or concatenate their SQL.
 - [Drizzle Kit migrate](https://orm.drizzle.team/docs/drizzle-kit-migrate)
 - [Existing PostgreSQL database guide](https://orm.drizzle.team/docs/get-started/postgresql-existing)
 - [Drizzle Kit pull](https://orm.drizzle.team/docs/drizzle-kit-pull)
+
+## Evaluation projection compatibility
+
+Migration `0016_eval_projection_search_path` fixes the compact evaluation-cache
+triggers to resolve PostgreSQL builtins and the public product schema independently
+of the caller’s search path. Apply it through the normal migration job before
+running evaluation writers with a restricted search path. It changes function
+configuration only; historical SQL and product records remain intact.
+
+Live evaluation readers can reconstruct missing or stale compact projections when
+cache writes are denied by database permissions or a read-only transaction. The
+failed cache attempt rolls back independently, leaving the caller’s transaction
+usable. These readers retain tenant filters and compact evidence selection and do
+not persist the reconstruction, so later reads may repeat that work. Authorized
+writers retain normal persisted cache warming.
