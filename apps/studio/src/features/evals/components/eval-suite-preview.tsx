@@ -7,24 +7,26 @@ import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { evalDurationMs } from "../lib/duration";
 import { evalCostLabel } from "./eval-cost";
 import { EvalStatus } from "./eval-status";
+import {
+  suiteStatusColors,
+  suiteStatusCounts,
+  suiteStatusEntries,
+  suiteStatusLabels,
+} from "./eval-suite-status-bar";
 
 /** Read-only preview: the same saved facts as the run overview table. */
-export function EvalSuitePreview({ suite }: { suite: StudioEvalRunSummary }) {
+export function EvalSuitePreview({
+  suite,
+  statusCounts = suiteStatusCounts(suite),
+}: {
+  suite: StudioEvalRunSummary;
+  statusCounts?: Record<string, number>;
+}) {
   const referenceTime = useEvalReferenceTime();
   const duration = evalDurationMs(suite, referenceTime ?? Date.now());
   const queue = tableQueueMs(suite.createdAt, suite.startedAt);
   const rate = tablePassRate(suite.counts);
   const facts = [
-    [
-      "Progress",
-      `${suite.completedAttempts ?? 0} / ${suite.totalAttempts ?? 0} recorded outcomes`,
-    ],
-    [
-      "Results",
-      suite.counts
-        ? `${suite.counts.passed} passed · ${suite.counts.failed} failed · ${suite.counts.error} errors · ${suite.counts.cancelled} cancelled`
-        : "No graded outcomes yet",
-    ],
     ["Workflow cost", evalCostLabel(suite.costs?.workflow)],
     ["Judge cost", evalCostLabel(suite.costs?.judge)],
     ["Total cost", evalCostLabel(suite.costs?.total)],
@@ -54,10 +56,29 @@ export function EvalSuitePreview({ suite }: { suite: StudioEvalRunSummary }) {
           {suite.phase === "grading" ? "Grading" : "Executing"}
         </p>
       ) : null}
-      <dl className="space-y-2 text-xs">
+      <dl className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 gap-y-2 text-xs">
+        <dt className="text-muted-foreground">Progress</dt>
+        <dd className="text-right tabular-nums">
+          {suite.completedAttempts ?? 0} / {suite.totalAttempts ?? 0} recorded
+          outcomes
+        </dd>
+        {suiteStatusEntries(statusCounts).map(([status, count]) => (
+          <div key={status} className="contents">
+            <dt className="flex items-center gap-2 text-muted-foreground">
+              <span
+                aria-hidden="true"
+                className={`size-2 shrink-0 rounded-full ${suiteStatusColors[status] ?? "bg-muted-foreground/30"}`}
+              />
+              {Object.hasOwn(suiteStatusLabels, status)
+                ? suiteStatusLabels[status]
+                : status}
+            </dt>
+            <dd className="text-right tabular-nums">{count}</dd>
+          </div>
+        ))}
         {facts.map(([label, value]) => (
-          <div key={label} className="flex items-start justify-between gap-4">
-            <dt className="shrink-0 text-muted-foreground">{label}</dt>
+          <div key={label} className="contents">
+            <dt className="text-muted-foreground">{label}</dt>
             <dd className="text-right tabular-nums">{value}</dd>
           </div>
         ))}

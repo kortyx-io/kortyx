@@ -2,10 +2,12 @@
 
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 import type * as React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { OverlayArrow } from "@/components/ui/overlay-arrow";
 
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
+import { useExclusiveTooltip } from "./use-exclusive-tooltip";
 
 function TooltipProvider({
   delayDuration = 1_000,
@@ -23,9 +25,36 @@ function TooltipProvider({
 }
 
 function Tooltip({
+  open: controlledOpen,
+  defaultOpen = false,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+  const [open, setOpen] = useState(defaultOpen);
+  const openRef = useRef(controlledOpen ?? defaultOpen);
+  useEffect(() => {
+    openRef.current = controlledOpen ?? open;
+  }, [controlledOpen, open]);
+  const dismiss = useCallback(() => {
+    if (!openRef.current) return;
+    openRef.current = false;
+    setOpen(false);
+    onOpenChange?.(false);
+  }, [onOpenChange]);
+  const announceOpen = useExclusiveTooltip(dismiss);
+  return (
+    <TooltipPrimitive.Root
+      data-slot="tooltip"
+      open={controlledOpen ?? open}
+      onOpenChange={(next) => {
+        if (next) announceOpen();
+        openRef.current = next;
+        setOpen(next);
+        onOpenChange?.(next);
+      }}
+      {...props}
+    />
+  );
 }
 
 function TooltipTrigger({

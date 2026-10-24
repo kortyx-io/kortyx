@@ -1,7 +1,7 @@
 import type { StudioEvalRunSummary } from "@kortyx/agent/evals";
 import type { CaseRow } from "../lib/presentation";
 
-const colors: Record<string, string> = {
+export const suiteStatusColors: Record<string, string> = {
   passed: "bg-emerald-500",
   failed: "bg-red-500",
   error: "bg-red-700 dark:bg-red-400",
@@ -13,7 +13,34 @@ const colors: Record<string, string> = {
   interrupted: "bg-amber-500",
   ungraded: "bg-amber-500",
   cancelled: "bg-muted-foreground/60",
+  "not-run": "bg-muted-foreground/30",
 };
+
+export const suiteStatusLabels: Record<string, string> = {
+  passed: "Passed",
+  failed: "Failed",
+  error: "Errors",
+  running: "Running",
+  queued: "Queued",
+  pending: "Pending",
+  retrying: "Retrying",
+  reconnecting: "Reconnecting",
+  interrupted: "Interrupted",
+  ungraded: "Ungraded",
+  cancelled: "Cancelled",
+  "not-run": "Not run",
+};
+
+export function suiteStatusEntries(counts: Record<string, number>) {
+  return [
+    ...Object.keys(suiteStatusColors),
+    ...Object.keys(counts)
+      .filter((status) => !Object.hasOwn(suiteStatusColors, status))
+      .sort(),
+  ]
+    .filter((status) => Object.hasOwn(counts, status))
+    .map((status) => [status, counts[status] ?? 0] as const);
+}
 
 export function suiteStatusCounts(
   suite: Pick<StudioEvalRunSummary, "counts" | "totalAttempts" | "status">,
@@ -43,15 +70,7 @@ export function EvalSuiteStatusBar({
 }: {
   counts: Record<string, number>;
 }) {
-  const statuses = [
-    ...Object.keys(colors),
-    ...Object.keys(counts)
-      .filter((status) => !Object.hasOwn(colors, status))
-      .sort(),
-  ];
-  const segments = statuses
-    .map((status) => [status, counts[status] ?? 0] as const)
-    .filter(([, count]) => count > 0);
+  const segments = suiteStatusEntries(counts).filter(([, count]) => count > 0);
   const total = segments.reduce((sum, [, count]) => sum + count, 0);
   const label = segments
     .map(([status, count]) => `${count} ${status}`)
@@ -61,13 +80,13 @@ export function EvalSuiteStatusBar({
       role="img"
       aria-label={label || "No conversation results"}
       title={label || "No conversation results"}
-      className="mt-2 flex h-1.5 w-full overflow-hidden bg-muted"
+      className="mt-2 flex h-1 w-full overflow-hidden rounded-full bg-muted"
     >
       {segments.map(([status, count]) => (
         <span
           key={status}
           data-status={status}
-          className={colors[status] ?? "bg-muted-foreground/30"}
+          className={`h-full shrink-0 last:flex-1 ${suiteStatusColors[status] ?? "bg-muted-foreground/30"}`}
           style={{ width: `${(count / total) * 100}%` }}
         />
       ))}

@@ -43,4 +43,6 @@ The guide keeps your record and filters in place. [Sample tours and page help](/
 
 A circled question mark opens a short help card on hover, keyboard focus, or click/tap. Move into the card to use **Read documentation**, which opens the related page/section in a new tab and preserves Studio's current state. Escape dismisses the card. Table header titles and explained state symbols open their own help without an extra question mark. Other compact controls use help circles; roomier setup and empty states can show a documentation button.
 
+Opening another tooltip closes the previous card, including a card pinned by a click. Header help prefers the space above its title and moves below when there is not enough room.
+
 Next: [Runs](/docs/studio/runs), [Sessions](/docs/studio/sessions), [Interrupts](/docs/studio/interrupts), or [Metrics](/docs/studio/metrics).
