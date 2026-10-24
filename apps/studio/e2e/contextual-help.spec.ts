@@ -142,6 +142,7 @@ test("opening another header help replaces pinned help and prefers available spa
   await outcome.hover();
   await expect(outcomeHelp).toBeVisible();
   await expect(changeHelp).toBeHidden();
+  await outcome.focus();
   await change.focus();
   await expect(changeHelp).toBeVisible();
   await expect(outcomeHelp).toBeHidden();
@@ -385,9 +386,12 @@ test("touch help fits a narrow screen and can be dismissed outside", async ({
     page.locator('[data-table-ready="true"][aria-busy="false"]'),
   ).toBeVisible();
   const header = page.locator('th[data-column="status"]');
+  // On touch screens, help overlays part of the full-width sort button.
+  // Tap the visible label, as a user would, rather than the overlaid controls.
   await header
     .locator("button")
     .filter({ hasText: /^Status$/ })
+    .locator("span")
     .tap();
   await expect(page).toHaveURL(/sort=status/);
   const sorted = page.url();
