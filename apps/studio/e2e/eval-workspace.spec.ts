@@ -55,7 +55,10 @@ test("keeps suite context, previews its table facts, and opens conversation evid
     .getByRole("button")
     .filter({ hasNotText: /^(Support quality |All conversations$)/ })
     .first();
-  const otherName = await otherSuite.locator("span").first().innerText();
+  const otherName = await otherSuite
+    .locator("span.block.truncate")
+    .first()
+    .innerText();
   await otherSuite.hover();
   await expect(preview).toHaveCount(1);
   await expect(preview).toContainText(otherName);

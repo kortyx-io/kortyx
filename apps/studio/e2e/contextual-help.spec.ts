@@ -121,6 +121,7 @@ test("opening another header help replaces pinned help and prefers available spa
   await outcome.focus();
   await outcome.click();
   await expect(outcomeHelp).toBeVisible();
+  await page.locator('th[data-column="change"]').hover();
   await change.hover();
   await expect(changeHelp).toBeVisible();
   await expect(outcomeHelp).toBeHidden();
@@ -133,6 +134,7 @@ test("opening another header help replaces pinned help and prefers available spa
 
   await expectPreferredHelpSide(changeHelp, change);
   await change.click();
+  await page.locator('th[data-column="status"]').hover();
   await outcome.hover();
   await expect(outcomeHelp).toBeVisible();
   await expect(changeHelp).toBeHidden();
