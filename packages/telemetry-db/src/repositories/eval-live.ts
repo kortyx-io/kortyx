@@ -180,6 +180,7 @@ export async function initializeEvalProjection(
   db: TelemetryDb,
   run: ProjectionSource,
   pricingVersion?: string,
+  persist = true,
 ): Promise<EvalLiveProjection> {
   if (run.liveProjection) {
     const projection = run.liveProjection;
@@ -198,10 +199,11 @@ export async function initializeEvalProjection(
     ) {
       await priceEvalProjection(db, run, projection, dirty);
       projection.revision++;
-      await db
-        .update(evalRuns)
-        .set({ liveProjection: projection })
-        .where(eq(evalRuns.id, run.id));
+      if (persist)
+        await db
+          .update(evalRuns)
+          .set({ liveProjection: projection })
+          .where(eq(evalRuns.id, run.id));
     }
     return projection;
   }
@@ -234,10 +236,11 @@ export async function initializeEvalProjection(
     projectEvalProgress(projection, { type: "case-completed", result });
   await priceEvalProjection(db, run, projection);
   projection.revision++;
-  await db
-    .update(evalRuns)
-    .set({ liveProjection: projection })
-    .where(eq(evalRuns.id, run.id));
+  if (persist)
+    await db
+      .update(evalRuns)
+      .set({ liveProjection: projection })
+      .where(eq(evalRuns.id, run.id));
   return projection;
 }
 
@@ -344,6 +347,18 @@ export function evalProjectionCosts(
   return { workflow, judge, total: sumEvalCosts([workflow, judge]) };
 }
 
+// Drizzle wraps driver errors; only write-authority failures permit a read-only fallback.
+function cacheWriteDenied(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  while (error && typeof error === "object" && !seen.has(error)) {
+    seen.add(error);
+    if ("code" in error && ["42501", "25006"].includes(String(error.code)))
+      return true;
+    error = "cause" in error ? error.cause : undefined;
+  }
+  return false;
+}
+
 /** Public live reads exclude results, progress payloads and private billing inputs at SQL level. */
 async function readEvalLiveRuns(
   db: TelemetryDb,
@@ -351,6 +366,7 @@ async function readEvalLiveRuns(
   ids: string[],
   includeDefinition: boolean,
   reconciliations = 0,
+  readOnlyProjections = new Map<string, EvalLiveProjection>(),
 ): Promise<
   (EvalLiveSummary & {
     suite: Run["suite"] | null;
@@ -409,6 +425,23 @@ async function readEvalLiveRuns(
     })
     .from(evalRuns)
     .where(and(scopeWhere(scope), inArray(evalRuns.id, ids)));
+  for (const row of rows) {
+    const projection = readOnlyProjections.get(row.id);
+    if (
+      projection &&
+      (row.revision === null ||
+        row.dirtyBilling ||
+        row.pricingVersion !== pricingVersion)
+    ) {
+      row.revision = projection.revision;
+      row.cases = Object.values(projection.attempts).map(
+        (attempt) => attempt.summary,
+      );
+      row.errors = projection.errors;
+      row.pricingVersion = pricingVersion;
+      row.dirtyBilling = false;
+    }
+  }
   const missing = rows.filter(
     (row) =>
       row.revision === null ||
@@ -418,41 +451,77 @@ async function readEvalLiveRuns(
   if (missing.length && reconciliations >= 2)
     throw new Error("Evaluation progress is changing. Retry this read.");
   for (const row of missing) {
-    await db.transaction(async (tx) => {
-      const [run] = await tx
+    try {
+      await db.transaction(async (tx) => {
+        const [run] = await tx
+          .select({
+            id: evalRuns.id,
+            organizationId: evalRuns.organizationId,
+            projectId: evalRuns.projectId,
+            environment: evalRuns.environment,
+            liveProjection: evalRuns.liveProjection,
+          })
+          .from(evalRuns)
+          .where(and(scopeWhere(scope), eq(evalRuns.id, row.id)))
+          .for("update")
+          .limit(1);
+        if (!run) throw new TelemetryNotFoundError("Eval run not found.");
+        if (run.liveProjection)
+          await initializeEvalProjection(
+            tx as TelemetryDb,
+            {
+              ...run,
+              result: null,
+            },
+            pricingVersion,
+          );
+        else {
+          const [saved] = await tx
+            .select({ result: compactResultSql })
+            .from(evalRuns)
+            .where(eq(evalRuns.id, run.id))
+            .limit(1);
+          await initializeEvalProjection(tx as TelemetryDb, {
+            ...run,
+            result: saved?.result ?? null,
+          });
+        }
+      });
+    } catch (error) {
+      if (
+        !cacheWriteDenied(error) &&
+        !(error instanceof TelemetryNotFoundError)
+      )
+        throw error;
+      // The failed cache savepoint has rolled back. A viewer needs SELECT only;
+      // retain compact SQL evidence selection and never broaden its permissions.
+      const [run] = await db
         .select({
           id: evalRuns.id,
           organizationId: evalRuns.organizationId,
           projectId: evalRuns.projectId,
           environment: evalRuns.environment,
           liveProjection: evalRuns.liveProjection,
+          result: compactResultSql,
+          evidenceVersion: sql<string>`${sql.raw(`md5(coalesce("eval_runs"."result"::text, '') || ':' || coalesce((SELECT max(evidence.id)::text FROM eval_run_events evidence WHERE evidence.run_id = "eval_runs"."id" AND evidence.organization_id = "eval_runs"."organization_id" AND evidence.project_id = "eval_runs"."project_id"), '0'))`)}`,
         })
         .from(evalRuns)
         .where(and(scopeWhere(scope), eq(evalRuns.id, row.id)))
-        .for("update")
         .limit(1);
       if (!run) throw new TelemetryNotFoundError("Eval run not found.");
-      if (run.liveProjection)
-        await initializeEvalProjection(
-          tx as TelemetryDb,
-          {
-            ...run,
-            result: null,
-          },
-          pricingVersion,
-        );
-      else {
-        const [saved] = await tx
-          .select({ result: compactResultSql })
-          .from(evalRuns)
-          .where(eq(evalRuns.id, run.id))
-          .limit(1);
-        await initializeEvalProjection(tx as TelemetryDb, {
-          ...run,
-          result: saved?.result ?? null,
-        });
-      }
-    });
+      const projection = await initializeEvalProjection(
+        db,
+        run,
+        pricingVersion,
+        false,
+      );
+      // Reconstructing the same immutable evidence must not invalidate every poll.
+      for (const [key, attempt] of Object.entries(projection.attempts))
+        attempt.summary.evidenceVersion = createHash("sha256")
+          .update(`${run.evidenceVersion}:${key}`)
+          .digest("hex");
+      readOnlyProjections.set(row.id, projection);
+    }
   }
   if (missing.length)
     return readEvalLiveRuns(
@@ -461,6 +530,7 @@ async function readEvalLiveRuns(
       ids,
       includeDefinition,
       reconciliations + 1,
+      readOnlyProjections,
     );
   return rows.map((row) => {
     const cases = row.cases ?? [];

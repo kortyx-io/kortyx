@@ -7,6 +7,8 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTelemetryDbClient } from "../src/client";
 import { inspectEvaluation } from "../src/repositories/eval-inspection";
+import { getEvalLiveState } from "../src/repositories/eval-live";
+import { getEvaluation } from "../src/repositories/evaluations";
 import { ensureLocalDevelopmentProject } from "../src/repositories/projects";
 import { evalRuns, evaluationRuns } from "../src/schema";
 
@@ -130,6 +132,88 @@ describe.skipIf(!url)("bounded evaluation inspection on PostgreSQL", () => {
   }
   const query = (value: Record<string, unknown>) =>
     EvalInspectionQuerySchema.parse(value);
+  it("invalidates progress under a restricted caller search path", async () => {
+    const { childId } = await fixture();
+    await client.db.transaction(async (tx) => {
+      await tx.execute(sql`SET LOCAL search_path = pg_catalog`);
+      await tx.execute(
+        sql`INSERT INTO public.eval_run_events(run_id, organization_id, project_id, event) VALUES (${childId}::uuid, ${scope.organizationId}::uuid, ${scope.projectId}::uuid, '{"type":"case-started","caseId":"answer","repetition":1,"sessionId":"restricted"}'::jsonb)`,
+      );
+    });
+    const [row] = await client.db
+      .select({ projection: evalRuns.liveProjection })
+      .from(evalRuns)
+      .where(eq(evalRuns.id, childId));
+    expect(row?.projection).toBeNull();
+  });
+
+  it("reads a cold evaluation inside a read-only transaction without persisting its cache", async () => {
+    const { id } = await fixture();
+    const run = await client.db.transaction(async (tx) => {
+      await tx.execute(sql`SET TRANSACTION READ ONLY`);
+      const detail = await getEvaluation(tx as typeof client.db, scope, id);
+      await tx.execute(sql`SELECT 1`); // a denied cache write must not poison the caller transaction
+      return detail;
+    });
+    expect(run.suites[0]?.counts.passed).toBe(1);
+    expect(run.suites[0]?.status).toBe("passed");
+    const [cache] = await client.db
+      .select({ projection: evalRuns.liveProjection })
+      .from(evalRuns)
+      .where(eq(evalRuns.evaluationId, id));
+    expect(cache?.projection).toBeNull();
+  });
+
+  it("reads cold and stale evaluation summaries with SELECT-only privileges", async () => {
+    const { id } = await fixture();
+    const role = `eval_reader_${randomUUID().replaceAll("-", "")}`;
+    await client.sql.unsafe(`CREATE ROLE "${role}"`);
+    try {
+      await client.sql.unsafe(`GRANT USAGE ON SCHEMA public TO "${role}"`);
+      await client.sql.unsafe(
+        `GRANT SELECT ON ALL TABLES IN SCHEMA public TO "${role}"`,
+      );
+      const read = () =>
+        client.db.transaction(async (tx) => {
+          await tx.execute(sql.raw(`SET LOCAL ROLE "${role}"`));
+          const detail = await getEvaluation(tx as typeof client.db, scope, id);
+          await tx.execute(sql`SELECT 1`);
+          return detail;
+        });
+      const cold = await read();
+      expect(cold.suites[0]?.counts.passed).toBe(1);
+      const childId = cold.suites[0]?.id;
+      if (!childId) throw new Error("Expected the child run");
+      const readLive = () =>
+        client.db.transaction(async (tx) => {
+          await tx.execute(sql.raw(`SET LOCAL ROLE "${role}"`));
+          return getEvalLiveState(tx as typeof client.db, scope, childId);
+        });
+      const first = await readLive();
+      const second = await readLive();
+      expect(second.version).toBe(first.version);
+      expect(second.cases[0]?.evidenceVersion).toBe(
+        first.cases[0]?.evidenceVersion,
+      );
+      const [unwritten] = await client.db
+        .select({ projection: evalRuns.liveProjection })
+        .from(evalRuns)
+        .where(eq(evalRuns.evaluationId, id));
+      expect(unwritten?.projection).toBeNull();
+      // Warm with an authorized writer, then force a repricing refresh.
+      await getEvaluation(client.db, scope, id);
+      await client.sql`UPDATE eval_runs SET live_projection=jsonb_set(live_projection,'{pricingVersion}','"stale"') WHERE evaluation_id=${id}::uuid`;
+      const stale = await read();
+      expect(stale.suites[0]?.counts).toEqual(cold.suites[0]?.counts);
+      const [unchanged] =
+        await client.sql`SELECT live_projection->>'pricingVersion' AS version FROM eval_runs WHERE evaluation_id=${id}::uuid`;
+      expect(unchanged?.version).toBe("stale");
+    } finally {
+      await client.sql.unsafe(`DROP OWNED BY "${role}"`);
+      await client.sql.unsafe(`DROP ROLE "${role}"`);
+    }
+  });
+
   it("inventories attempts and bounds selected evidence with a multi-megabyte saved output", async () => {
     const { id, childId } = await fixture();
     await client.db
