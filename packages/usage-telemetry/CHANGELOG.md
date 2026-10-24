@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.6.0...usage-telemetry-v0.6.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* preserve correction limits and update bounded read regressions ([5c4747a](https://github.com/kortyx-io/kortyx/commit/5c4747a5b409145487eee1b3e2ffbb93810ce789))
+* recover invalid reason output and bound evaluation inspection ([56528ab](https://github.com/kortyx-io/kortyx/commit/56528ab6a3c33dd64c594e4a0579cd85d31a0e47))
+
 ## [0.6.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.5.0...usage-telemetry-v0.6.0) (2026-10-21)
 
 

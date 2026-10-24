@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.26.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.25.0...studio-v0.26.0) (2026-10-24)
+
+
+### Features
+
+* **evals:** configure grading deadlines with inherited defaults ([2c5d8d3](https://github.com/kortyx-io/kortyx/commit/2c5d8d3be9016d19da248712e9d2e887366ca0c6))
+
+
+### Bug Fixes
+
+* **deps:** require patched Zod collection validation ([db46288](https://github.com/kortyx-io/kortyx/commit/db46288644043230c65972b35e32f762a8f19f5c))
+* recover invalid reason output and bound evaluation inspection ([56528ab](https://github.com/kortyx-io/kortyx/commit/56528ab6a3c33dd64c594e4a0579cd85d31a0e47))
+* **studio:** align retained drawer snapshots with committed navigation ([a72497b](https://github.com/kortyx-io/kortyx/commit/a72497b148fa7cc05533c92a1a613ccc0dea1535))
+* **studio:** align suite progress and coordinate tooltip dismissal ([e048b41](https://github.com/kortyx-io/kortyx/commit/e048b41ad684514013d50850162416cd5c96c469))
+* **studio:** animate history-restored drawer exits ([0f241f5](https://github.com/kortyx-io/kortyx/commit/0f241f598bf68ead08f7e12e9765365d091ab234))
+* **studio:** close restored drawers using the committed browser URL ([34022de](https://github.com/kortyx-io/kortyx/commit/34022def1b1483d5273a3a4cf9e8424a8b0b6f49))
+* **studio:** close retained drawers on category list navigation ([178a107](https://github.com/kortyx-io/kortyx/commit/178a107e6cba92991174ac93441e6f8f4b90be19))
+* **studio:** expose suite titles and wrap evaluation metrics ([3d47090](https://github.com/kortyx-io/kortyx/commit/3d47090fac47e59e732e5ae931189b745df2ffa0))
+* **studio:** fence late drawer registration after history restoration ([337e5c4](https://github.com/kortyx-io/kortyx/commit/337e5c4d699a73ea15691e30f98c3780a024f87b))
+* **studio:** give suite bars a shared neutral outline ([08d077e](https://github.com/kortyx-io/kortyx/commit/08d077e7992a44ee7604bde9a47a16c5f2215b38))
+* **studio:** keep evaluation page help within its reading limit ([4a60ab2](https://github.com/kortyx-io/kortyx/commit/4a60ab24f83deab70cd3b893481b8cd429e5bf5c))
+* **studio:** narrow optional prompt comparison in tour steps ([af808ae](https://github.com/kortyx-io/kortyx/commit/af808ae19599d76c9ddbc5f05c4c86afbc504dd3))
+* **studio:** overlay header help controls and unify status bar rendering ([df6fb65](https://github.com/kortyx-io/kortyx/commit/df6fb6540c945c2f78ae5516e115aeb9f4114229))
+* **studio:** preserve retained payload route identity ([93882c8](https://github.com/kortyx-io/kortyx/commit/93882c8f8773efb25cae68bf400e091f11647a29))
+* **studio:** preserve text helper imports and prompt cache expectations ([5eda5d6](https://github.com/kortyx-io/kortyx/commit/5eda5d6eba91b080796764cd50b5c95b5954e2f7))
+* **studio:** read committed query state on history traversal ([48073a6](https://github.com/kortyx-io/kortyx/commit/48073a6bcd02032a665f04fe67c0bcf38b3f023e))
+* **studio:** recover judge instructions from recorded grading requests ([24d0dfc](https://github.com/kortyx-io/kortyx/commit/24d0dfc8f3ff0e8400e790187fcfa23eb67bbdf5))
+* **studio:** refine eval controls, tables and grading timeouts ([646718b](https://github.com/kortyx-io/kortyx/commit/646718b95f0372a3f96d88a65fe1a4a709a31c34))
+* **studio:** refine evaluation controls and table presentation ([1397c06](https://github.com/kortyx-io/kortyx/commit/1397c064035c2291c300acafd221dc5cc36dbf11))
+* **studio:** refresh query snapshot after route commits ([ba8c776](https://github.com/kortyx-io/kortyx/commit/ba8c776e80c283ba3f37b5b453ef2168c683a2c6))
+* **studio:** reject late removed drawers after history restore ([b26b856](https://github.com/kortyx-io/kortyx/commit/b26b85655238841605323eef5b6fc009ea5da67b))
+* **studio:** release closed drawers retained by route caches ([9c66573](https://github.com/kortyx-io/kortyx/commit/9c66573e00a5109fef72f94a98842f51a10a40b9))
+* **studio:** release retained drawers on standalone detail navigation ([d62f55c](https://github.com/kortyx-io/kortyx/commit/d62f55c182bfc73f5bac84bc23329697cdea75cb))
+* **studio:** retain ancestors by their parallel route slot ([a1fa010](https://github.com/kortyx-io/kortyx/commit/a1fa0100c75147f7618a46572538e44852acce37))
+* **studio:** retain drawer payloads for browser history restoration ([f72a230](https://github.com/kortyx-io/kortyx/commit/f72a2304b12804ed26099bdf276af45f4052e6ef))
+* **studio:** scope expanded detail query to its owning drawer ([3bd9ebf](https://github.com/kortyx-io/kortyx/commit/3bd9ebf2744edfd202e039ead118221c1d7f7642))
+* **studio:** separate status colors instead of outlining the bar ([29f291f](https://github.com/kortyx-io/kortyx/commit/29f291f004a9508e859571e2a35dc2cbf3749af9))
+* **studio:** share live query state with retained drawers ([369020d](https://github.com/kortyx-io/kortyx/commit/369020d9f71a1cdb184d5747086aaae9e5f8d24b))
+* **studio:** stabilize hydrated timing and stacked inspector interaction ([e5baa79](https://github.com/kortyx-io/kortyx/commit/e5baa7911428480ec4e75cc70f914a1f95193787))
+* **studio:** synchronize prompt tour navigation through query state ([17eaaf4](https://github.com/kortyx-io/kortyx/commit/17eaaf46971e26093fdb3ddb49dbc510db4883fc))
+* **studio:** update nuqs to preserve query state through navigation ([8b85b62](https://github.com/kortyx-io/kortyx/commit/8b85b6229a295fd0961764f98860c0f5cc653356))
+* **studio:** use live destination for drawer host visibility ([c5976ad](https://github.com/kortyx-io/kortyx/commit/c5976adee795e28e7b5c909abea06c61fdd2b5c6))
+* **studio:** use supported custom query adapter factory ([b8a586c](https://github.com/kortyx-io/kortyx/commit/b8a586c5ac5ee747497e0191994241b14c060ea7))
+* **studio:** verify route commit before notifying query readers ([de4b81b](https://github.com/kortyx-io/kortyx/commit/de4b81b301d048fc81cee9542d333a2c53a32853))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.3.1
+    * @kortyx/telemetry-contracts bumped to 0.20.2
+    * @kortyx/usage-telemetry bumped to 0.6.1
+  * devDependencies
+    * @kortyx/agent bumped to 0.43.0
+    * @kortyx/telemetry bumped to 0.17.6
+    * kortyx bumped to 0.34.1
+
 ## [0.25.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.24.1...studio-v0.25.0) (2026-10-22)
 
 

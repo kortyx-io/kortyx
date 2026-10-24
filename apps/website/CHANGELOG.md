@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.56.0](https://github.com/kortyx-io/kortyx/compare/website-v0.55.0...website-v0.56.0) (2026-10-24)
+
+
+### Features
+
+* **evals:** configure grading deadlines with inherited defaults ([2c5d8d3](https://github.com/kortyx-io/kortyx/commit/2c5d8d3be9016d19da248712e9d2e887366ca0c6))
+
+
+### Bug Fixes
+
+* **cli:** compare recorded attempts and type evidence offsets ([a2b9b95](https://github.com/kortyx-io/kortyx/commit/a2b9b95b39b260d79b9ceba5edf362e141129136))
+* recover invalid reason output and bound evaluation inspection ([56528ab](https://github.com/kortyx-io/kortyx/commit/56528ab6a3c33dd64c594e4a0579cd85d31a0e47))
+* **runtime:** repair structured output and bound eval inspection ([f60d70d](https://github.com/kortyx-io/kortyx/commit/f60d70db1d9bbe3c71e0bdc856f0447fb12b8234))
+* **studio:** align suite progress and coordinate tooltip dismissal ([e048b41](https://github.com/kortyx-io/kortyx/commit/e048b41ad684514013d50850162416cd5c96c469))
+* **studio:** overlay header help controls and unify status bar rendering ([df6fb65](https://github.com/kortyx-io/kortyx/commit/df6fb6540c945c2f78ae5516e115aeb9f4114229))
+* **studio:** refine eval controls, tables and grading timeouts ([646718b](https://github.com/kortyx-io/kortyx/commit/646718b95f0372a3f96d88a65fe1a4a709a31c34))
+
 ## [0.55.0](https://github.com/kortyx-io/kortyx/compare/website-v0.54.1...website-v0.55.0) (2026-10-22)
 
 

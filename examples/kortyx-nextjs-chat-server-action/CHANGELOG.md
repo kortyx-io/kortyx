@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.15.6](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.15.5...example-nextjs-chat-server-action-v0.15.6) (2026-10-24)
+
+
+### Bug Fixes
+
+* preserve provider schema behavior and cover bounded recovery consumers ([7182edf](https://github.com/kortyx-io/kortyx/commit/7182edf925ec92a03183d116d126065b51a08f96))
+* recover invalid reason output and bound evaluation inspection ([56528ab](https://github.com/kortyx-io/kortyx/commit/56528ab6a3c33dd64c594e4a0579cd85d31a0e47))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.34.1
+
 ## [0.15.5](https://github.com/kortyx-io/kortyx/compare/example-nextjs-chat-server-action-v0.15.4...example-nextjs-chat-server-action-v0.15.5) (2026-10-22)
 
 

@@ -5,6 +5,27 @@
 - Return recoverable, bounded model feedback for invalid named interrupt requests. Preserve strict human responses, request quotas, approval gates, and tool-loop limits.
 - Replace child execution snapshots natively while reading legacy object and single-element array snapshots.
 
+## [0.35.5](https://github.com/kortyx-io/kortyx/compare/hooks-v0.35.4...hooks-v0.35.5) (2026-10-24)
+
+
+### Bug Fixes
+
+* **hooks:** keep correction journals safe for arbitrary call identifiers ([14470c2](https://github.com/kortyx-io/kortyx/commit/14470c21c6d199c7b74797240f77525ae577fcda))
+* preserve correction limits and update bounded read regressions ([5c4747a](https://github.com/kortyx-io/kortyx/commit/5c4747a5b409145487eee1b3e2ffbb93810ce789))
+* preserve provider schema behavior and cover bounded recovery consumers ([7182edf](https://github.com/kortyx-io/kortyx/commit/7182edf925ec92a03183d116d126065b51a08f96))
+* recover invalid reason output and bound evaluation inspection ([56528ab](https://github.com/kortyx-io/kortyx/commit/56528ab6a3c33dd64c594e4a0579cd85d31a0e47))
+* **runtime:** repair structured output and bound eval inspection ([f60d70d](https://github.com/kortyx-io/kortyx/commit/f60d70db1d9bbe3c71e0bdc856f0447fb12b8234))
+* **studio:** refine eval controls, tables and grading timeouts ([646718b](https://github.com/kortyx-io/kortyx/commit/646718b95f0372a3f96d88a65fe1a4a709a31c34))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.20.2
+    * @kortyx/prompts bumped to 0.3.1
+    * @kortyx/usage-telemetry bumped to 0.6.1
+
 ## [0.35.4](https://github.com/kortyx-io/kortyx/compare/hooks-v0.35.3...hooks-v0.35.4) (2026-10-22)
 
 

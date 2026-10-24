@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.34.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.34.0...kortyx-v0.34.1) (2026-10-24)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.43.0
+    * @kortyx/cli bumped to 0.25.0
+    * @kortyx/hooks bumped to 0.35.5
+    * @kortyx/mcp bumped to 0.3.5
+    * @kortyx/runtime bumped to 0.26.4
+    * @kortyx/prompts bumped to 0.3.1
+
 ## [0.34.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.33.1...kortyx-v0.34.0) (2026-10-22)
 
 
