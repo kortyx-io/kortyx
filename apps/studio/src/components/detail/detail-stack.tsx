@@ -74,6 +74,11 @@ type DetailStackContextValue = {
 
 const DetailStackContext = createContext<DetailStackContextValue | null>(null);
 
+/** The host retains route payloads so history can revive an evicted Next slot. */
+export function useRetainedDetailLayers() {
+  return useContext(DetailStackContext)?.layers ?? [];
+}
+
 export function DetailStackProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -86,11 +91,35 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const timersRef = useRef(new Map<string, number>());
   const pendingCloseRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    if (pathname !== studioPathname(window.location.pathname)) return;
+    const basePaths = detailBasePathsFor(pathname);
+    const isDetail =
+      !basePaths.includes(pathname) &&
+      basePaths.some((base) => pathname.startsWith(`${base}/`));
+    if (!isDetail) {
+      setLayers(closeAllDetailLayers);
+    } else if (historyTargetPathRef.current !== pathname) {
+      // A page navigation can land on a standalone detail without registering
+      // a drawer. Only an intentional DetailLink or history restore may carry
+      // an unrelated retained stack into the next route.
+      historyTargetPathRef.current = null;
+      setLayers((current) =>
+        current.some((layer) => layer.matchPath === pathname && !layer.closing)
+          ? current
+          : closeAllDetailLayers(current),
+      );
+    }
+  }, [pathname]);
+
   const saveCurrentStack = useCallback(() => {
     if (historyTraversalRef.current) return;
     const browserPath = window.location.pathname;
     const path = studioPathname(browserPath);
-    const target = layers.find((layer) => layer.matchPath === path);
+    const targetIndex = layers.findLastIndex(
+      (layer) => layer.matchPath === path,
+    );
+    const target = layers[targetIndex];
     if (target?.closing) return;
     const isList = detailBasePathsFor(path).includes(path);
     if (!target && !isList && layers.length > 0) return;
@@ -107,6 +136,9 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
           layers: isList
             ? []
             : layers
+                // A child can register before its URL commits. It belongs to
+                // the next entry, never the still-current ancestor's snapshot.
+                .slice(0, targetIndex + 1)
                 .filter((layer) => !layer.closing)
                 .map((layer) => ({ ...layer, splitOpen: false })),
         },
@@ -143,7 +175,21 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     (registration: DetailLayerRegistration) => {
       clearTimer(`remove:${registration.id}`);
-      setLayers((current) => registerDetailLayer(current, registration));
+      setLayers((current) => {
+        const existing = current.find((layer) => layer.id === registration.id);
+        const registered = registerDetailLayer(current, registration);
+        const target = historyTargetPathRef.current;
+        // A retained Next tree can register its departing child after popstate.
+        // It must not revive that child above the restored history target,
+        // including after its exit timer has removed the previous layer.
+        return existing?.closing !== false &&
+          target !== null &&
+          target === studioPathname(window.location.pathname) &&
+          !detailBasePathsFor(target).includes(target) &&
+          registration.matchPath !== target
+          ? setDetailLayerClosing(registered, registration.id, true)
+          : registered;
+      });
 
       return () => {
         clearTimer(`remove:${registration.id}`);
@@ -164,7 +210,19 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reopen = useCallback((id: string) => {
-    setLayers((current) => setDetailLayerClosing(current, id, false));
+    setLayers((current) => {
+      const target = historyTargetPathRef.current;
+      const layer = current.find((candidate) => candidate.id === id);
+      if (
+        layer?.closing &&
+        target !== null &&
+        target === studioPathname(window.location.pathname) &&
+        !detailBasePathsFor(target).includes(target) &&
+        layer.matchPath !== target
+      )
+        return current;
+      return setDetailLayerClosing(current, id, false);
+    });
   }, []);
 
   const expand = useCallback((id: string) => {
@@ -226,10 +284,10 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       const target = layers.find((layer) => layer.id === id);
       if (!target) return;
-      // A retained surface can become topmost before Next commits its route.
-      // Closing against the old pathname would finish traversal immediately,
-      // then let the pending navigation open the supposedly dismissed drawer.
-      if (pathname !== target.matchPath) {
+      // Browser history owns the URL used by the traversal below. Next's cached
+      // pathname can still describe a retained ancestor after a cyclic Back.
+      // Defer only when the browser itself has not reached this drawer yet.
+      if (studioPathname(window.location.pathname) !== target.matchPath) {
         pendingCloseRef.current = id;
         return;
       }
@@ -247,7 +305,6 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       beginClose,
       layers,
       navigateBackUntil,
-      pathname,
       saveCurrentStack,
       scheduleNavigation,
       searchParams,
@@ -256,9 +313,14 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const id = pendingCloseRef.current;
+    const browserPath = studioPathname(window.location.pathname);
     if (
       id &&
-      layers.some((layer) => layer.id === id && layer.matchPath === pathname)
+      layers.some(
+        (layer) =>
+          layer.id === id &&
+          (layer.matchPath === pathname || layer.matchPath === browserPath),
+      )
     ) {
       pendingCloseRef.current = null;
       closeTop(id);
@@ -318,8 +380,24 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
   const prepareNavigation = useCallback(
     (href: string) => {
       cancelPendingNavigation();
+      historyTargetPathRef.current = null;
       saveCurrentStack();
       const pathname = studioPathname(href.split("?", 1)[0] ?? href);
+      historyTargetPathRef.current = pathname;
+      if (
+        new URL(href, window.location.href).searchParams.get("detailView") !==
+        "expanded"
+      ) {
+        // A fresh visit starts in drawer mode. The previous occurrence keeps
+        // its expansion in its own saved history snapshot.
+        setLayers((current) =>
+          current.map((layer) =>
+            layer.matchPath === pathname
+              ? { ...layer, expanded: false }
+              : layer,
+          ),
+        );
+      }
       // Exiting layers remain mounted for their animation. Revisiting one is
       // a new child navigation, not a jump to a retained ancestor.
       if (
@@ -329,7 +407,6 @@ export function DetailStackProvider({ children }: { children: ReactNode }) {
       // A link to a retained ancestor is a regular navigation, just like a
       // new entity link. Close its descendants before parallel slots update;
       // the requested query and browser Back/Forward entries stay intact.
-      historyTargetPathRef.current = pathname;
       setLayers((current) =>
         syncDetailLayersToHistoryPath(
           current,

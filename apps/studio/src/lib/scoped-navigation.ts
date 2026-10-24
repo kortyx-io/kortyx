@@ -3,21 +3,30 @@
 import {
   usePathname as useNextPathname,
   useRouter as useNextRouter,
+  useSearchParams as useNextSearchParams,
 } from "next/navigation";
 import { useQueryStates } from "nuqs";
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { useStudioRouteScope } from "@/components/studio-route-provider";
+import { StudioQueryContext } from "./studio-query-context";
 import { studioHref, studioPathname } from "./studio-routing";
 
 export {
   useParams,
-  useSearchParams,
   useSelectedLayoutSegment,
   useSelectedLayoutSegments,
 } from "next/navigation";
 
 export function usePathname() {
+  // A retained route's loading/detail payload still owns its original path.
+  // Only query state is shared: using the current child path here can register
+  // a departing loading screen as a different entity during history restore.
   return studioPathname(useNextPathname());
+}
+export function useSearchParams() {
+  const liveQuery = useContext(StudioQueryContext);
+  const searchParams = useNextSearchParams();
+  return liveQuery?.searchParams ?? searchParams;
 }
 export function useRouter() {
   const router = useNextRouter();

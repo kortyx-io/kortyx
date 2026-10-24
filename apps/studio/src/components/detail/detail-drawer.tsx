@@ -15,12 +15,18 @@ import {
 } from "react";
 import { DETAIL_MOTION_DURATION_MS } from "@/components/detail/detail-motion";
 import { useDetailSlotMotion } from "@/components/detail/detail-slot-presence";
-import { useDetailStackLayer } from "@/components/detail/detail-stack";
+import {
+  useDetailStackLayer,
+  useRetainedDetailLayers,
+} from "@/components/detail/detail-stack";
 import { Button } from "@/components/ui/button";
 import { OverflowText } from "@/components/ui/overflow-tooltip";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
+import { usePathname } from "@/lib/scoped-navigation";
+import { StudioQueryContext } from "@/lib/studio-query-context";
+import { studioPathname } from "@/lib/studio-routing";
 import { cn } from "@/lib/utils";
 
 type DetailDrawerContextValue = {
@@ -61,6 +67,7 @@ const detailViewParsers = {
 };
 
 type DetailDrawerRegistration = {
+  slotKey: string;
   customHeader?: boolean;
   children: ReactNode;
   description: string;
@@ -85,7 +92,16 @@ const DetailDrawerHostContext =
 export const useDetailDrawer = () => useContext(DetailDrawerContext);
 
 export function DetailDrawerHost({ children }: { children: ReactNode }) {
+  const routePathname = usePathname();
+  const liveQuery = useContext(StudioQueryContext);
+  // The host owns visibility across retained routes. Its browser destination
+  // must stay live even when Next retains an ancestor's pathname context.
+  // Individual loading/detail payloads still use their route-owned pathname.
+  const pathname = liveQuery?.pathname
+    ? studioPathname(liveQuery.pathname)
+    : routePathname;
   const [drawers, setDrawers] = useState<HostedDetailDrawer[]>([]);
+  const layers = useRetainedDetailLayers();
   const registrationCountsRef = useRef(new Map<string, number>());
   const timersRef = useRef(new Map<string, number>());
 
@@ -104,7 +120,6 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
         (registrationCountsRef.current.get(id) ?? 0) + 1,
       );
       clearTimer(`deactivate:${id}`);
-      clearTimer(`remove:${id}`);
       setDrawers((current) => {
         const existing = current.find(
           (candidate) => candidate.matchPath === id,
@@ -138,14 +153,6 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
                 : candidate,
             ),
           );
-          const removeTimer = window.setTimeout(() => {
-            timersRef.current.delete(`remove:${id}`);
-            if ((registrationCountsRef.current.get(id) ?? 0) > 0) return;
-            setDrawers((current) =>
-              current.filter((candidate) => candidate.matchPath !== id),
-            );
-          }, DETAIL_MOTION_DURATION_MS);
-          timersRef.current.set(`remove:${id}`, removeTimer);
         }, 0);
         timersRef.current.set(`deactivate:${id}`, deactivateTimer);
       };
@@ -165,15 +172,56 @@ export function DetailDrawerHost({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(() => ({ register }), [register]);
+  const slotsByPath = new Map(
+    drawers.map((drawer) => [drawer.matchPath, drawer.slotKey]),
+  );
 
   return (
     <DetailDrawerHostContext.Provider value={value}>
       {children}
-      {drawers.map((drawer) => (
-        <DetailDrawerSurface key={drawer.matchPath} {...drawer} />
-      ))}
+      {drawers.map((drawer) => {
+        const layer = layers.find((layer) => layer.id === drawer.matchPath);
+        const retained =
+          layers.findLast(
+            (layer) =>
+              slotsByPath.get(layer.id) === drawer.slotKey && !layer.closing,
+          )?.id === drawer.matchPath;
+        // Next can discard a parallel slot while an ancestor is covered, or
+        // restore an empty slot on Forward. Keep its last server payload for
+        // this workspace's history, but mount it only while present or exiting.
+        return (
+          <RetainedDetailDrawer
+            key={drawer.matchPath}
+            {...drawer}
+            active={
+              retained ||
+              (drawer.active &&
+                !layer?.closing &&
+                pathname === drawer.matchPath)
+            }
+          />
+        );
+      })}
     </DetailDrawerHostContext.Provider>
   );
+}
+
+function RetainedDetailDrawer(drawer: HostedDetailDrawer) {
+  const [mounted, setMounted] = useState(drawer.active);
+  useEffect(() => {
+    if (drawer.active) {
+      setMounted(true);
+      return;
+    }
+    // A history-restored payload has no live route registration to trigger
+    // cleanup. Give it the same exit motion as a route-owned surface.
+    const timer = window.setTimeout(
+      () => setMounted(false),
+      DETAIL_MOTION_DURATION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [drawer.active]);
+  return drawer.active || mounted ? <DetailDrawerSurface {...drawer} /> : null;
 }
 
 export function DetailSurfaceProvider({ children }: { children: ReactNode }) {
@@ -227,6 +275,7 @@ export function DetailDrawer({
         dismissPath,
         markSlotEntered: slotMotion.markEntered,
         matchPath,
+        slotKey: slotMotion.slotKey ?? dismissPath,
         slotEntered: slotMotion.entered,
         title,
       }),
@@ -239,6 +288,7 @@ export function DetailDrawer({
       matchPath,
       slotMotion.entered,
       slotMotion.markEntered,
+      slotMotion.slotKey,
       title,
     ],
   );
@@ -258,6 +308,7 @@ function DetailDrawerSurface({
   markSlotEntered,
 }: HostedDetailDrawer) {
   const { state, isMobile } = useSidebar();
+  const pathname = usePathname();
   const [{ detailView }, setDetailView] = useStudioQueryStates(
     detailViewParsers,
     { shallow: true },
@@ -269,7 +320,10 @@ function DetailDrawerSurface({
     id: matchPath,
     matchPath,
   });
-  const expandedRequested = detailView === "expanded" && layer.isTop;
+  // Closing a child makes its parent topmost before the child's URL leaves.
+  // That query belongs to the child and must never expand the retained parent.
+  const expandedRequested =
+    detailView === "expanded" && layer.isTop && pathname === matchPath;
   const expanded = expandedRequested || layer.expanded;
   const expandedView = expanded && !isMobile;
   // History and retained-ancestor links reopen layers in the shared stack.
@@ -325,8 +379,14 @@ function DetailDrawerSurface({
   ]);
 
   useEffect(() => {
-    if (expandedRequested) layer.expand();
-  }, [expandedRequested, layer.expand]);
+    if (
+      expandedRequested &&
+      studioPathname(window.location.pathname) === matchPath &&
+      new URLSearchParams(window.location.search).get("detailView") ===
+        "expanded"
+    )
+      layer.expand();
+  }, [expandedRequested, layer.expand, matchPath]);
 
   useEffect(() => {
     layer.setSplitOpen(nestedInspector.nestedOpen);
@@ -386,7 +446,7 @@ function DetailDrawerSurface({
     <>
       <section
         data-detail-drawer={matchPath}
-        data-entry-motion={slotEntered ? "preserve" : "enter"}
+        data-entry-motion={entered ? "preserve" : "enter"}
         data-state={closing ? "closed" : "open"}
         role="dialog"
         aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}

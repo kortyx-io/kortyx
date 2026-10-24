@@ -4,15 +4,21 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { studioPathname } from "@/lib/studio-routing";
 import { DETAIL_MOTION_DURATION_MS } from "./detail-motion";
-import { DetailStackProvider, useDetailStackLayer } from "./detail-stack";
+import {
+  DetailStackProvider,
+  useDetailStackLayer,
+  usePrepareDetailNavigation,
+} from "./detail-stack";
 
 vi.mock("@/components/ui/sidebar", () => ({
   useSidebar: () => ({ isMobile: false }),
 }));
 const router = { push: vi.fn() };
 const params = new URLSearchParams();
+const navigation = vi.hoisted(() => ({ pathname: null as string | null }));
 vi.mock("@/lib/scoped-navigation", () => ({
-  usePathname: () => studioPathname(window.location.pathname),
+  usePathname: () =>
+    navigation.pathname ?? studioPathname(window.location.pathname),
   useRouter: () => router,
   useSearchParams: () => params,
 }));
@@ -21,7 +27,9 @@ const scope = "/projects/prj_0123456789abcdef01234567";
 const parent = "/prompts/parent";
 const child = "/prompts/child";
 const controls = new Map<string, ReturnType<typeof useDetailStackLayer>>();
+let prepareNavigation: ReturnType<typeof usePrepareDetailNavigation>;
 function Layer({ path }: { path: string }) {
+  prepareNavigation = usePrepareDetailNavigation();
   controls.set(
     path,
     useDetailStackLayer({ id: path, matchPath: path, dismissPath: "/prompts" }),
@@ -30,6 +38,7 @@ function Layer({ path }: { path: string }) {
 }
 let root: Root;
 beforeEach(() => {
+  navigation.pathname = null;
   vi.useFakeTimers();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   root = createRoot(document.createElement("div"));
@@ -63,6 +72,97 @@ async function finishMotion() {
 }
 
 describe.each(["", scope])("drawer history under %s", (prefix) => {
+  it("keeps a removed child closed when a retained route registers it after history restoration", async () => {
+    window.history.replaceState({}, "", `${prefix}${parent}`);
+    await render([parent]);
+    const saved = window.history.state;
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    await render([parent, child]);
+    await act(() => {
+      window.history.replaceState(saved, "", `${prefix}${parent}`);
+      window.dispatchEvent(new PopStateEvent("popstate", { state: saved }));
+    });
+    await render([parent]);
+    await finishMotion();
+    await render([parent, child]);
+    await act(() => controls.get(child)?.reopen());
+    expect(controls.get(child)?.closing).toBe(true);
+    expect(controls.get(parent)?.isTop).toBe(true);
+    await act(() => prepareNavigation?.(child));
+    await act(() => controls.get(child)?.reopen());
+    expect(controls.get(child)?.closing).toBe(false);
+  });
+
+  it("keeps a late departing registration closed until an intentional new navigation", async () => {
+    window.history.replaceState({}, "", `${prefix}${parent}`);
+    await render([parent]);
+    const saved = window.history.state;
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    await render([parent, child]);
+    await act(() => {
+      window.history.replaceState(saved, "", `${prefix}${parent}`);
+      window.dispatchEvent(new PopStateEvent("popstate", { state: saved }));
+    });
+    await render([parent]);
+    await render([parent, child]);
+    await act(() => controls.get(child)?.reopen());
+    expect(controls.get(child)?.closing).toBe(true);
+    expect(controls.get(parent)?.isTop).toBe(true);
+    await act(() => controls.get(child)?.expand());
+    await act(() => prepareNavigation?.(child));
+    expect(controls.get(child)?.expanded).toBe(false);
+    await act(() => controls.get(child)?.reopen());
+    expect(controls.get(child)?.closing).toBe(false);
+  });
+
+  it("does not save an early child registration into the ancestor's history entry", async () => {
+    window.history.replaceState({}, "", `${prefix}${parent}`);
+    navigation.pathname = parent;
+    await render([parent, child]);
+    expect(
+      window.history.state.__kortyxDetailStack.layers.map(
+        (layer: { id: string }) => layer.id,
+      ),
+    ).toEqual([parent]);
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    navigation.pathname = child;
+    await render([parent, child]);
+    expect(
+      window.history.state.__kortyxDetailStack.layers.map(
+        (layer: { id: string }) => layer.id,
+      ),
+    ).toEqual([parent, child]);
+  });
+
+  it("closes the browser's active drawer while the framework still reports its retained ancestor", async () => {
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    navigation.pathname = parent;
+    await render([parent, child]);
+    const back = backTo(`${prefix}${parent}`);
+    await act(() => controls.get(child)!.closeTop());
+    expect(controls.get(child)!.closing).toBe(true);
+    await finishMotion();
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe(`${prefix}${parent}`);
+  });
+
+  it("defers an early close until the browser reaches the newly shown drawer", async () => {
+    window.history.replaceState({}, "", `${prefix}${parent}`);
+    navigation.pathname = parent;
+    await render([parent, child]);
+    const back = backTo(`${prefix}${parent}`);
+    await act(() => controls.get(child)!.closeTop());
+    await finishMotion();
+    expect(back).not.toHaveBeenCalled();
+    expect(controls.get(child)!.closing).toBe(false);
+    window.history.replaceState({}, "", `${prefix}${child}`);
+    navigation.pathname = child;
+    await render([parent, child]);
+    await finishMotion();
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(window.location.pathname).toBe(`${prefix}${parent}`);
+  });
+
   it("closes to the list and reopens the same detail", async () => {
     window.history.replaceState({}, "", `${prefix}${child}`);
     await render([child]);

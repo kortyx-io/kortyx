@@ -5,7 +5,9 @@ import { DetailPage } from "@/components/detail/detail-page";
 import { studioRouteId } from "@/lib/studio-routes";
 import { readEvalCase, readEvalDetail, readEvalTargets } from "../api/server";
 import { evalCaseHref, evalSuiteHref } from "../lib/navigation";
+import type { EvalDetail } from "../schema";
 import { EvalJudgeInstructionsReader } from "./eval-judge-instructions-reader";
+import { EvalSavedJudgeInstructionsReader } from "./eval-saved-judge-instructions-reader";
 
 export async function EvalJudgeInstructionsPage({
   params,
@@ -24,6 +26,8 @@ export async function EvalJudgeInstructionsPage({
   let judge: EvalJudgeIdentity | null | undefined;
   let context: string;
   let backHref: string;
+  let savedRun: EvalDetail | undefined;
+  let selection: { caseId: string; repetition: number } | undefined;
   if (source === "target") {
     const targets = await readEvalTargets();
     const target = targets.targets.find((item) => item.id === id);
@@ -52,9 +56,8 @@ export async function EvalJudgeInstructionsPage({
     const { run } = caseId
       ? await readEvalCase(id, caseId, repetition)
       : await readEvalDetail(id);
-    // Only execution evidence can establish the instructions used. The request
-    // or today's configured judge may differ from the judge that graded it.
-    judge = run.result?.judge;
+    savedRun = run;
+    selection = caseId ? { caseId, repetition } : undefined;
     context = `${run.suite.name ?? run.suiteId} · Saved execution`;
     backHref = caseId ? evalCaseHref(id, caseId, repetition) : "/evals/runs";
   } else notFound();
@@ -69,7 +72,14 @@ export async function EvalJudgeInstructionsPage({
     ),
   );
   if (backQuery.size) backHref += `?${backQuery}`;
-  const content = (
+  const content = savedRun ? (
+    <EvalSavedJudgeInstructionsReader
+      run={savedRun}
+      selection={selection}
+      context={context}
+      backHref={backHref}
+    />
+  ) : (
     <EvalJudgeInstructionsReader
       judge={judge ?? undefined}
       context={context}

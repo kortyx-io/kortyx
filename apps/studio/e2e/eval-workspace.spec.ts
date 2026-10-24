@@ -53,6 +53,18 @@ test("keeps suite context, previews its table facts, and opens conversation evid
     page.locator(`[data-eval-run-id="${sample.evalRunId}"]`),
   ).toBeVisible();
   await expect(page.locator("[data-row-key]")).toHaveCount(3);
+  await expect(
+    page
+      .locator('[data-column="case"]')
+      .filter({ hasText: sample.caseId })
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Evaluation suites" })
+      .locator('[data-status="passed"]')
+      .first(),
+  ).toBeVisible();
   expect(await table?.evaluate((element) => element.isConnected)).toBe(true);
   await expect(
     page
@@ -89,7 +101,7 @@ test("keeps suite context, previews its table facts, and opens conversation evid
     drawer.getByRole("button", { name: "Repetition", exact: true }),
   ).toContainText("Repetition 1");
   await expect(
-    drawer.getByRole("button", { name: "See more stats", exact: true }),
+    drawer.getByRole("button", { name: /See (more|less) stats/, exact: true }),
   ).toBeVisible();
   await expect(
     drawer.getByText("Agent answer", { exact: true }).first(),
@@ -108,9 +120,12 @@ test("keeps suite context, previews its table facts, and opens conversation evid
   ).toBeVisible();
   expect(fullReads).toBe(0);
   await expect(page.locator('[data-page-help="tabs"]')).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "Suite details", exact: true })
-    .click();
+  await expect(
+    page.getByRole("button", { name: "Suite details", exact: true }),
+  ).toHaveCount(0);
+  const detailsUrl = new URL(page.url());
+  detailsUrl.searchParams.set("evalTab", "definition");
+  await page.goto(detailsUrl.toString());
   const details = page.getByRole("dialog", {
     name: "Suite details",
     exact: true,
@@ -253,7 +268,7 @@ test("keeps suite navigation and conversation drawers usable on a narrow screen"
     drawer.getByRole("button", { name: "Repetition", exact: true }),
   ).toBeVisible();
   await expect(
-    drawer.getByRole("button", { name: "See more stats", exact: true }),
+    drawer.getByRole("button", { name: /See (more|less) stats/, exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("mobile-drawer.png"),
@@ -451,4 +466,63 @@ test("shared headers use available width before truncating a label", async ({
       title.evaluate((element) => element.scrollWidth - element.clientWidth),
     )
     .toBeLessThanOrEqual(1);
+});
+
+test("inline conversation tables keep a flush filter panel and native full-text titles", async ({
+  page,
+}) => {
+  await page.goto(
+    `/sample/evals/evaluations/${sample.evaluationId}?suiteRun=${sample.evalRunId}`,
+  );
+  const table = page
+    .locator('[data-table-controls="evaluation-conversations"]')
+    .locator("..");
+  await table.getByRole("button", { name: "Filters", exact: true }).click();
+  const panel = page.getByRole("complementary", {
+    name: "Filters",
+    exact: true,
+  });
+  await expect(panel).toBeVisible();
+  expect(
+    await panel.evaluate((el) => getComputedStyle(el).borderTopRightRadius),
+  ).toBe("0px");
+  expect(
+    await panel.evaluate((el) => getComputedStyle(el).borderLeftWidth),
+  ).toBe("0px");
+  await panel
+    .getByRole("button", { name: "Close filters", exact: true })
+    .click();
+  const cell = page.locator('[data-row-key] td[data-column="case"]').first();
+  await cell.hover();
+  await expect(cell).toHaveAttribute("title", /Shipment status/);
+  await expect(cell).toContainText(sample.caseId);
+  const suiteCell = page
+    .locator('[data-row-key] td[data-column="suite"]')
+    .first();
+  await expect(suiteCell).toHaveAttribute("title", /Support quality/);
+  await expect(
+    page.getByRole("button", { name: "Suite details", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("evaluation metrics remain visible without horizontal scrolling on narrow screens", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await page.goto(evaluationPath);
+  const metrics = page.locator('[data-tour-surface="evaluation-metrics"]');
+  await expect(metrics).toContainText("Execution settings");
+  expect(
+    await metrics.evaluate(
+      (element) => element.scrollWidth - element.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+  const bounds = await metrics.boundingBox();
+  if (!bounds) throw new Error("Missing evaluation metrics");
+  for (const metric of await metrics.locator(":scope > div").all()) {
+    const box = await metric.boundingBox();
+    if (!box) throw new Error("Missing metric");
+    expect(box.x).toBeGreaterThanOrEqual(bounds.x);
+    expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
+  }
 });

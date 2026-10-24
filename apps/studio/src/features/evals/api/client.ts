@@ -14,6 +14,7 @@ function overrideFacts(body: unknown) {
   return {
     settings_override: [
       "caseTimeoutMs",
+      "gradingTimeoutMs",
       "runTimeoutMs",
       "concurrency",
       "repetitions",

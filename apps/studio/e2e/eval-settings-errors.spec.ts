@@ -143,6 +143,9 @@ test("saves project defaults and submits only settings explicitly changed for a 
       .getByLabel("Concurrent attempts across suites", { exact: true })
       .fill("2");
     await page
+      .getByLabel("Grading timeout (seconds)", { exact: true })
+      .fill("120");
+    await page
       .getByRole("button", { name: "Save evaluation defaults" })
       .click();
     await expect(
@@ -165,6 +168,9 @@ test("saves project defaults and submits only settings explicitly changed for a 
     await expect(
       page.getByLabel("Concurrent attempts across suites", { exact: true }),
     ).toHaveValue("2");
+    await expect(
+      page.getByLabel("Grading timeout (seconds)", { exact: true }),
+    ).toHaveValue("120");
     await page
       .getByRole("dialog")
       .getByText("Execution settings", { exact: true })
@@ -172,6 +178,9 @@ test("saves project defaults and submits only settings explicitly changed for a 
     await page
       .getByLabel("Evaluation timeout (minutes)", { exact: true })
       .fill("90");
+    await page
+      .getByLabel("Grading timeout (seconds)", { exact: true })
+      .fill("180");
     await capture(page, "run-setting-overrides");
     let submitted: Record<string, unknown> | undefined;
     await page.route("**/api/studio/evals/evaluations", async (route) => {
@@ -187,6 +196,7 @@ test("saves project defaults and submits only settings explicitly changed for a 
       .getByRole("button", { name: "Run evaluations", exact: true })
       .click();
     await expect.poll(() => submitted?.runTimeoutMs).toBe(5_400_000);
+    expect(submitted?.gradingTimeoutMs).toBe(180_000);
     expect(submitted).not.toHaveProperty("concurrency");
     expect(submitted).not.toHaveProperty("repetitions");
     expect(submitted).not.toHaveProperty("caseTimeoutMs");

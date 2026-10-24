@@ -158,13 +158,20 @@ export function EvaluationComparison({
               })
             }
           >
-            <span className="truncate">{row.name}</span>
+            <span className="line-clamp-2 whitespace-normal break-words">
+              {row.name}
+            </span>
           </DetailLink>
         </Button>
       ),
     },
     {
       key: "baseline",
+      sortValue: (row) =>
+        row.baseline.length
+          ? row.baseline.filter((item) => item.status === "passed").length /
+            row.baseline.length
+          : undefined,
       label: "Baseline",
       defaultWidth: 145,
       filter: columnFilter(
@@ -179,6 +186,11 @@ export function EvaluationComparison({
     },
     {
       key: "candidate",
+      sortValue: (row) =>
+        row.candidate.length
+          ? row.candidate.filter((item) => item.status === "passed").length /
+            row.candidate.length
+          : undefined,
       label: "Candidate",
       defaultWidth: 145,
       filter: columnFilter(
@@ -508,7 +520,7 @@ export function EvaluationComparison({
                 rowTone={(row) =>
                   row.change === "regressed" ? "danger" : undefined
                 }
-                className="rounded-none border-0 shadow-none"
+                variant="inline"
                 search={{
                   label: "Search comparison conversations",
                   placeholder: "Search suites or conversations…",

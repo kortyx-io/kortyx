@@ -8,6 +8,8 @@ import {
   verifyPromptSnapshot,
 } from "@kortyx/prompts";
 import {
+  PROMPT_TABLE_FILTER_FIELDS,
+  PROMPT_TABLE_SORT_KEYS,
   type PromptMutation,
   PromptMutationSchema,
   type PromptSelection,
@@ -29,7 +31,10 @@ import {
   telemetryEvents,
 } from "../schema";
 import { ensureProjectEnvironmentAllowed } from "./projects";
-import { promptFilterCondition } from "./prompt-table-filters";
+import {
+  promptFilterCondition,
+  promptFilterExpression,
+} from "./prompt-table-filters";
 
 export type PromptScope = { organizationId: string; projectId: string };
 const where = (
@@ -84,6 +89,8 @@ export async function listPrompts(
   scope: PromptScope,
   options: {
     search?: string;
+    sort?: string;
+    dir?: "asc" | "desc";
     tableFilters?: string;
     categoryId?: string | null;
     offset?: number;
@@ -106,12 +113,28 @@ export async function listPrompts(
       ? sql`(${promptAssets.name} ILIKE ${`%${options.search.replace(/[\\%_]/g, "\\$&")}%`} OR ${promptAssets.key} ILIKE ${`%${options.search.replace(/[\\%_]/g, "\\$&")}%`})`
       : undefined,
   );
+  const sortKey =
+    PROMPT_TABLE_SORT_KEYS.find((key) => key === options.sort) ?? "name";
+  const field = PROMPT_TABLE_FILTER_FIELDS.find(
+    (field) => field.key === sortKey,
+  )!;
+  const text = sql`(${promptFilterExpression(sortKey)} #>> '{}')`;
+  const expression =
+    field.kind === "number"
+      ? sql`nullif(${text}, '')::numeric`
+      : field.kind === "date"
+        ? sql`nullif(${text}, '')::timestamptz`
+        : sql`lower(${text})`;
+  const sortOrder =
+    options.dir === "desc"
+      ? sql`${expression} desc nulls last`
+      : sql`${expression} asc nulls last`;
   const [assets, categories, groups, assignments, count] = await Promise.all([
     db
       .select()
       .from(promptAssets)
       .where(criteria)
-      .orderBy(asc(promptAssets.name), asc(promptAssets.id))
+      .orderBy(sortOrder, asc(promptAssets.id))
       .offset(offset)
       .limit(limit),
     db

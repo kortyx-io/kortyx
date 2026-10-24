@@ -12,6 +12,7 @@ import {
   readStudioTableFilters,
   resolveStudioTimeRange,
   STUDIO_TABLE_FIELDS,
+  STUDIO_TABLE_SORT_FIELDS,
   StudioContextResponseSchema,
   type StudioTableResource,
   SAMPLE_PROJECT as sample,
@@ -33,6 +34,7 @@ function field(row: Row, key: string): TableFilterValue | TableFilterValue[] {
     duration: "durationMs",
     created: "createdAt",
     started: "startedAt",
+    activity: "lastActivityAt",
     name: "name",
   };
   if (key === "execution") return row.parentRunId ? "child" : "root";
@@ -51,7 +53,28 @@ function field(row: Row, key: string): TableFilterValue | TableFilterValue[] {
       failed: counts.failed ?? 0,
       error: counts.error ?? 0,
     }),
-    liveVersion: row.latestVersion,
+    liveVersion: Array.isArray(row.assignments)
+      ? row.assignments.find((a) => a.tag === "live")?.version
+      : undefined,
+    trigger: (row.metadata as Row | undefined)?.source,
+    judge: (row.judge as Row | undefined)?.id,
+    judgeVersion: (row.judge as Row | undefined)?.version,
+    cost:
+      ((row.costs as Row | undefined)?.total as Row | undefined)?.amount ??
+      row.cost,
+    queueMs:
+      row.startedAt && row.createdAt
+        ? Date.parse(String(row.startedAt)) - Date.parse(String(row.createdAt))
+        : null,
+    assignedVersions: Array.isArray(row.assignments)
+      ? row.assignments.map((a) => `${a.tag}@v${a.version}`)
+      : [],
+    versionsBehindLive:
+      Array.isArray(row.assignments) &&
+      row.assignments.some((a) => a.tag === "live")
+        ? Number(row.latestVersion) -
+          Number(row.assignments.find((a) => a.tag === "live")?.version)
+        : undefined,
     assignedTags: Array.isArray(row.assignments)
       ? row.assignments.map((assignment) => String(assignment.tag))
       : [],
@@ -114,10 +137,15 @@ function page<T extends Row>(
       )
     );
   });
-  const sort = query.sort ?? "startedAt";
+  const sortFields: Readonly<Record<string, string>> = resource
+    ? STUDIO_TABLE_SORT_FIELDS[resource]
+    : {};
+  const sort = sortFields[query.sort ?? ""] ?? query.sort ?? "startedAt";
   selected.sort((a, b) => {
     const av = field(a, sort),
       bv = field(b, sort);
+    if (av == null || av === "") return bv == null || bv === "" ? 0 : 1;
+    if (bv == null || bv === "") return -1;
     const order =
       typeof av === "number" && typeof bv === "number"
         ? av - bv

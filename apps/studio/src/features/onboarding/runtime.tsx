@@ -1,5 +1,6 @@
 "use client";
 
+import { parseAsInteger, parseAsStringLiteral } from "nuqs";
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import {
   EVENTS,
@@ -9,6 +10,7 @@ import {
   useJoyride,
 } from "react-joyride";
 import { Button } from "@/components/ui/button";
+import { useStudioQueryStates } from "@/lib/nuqs";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { useRouter } from "@/lib/scoped-navigation";
 import {
@@ -79,6 +81,16 @@ export function LearningRuntime(props: RuntimeProps) {
   const router = useRouter();
   const navigation = useRef(router);
   navigation.current = router;
+  const [, setPromptView] = useStudioQueryStates(
+    {
+      v: parseAsInteger,
+      compareWith: parseAsInteger,
+      detailView: parseAsStringLiteral(["drawer", "expanded"] as const),
+    },
+    { shallow: true, history: "replace" },
+  );
+  const promptNavigation = useRef(setPromptView);
+  promptNavigation.current = setPromptView;
   const pending = useRef(new Set<AbortController>());
   const ended = useRef(false);
   const started = useRef(false);
@@ -112,12 +124,26 @@ export function LearningRuntime(props: RuntimeProps) {
             if (
               window.location.pathname + window.location.search !==
               destination.pathname + destination.search
-            )
-              navigation.current.replace(href, {
-                scroll: false,
-                signal: controller.signal,
-                shallow: step.view.surface === "prompt",
-              });
+            ) {
+              if (
+                step.view.surface === "prompt" &&
+                window.location.pathname === destination.pathname
+              ) {
+                // These fields are owned by the prompt's nuqs subscribers.
+                // Notify them through the same update used by the prompt UI,
+                // rather than changing history behind their queued state.
+                await promptNavigation.current({
+                  v: step.view.version,
+                  compareWith:
+                    "compareWith" in step.view ? step.view.compareWith : null,
+                  detailView: "expanded",
+                });
+              } else
+                navigation.current.replace(href, {
+                  scroll: false,
+                  signal: controller.signal,
+                });
+            }
             try {
               await waitForTourTarget(
                 () => lessonTargetReady(target, destination),
@@ -209,19 +235,21 @@ export function LearningRuntime(props: RuntimeProps) {
     <RuntimeContext.Provider
       value={{ chapter: chapterId, mode, onExit, onPrevious }}
     >
-      {Tour}
-      {state.waiting && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="fixed right-4 bottom-4"
-          style={{ zIndex: OVERLAY_LAYERS.tour + 1 }}
-          data-studio-tour="true"
-          onClick={onExit}
-        >
-          Exit tour
-        </Button>
-      )}
+      <div data-studio-tour="true" className="contents">
+        {Tour}
+        {state.waiting && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="fixed right-4 bottom-4"
+            style={{ zIndex: OVERLAY_LAYERS.tour + 1 }}
+            data-studio-tour="true"
+            onClick={onExit}
+          >
+            Exit tour
+          </Button>
+        )}
+      </div>
     </RuntimeContext.Provider>
   );
 }

@@ -9,27 +9,42 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PromptMessagePreview } from "@/features/prompts/components/prompt-message-preview";
-import { judgeInstructionsDescription } from "../lib/judge-instructions";
+import {
+  judgeInstructionsDescription,
+  type RecordedJudgeRequest,
+} from "../lib/judge-instructions";
+import { EvalDropdown } from "./eval-dropdown";
 
 export function EvalJudgeInstructionsReader({
   judge,
   context,
   historical,
   backHref,
+  recordedRequests = [],
+  snapshotPending = false,
 }: {
   judge?: EvalJudgeIdentity;
   context: string;
   historical: boolean;
   backHref: string;
+  recordedRequests?: RecordedJudgeRequest[];
+  snapshotPending?: boolean;
 }) {
   const { presentation, navigation } = useDetailDrawer();
   const showHeader = presentation !== "drawer" || navigation?.expanded;
   const [search, setSearch] = useState("");
+  const [requestKey, setRequestKey] = useState("");
+  const recorded =
+    recordedRequests.find((item) => item.key === requestKey) ??
+    recordedRequests[0];
   const messages = judge?.prompt
     ? judge.prompt.content.messages
     : judge?.instructions
       ? [{ role: "system" as const, content: judge.instructions }]
-      : [];
+      : (recorded?.request.messages ?? []);
+  const showingRequest = Boolean(
+    !judge?.prompt && !judge?.instructions && recorded,
+  );
   const text = messages.map((message) => message.content).join("\n\n");
   const query = search.trim().toLocaleLowerCase();
   let matches = 0;
@@ -52,7 +67,15 @@ export function EvalJudgeInstructionsReader({
         {showHeader ? (
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon-sm" asChild>
-              <Link href={backHref} aria-label="Back to conversation">
+              <Link
+                href={backHref}
+                aria-label="Back to conversation"
+                onNavigate={(event) => {
+                  if (!navigation) return;
+                  event.preventDefault();
+                  navigation.close();
+                }}
+              >
                 <ArrowLeft />
               </Link>
             </Button>
@@ -72,11 +95,18 @@ export function EvalJudgeInstructionsReader({
             <Badge variant="secondary">
               {historical
                 ? text
-                  ? "Saved snapshot"
+                  ? showingRequest
+                    ? "Recorded grading request"
+                    : "Saved snapshot"
                   : "Saved judge"
                 : "Configured instructions"}
             </Badge>
           </div>
+        ) : null}
+        {!judge && showingRequest ? (
+          <Badge variant="secondary" className="self-start">
+            Recorded grading request
+          </Badge>
         ) : null}
         {judge?.prompt ? (
           <p className="break-all text-xs text-muted-foreground">
@@ -87,8 +117,41 @@ export function EvalJudgeInstructionsReader({
           </p>
         ) : null}
         <p className="text-xs leading-relaxed text-muted-foreground">
-          {judgeInstructionsDescription(historical)}
+          {showingRequest
+            ? `${snapshotPending ? "The final judge snapshot is not yet available." : "The judge snapshot is unavailable."} These are the exact messages saved for this grading call, including its criterion and evidence.`
+            : judgeInstructionsDescription(historical)}
         </p>
+        {showingRequest && recorded ? (
+          <div className="space-y-2">
+            {recordedRequests.length > 1 ? (
+              <EvalDropdown
+                label="Recorded grading request"
+                value={recorded.key}
+                options={recordedRequests.map((item) => ({
+                  value: item.key,
+                  label: `${item.caseId} · Attempt ${item.repetition} · Step ${item.stepIndex + 1} · Criterion ${item.criterionId}`,
+                  description: item.criterion,
+                }))}
+                onChange={setRequestKey}
+                className="w-full"
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {recorded.caseId} · Attempt {recorded.repetition} · Step{" "}
+                {recorded.stepIndex + 1} · Criterion {recorded.criterionId}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {recorded.criterion}
+            </p>
+            <p className="break-all font-mono text-xs text-muted-foreground">
+              {recorded.request.protocol}
+              {recorded.request.prompt
+                ? ` · ${recorded.request.prompt.id} · v${recorded.request.prompt.version}`
+                : ""}
+            </p>
+          </div>
+        ) : null}
         {text ? (
           <div className="flex items-center gap-2">
             <Input
@@ -116,7 +179,7 @@ export function EvalJudgeInstructionsReader({
             {messages.map((message, index) => (
               <PromptMessagePreview
                 key={`${index}:${message.role}`}
-                label={`${message.role[0]?.toUpperCase()}${message.role.slice(1)} Message${judge?.prompt?.content.format === "chat" ? ` ${index + 1}` : ""}`}
+                label={`${message.role[0]?.toUpperCase()}${message.role.slice(1)} Message${showingRequest || judge?.prompt?.content.format === "chat" ? ` ${index + 1}` : ""}`}
                 value={message.content}
                 search={search}
               />
@@ -125,7 +188,9 @@ export function EvalJudgeInstructionsReader({
         ) : (
           <p className="text-sm text-muted-foreground">
             {historical
-              ? "Instructions not recorded."
+              ? snapshotPending
+                ? "Judge snapshot is not yet available. No grading requests have been recorded yet."
+                : "Instructions not recorded."
               : "Instructions are not published by the configured judge."}
           </p>
         )}

@@ -5,6 +5,7 @@ import {
   type ListTablePreferences,
   parseListTablePreferences,
 } from "@/features/telemetry/lib/table-preferences";
+import { SessionSortKeySchema } from "../schema";
 
 export const SESSIONS_TABLE_PREFERENCES_COOKIE = "kortyx_sessions_table_prefs";
 export const DEFAULT_SESSIONS_TABLE_PREFERENCES: ListTablePreferences<
@@ -13,7 +14,7 @@ export const DEFAULT_SESSIONS_TABLE_PREFERENCES: ListTablePreferences<
 > = { sort: "activity", dir: "desc", pageSize: PAGE_SIZE, views: [] };
 export function parseSessionsTablePreferences(raw: string | undefined | null) {
   return parseListTablePreferences(raw, {
-    sortKeys: ["activity", "duration", "tokens", "cost", "runs", "status"],
+    sortKeys: SessionSortKeySchema.options,
     pageSizes: PAGE_SIZES,
     isViewQuery: (value): value is SessionsViewQuery =>
       Boolean(value && typeof value === "object"),

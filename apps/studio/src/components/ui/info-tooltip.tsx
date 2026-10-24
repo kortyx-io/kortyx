@@ -123,7 +123,10 @@ export function InfoTooltip({
         onPointerEnter={(event) => {
           if (disabled || event.pointerType !== "mouse") return;
           clearTimer();
-          timer.current = setTimeout(() => changeOpen(true), 180);
+          timer.current = setTimeout(
+            () => changeOpen(true),
+            trigger ? 1_000 : 200,
+          );
         }}
         onPointerLeave={leave}
         onPointerDown={(event) => {

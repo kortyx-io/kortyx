@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_EVAL_GRADING_TIMEOUT_MS } from "./grading-timeout";
 
 const timeout = z.number().int().min(1).max(2_147_483_647);
 export const EvalSettingsSchema = z
@@ -6,6 +7,7 @@ export const EvalSettingsSchema = z
     repetitions: z.number().int().min(1).max(20).optional(),
     concurrency: z.number().int().min(1).max(20).optional(),
     caseTimeoutMs: timeout.optional(),
+    gradingTimeoutMs: timeout.optional(),
     runTimeoutMs: timeout.optional(),
     judge: z.enum(["studio", "app"]).optional(),
   })
@@ -18,24 +20,42 @@ export const EvalExecutionSettingsSchema = z
       .object({
         concurrency: z.number().int().positive().max(20).optional(),
         caseTimeoutMs: timeout.optional(),
+        gradingTimeoutMs: timeout.optional(),
       })
       .strict(),
-    overrides: z.array(z.enum(["repetitions", "concurrency", "caseTimeoutMs"])),
-  })
-  .strict();
-export const ResolvedEvalSettingsSchema = z
-  .object({
-    values: EvalSettingsSchema.required(),
-    sources: z.record(
+    overrides: z.array(
       z.enum([
         "repetitions",
         "concurrency",
         "caseTimeoutMs",
-        "runTimeoutMs",
-        "judge",
+        "gradingTimeoutMs",
       ]),
-      z.enum(["run", "studio", "sdk", "sdk-default", "studio-default"]),
     ),
+  })
+  .strict();
+const settingSource = z.enum([
+  "run",
+  "studio",
+  "sdk",
+  "sdk-default",
+  "studio-default",
+]);
+export const ResolvedEvalSettingsSchema = z
+  .object({
+    values: EvalSettingsSchema.required().extend({
+      // Historical snapshots predate this setting and used the fixed Studio budget.
+      gradingTimeoutMs: timeout.default(DEFAULT_EVAL_GRADING_TIMEOUT_MS),
+    }),
+    sources: z
+      .object({
+        repetitions: settingSource,
+        concurrency: settingSource,
+        caseTimeoutMs: settingSource,
+        gradingTimeoutMs: settingSource.default("studio-default"),
+        runTimeoutMs: settingSource,
+        judge: settingSource,
+      })
+      .strict(),
   })
   .strict();
 export type ResolvedEvalSettings = z.infer<typeof ResolvedEvalSettingsSchema>;
@@ -75,6 +95,7 @@ export function resolveEvalSettings(
     repetitions: 1,
     concurrency: 1,
     caseTimeoutMs: 60_000,
+    gradingTimeoutMs: DEFAULT_EVAL_GRADING_TIMEOUT_MS,
     runTimeoutMs: 30 * 60_000,
     judge: "studio",
   };
@@ -82,6 +103,7 @@ export function resolveEvalSettings(
     repetitions: "sdk-default",
     concurrency: "sdk-default",
     caseTimeoutMs: "sdk-default",
+    gradingTimeoutMs: "sdk-default",
     runTimeoutMs: "studio-default",
     judge: "studio-default",
   };
@@ -103,7 +125,11 @@ export function resolveEvalSettings(
     throw new Error(
       `Evaluation timeout exceeds the administrator maximum of ${maxRunTimeoutMs} ms.`,
     );
-  for (const key of ["concurrency", "caseTimeoutMs"] as const) {
+  for (const key of [
+    "concurrency",
+    "caseTimeoutMs",
+    "gradingTimeoutMs",
+  ] as const) {
     const max = execution?.limits[key];
     if (max !== undefined && values[key] > max)
       throw new Error(`${key} exceeds the application maximum of ${max}.`);
@@ -117,6 +143,16 @@ export function resolveEvalSettings(
   )
     throw new Error(
       "Update the consumer SDK to support case timeout overrides.",
+    );
+  if (
+    values.judge === "app" &&
+    !execution?.overrides.includes("gradingTimeoutMs") &&
+    [overrides, studio, installation].some(
+      (input) => input.gradingTimeoutMs !== undefined,
+    )
+  )
+    throw new Error(
+      "Update the consumer SDK to support App grading timeout overrides.",
     );
   return { values, sources };
 }

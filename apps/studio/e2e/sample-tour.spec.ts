@@ -82,20 +82,49 @@ test("full tour completes all six chapters and shows the optional library", asyn
     .getByRole("button", { name: "Take the full tour", exact: true })
     .click();
   const chapters = [
-    ["Explore a sample project", 3],
-    ["Narrow the investigation", 4],
-    ["A session spans several turns", 4],
-    ["Read the recorded decision", 3],
-    ["Read a saved version", 3],
-    ["Start with the expectation", 4],
+    [
+      "Explore a sample project",
+      "Find an execution",
+      "Understand the execution",
+    ],
+    [
+      "Narrow the investigation",
+      "Start with the failure",
+      "Find the failed step",
+      "Inspect the model operation",
+    ],
+    [
+      "A session spans several turns",
+      "Inspect each run separately",
+      "Follow the observed calls",
+      "Read workflow connections",
+    ],
+    [
+      "Read the recorded decision",
+      "Follow the approval lifecycle",
+      "Check what happened afterwards",
+    ],
+    [
+      "Read a saved version",
+      "Inspect the updated instruction",
+      "Review the actual change",
+    ],
+    [
+      "Start with the expectation",
+      "Read the saved result",
+      "Inspect the grading evidence",
+      "Understand what improved",
+    ],
   ] as const;
-  for (const [index, [title, count]] of chapters.entries()) {
-    await expectStep(page, title);
+  for (const [index, titles] of chapters.entries()) {
+    await expectStep(page, titles[0]);
     await expect(tooltip(page)).toContainText(`Chapter ${index + 1} of 6`);
-    for (let step = 1; step < count; step++)
+    for (const title of titles.slice(1)) {
       await tooltip(page)
         .getByRole("button", { name: "Next", exact: true })
         .click();
+      await expectStep(page, title);
+    }
     await tooltip(page)
       .getByRole("button", { name: "Done", exact: true })
       .click();

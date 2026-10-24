@@ -2,6 +2,7 @@ import {
   filterOperators,
   readStudioTableFilters,
   STUDIO_TABLE_FIELDS,
+  STUDIO_TABLE_SORT_FIELDS,
   type StudioTableResource,
   type TableFilterDefinition,
   type TableFilters,
@@ -76,6 +77,26 @@ export function studioFilterExpression(
   }
   return sql`${table.data} -> ${field}`;
 }
+/** A fixed allowlist supplies expressions; query text never becomes SQL syntax. */
+export function studioSortExpression(
+  resource: StudioTableResource,
+  key?: string,
+): SQL | undefined {
+  const fields: Readonly<Record<string, string>> =
+    STUDIO_TABLE_SORT_FIELDS[resource];
+  const field = key && Object.hasOwn(fields, key) ? fields[key] : undefined;
+  if (!field) return undefined;
+  const kind = STUDIO_TABLE_FIELDS[resource].find(
+    (item) => item.key === field,
+  )?.kind;
+  const text = sql`(${studioFilterExpression(resource, field)} #>> '{}')`;
+  return kind === "number"
+    ? sql`nullif(${text}, '')::numeric`
+    : kind === "date"
+      ? sql`nullif(${text}, '')::timestamptz`
+      : sql`lower(${text})`;
+}
+
 export function jsonFilterCondition(
   filters: TableFilters,
   definitions: readonly TableFilterDefinition[],

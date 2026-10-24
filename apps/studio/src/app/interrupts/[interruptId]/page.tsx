@@ -22,7 +22,7 @@ export default async function InterruptDetailPage({
       title="Interrupt details"
       description="Inspect the decision and resume audit trail"
     >
-      <InterruptDetail detail={result.data} />
+      <InterruptDetail detail={result.data} initialNow={Date.now()} />
     </DetailPage>
   );
 }

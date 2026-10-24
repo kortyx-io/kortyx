@@ -28,6 +28,19 @@ test.describe("Payload viewer controls and overlay layering", () => {
         details.getByText(label, { exact: true }).locator(".."),
       ).toContainText(value);
     }
+    const selectedUrl = page.url();
+    await details
+      .getByRole("button", { name: "Close event details", exact: true })
+      .click();
+    await expect(page).toHaveURL((url) => !url.searchParams.has("event"));
+    await expect(inspector(page)).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(selectedUrl);
+    await expect(inspector(page)).toBeVisible();
+    await page.goForward();
+    await expect(inspector(page)).toHaveCount(0);
+    await page.goBack();
+    await expect(inspector(page)).toBeVisible();
   });
   test("supports every representation and toolbar state on a light full-page detail", async ({
     page,
@@ -175,6 +188,9 @@ async function openGenerationEventInspector(page: Page) {
   await expect(detailDrawer(page, runPath)).toHaveAttribute(
     "data-state",
     "open",
+    // This helper can be the first request for the intercepted Run route in
+    // a development-server shard; let its cold compilation finish.
+    { timeout: 16_000 },
   );
 
   await page.getByRole("button", { name: /^Events \d+$/ }).click();

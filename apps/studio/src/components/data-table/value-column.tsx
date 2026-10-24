@@ -34,7 +34,7 @@ export function valueColumn<T, S extends string = never>({
         .join(", ");
       return (
         <span
-          className="block truncate text-xs text-muted-foreground"
+          className="line-clamp-2 whitespace-normal break-words text-xs text-muted-foreground"
           title={text || undefined}
         >
           {text || "—"}

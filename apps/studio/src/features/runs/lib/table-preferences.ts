@@ -5,17 +5,12 @@ import {
   sanitizeRunsSavedViews,
 } from "@/features/runs/lib/saved-views";
 import type { SortKey } from "@/features/runs/schema";
+import { RunSortKeySchema } from "../schema";
 
 export const RUNS_TABLE_PREFERENCES_COOKIE = "kortyx_runs_table_prefs";
 export const RUNS_TABLE_PREFERENCES_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
-const SORT_KEYS: SortKey[] = [
-  "started",
-  "duration",
-  "tokens",
-  "cost",
-  "status",
-];
+const SORT_KEYS = RunSortKeySchema.options;
 
 /**
  * The full set of persistable runs-table state, bundled into a single object so

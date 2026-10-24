@@ -11,9 +11,8 @@ import {
 } from "@kortyx/telemetry-contracts";
 import {
   and,
-  asc,
+  type asc,
   count,
-  desc,
   eq,
   gt,
   gte,
@@ -29,7 +28,11 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { TelemetryDb } from "../client";
 import { studioInterrupts, studioRuns, studioSessions } from "../schema";
 import { withRunFeedback } from "./scores";
-import { parseStudioFilters, studioFiltersCondition } from "./table-filters";
+import {
+  parseStudioFilters,
+  studioFiltersCondition,
+  studioSortExpression,
+} from "./table-filters";
 
 export type StudioListQuery = Record<string, string | undefined>;
 
@@ -184,7 +187,10 @@ const interruptStatusOrder = sql<number>`case ${effectiveInterruptStatusSql}
 const directedOrder = (
   direction: "asc" | "desc",
   value: SQL | Parameters<typeof asc>[0],
-) => (direction === "asc" ? asc(value) : desc(value));
+) =>
+  direction === "asc"
+    ? sql`${value} asc nulls last`
+    : sql`${value} desc nulls last`;
 
 const _effectiveInterruptStatusCondition = (
   statuses: string[],
@@ -393,7 +399,8 @@ export const listStudioRuns = async (
   const where = and(...conditions, studioFiltersCondition("runs", filters));
   const direction = query.dir === "asc" ? "asc" : "desc";
   const sortExpression =
-    query.sort === "duration"
+    studioSortExpression("runs", query.sort) ??
+    (query.sort === "duration"
       ? sql`coalesce(${studioRuns.durationMs}, -1)`
       : query.sort === "tokens"
         ? sql`coalesce(${studioRuns.tokens}, -1)`
@@ -401,7 +408,7 @@ export const listStudioRuns = async (
           ? sql`coalesce(${studioRuns.cost}, -1)`
           : query.sort === "status"
             ? runStatusOrder
-            : studioRuns.startedAt;
+            : studioRuns.startedAt);
   const { cursor, pageSize } = pageOptions(query);
   const [rows, totalRows] = await Promise.all([
     db
@@ -466,7 +473,8 @@ export const listStudioSessions = async (
   const where = and(...conditions, studioFiltersCondition("sessions", filters));
   const direction = query.dir === "asc" ? "asc" : "desc";
   const sortExpression =
-    query.sort === "duration"
+    studioSortExpression("sessions", query.sort) ??
+    (query.sort === "duration"
       ? sql`coalesce(${studioSessions.durationMs}, -1)`
       : query.sort === "tokens"
         ? sql`coalesce(${studioSessions.tokens}, -1)`
@@ -476,7 +484,7 @@ export const listStudioSessions = async (
             ? studioSessions.runCount
             : query.sort === "status"
               ? sessionStatusOrder
-              : studioSessions.lastActivityAt;
+              : studioSessions.lastActivityAt);
   const { cursor, pageSize } = pageOptions(query);
   const [rows, totalRows] = await Promise.all([
     db
@@ -538,11 +546,12 @@ export const listStudioInterrupts = async (
   );
   const direction = query.dir === "desc" ? "desc" : "asc";
   const regularSort =
-    query.sort === "status"
+    studioSortExpression("interrupts", query.sort) ??
+    (query.sort === "status"
       ? interruptStatusOrder
       : query.sort === "age"
         ? sql<number>`-extract(epoch from ${studioInterrupts.createdAt})`
-        : studioInterrupts.createdAt;
+        : studioInterrupts.createdAt);
   const priorityStatus = sql<number>`case when ${effectiveInterruptStatusSql} = 'pending' then 0 else 1 end`;
   const priorityTime = sql<number>`case
     when ${effectiveInterruptStatusSql} = 'pending'

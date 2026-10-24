@@ -7,12 +7,14 @@ import { cn } from "@/lib/utils";
 export function EvalDisclosure({
   scope,
   label,
+  expandedLabel,
   children,
   defaultOpen = false,
   variant = "plain",
 }: {
   scope: string;
   label: string;
+  expandedLabel?: string;
   children: ReactNode;
   defaultOpen?: boolean;
   variant?: "plain" | "attached";
@@ -23,6 +25,7 @@ export function EvalDisclosure({
   );
   return (
     <div
+      data-eval-disclosure={scope}
       className={cn(
         "min-w-0",
         variant === "attached" ? "border-t bg-muted/40" : "space-y-2",
@@ -47,7 +50,7 @@ export function EvalDisclosure({
             variant === "attached" && "order-last",
           )}
         />
-        {label}
+        {open ? (expandedLabel ?? label) : label}
       </button>
       {open ? (
         <div

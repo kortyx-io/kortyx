@@ -973,6 +973,11 @@ export * from "./studio-updates";
 export * from "./table-filters";
 export * from "./table-preferences";
 export {
+  EVALUATION_TABLE_SORT_KEYS,
+  PROMPT_TABLE_SORT_KEYS,
+  STUDIO_TABLE_SORT_FIELDS,
+} from "./table-sorting";
+export {
   projectWorkflowCalls,
   type StudioWorkflowCall,
 } from "./workflow-calls";

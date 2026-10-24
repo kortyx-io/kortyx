@@ -27,7 +27,14 @@ export function detailDrawerZIndex(index: number) {
   );
 }
 
-export function detailInspectorZIndex(drawerZIndex: number) {
+export function detailInspectorZIndex(drawerZIndex: number, pageOwned = false) {
+  // A page-owned parent must stay clickable above the shared route backdrop,
+  // while the first child drawer still covers it.
+  if (pageOwned)
+    return {
+      backdrop: OVERLAY_LAYERS.detailBackdrop - 1,
+      surface: OVERLAY_LAYERS.detailBackdrop + 1,
+    };
   return {
     backdrop: drawerZIndex + OVERLAY_LAYERS.inspectorBackdropOffset,
     surface: drawerZIndex + OVERLAY_LAYERS.inspectorSurfaceOffset,

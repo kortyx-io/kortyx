@@ -20,6 +20,7 @@ export const evalSetupParsers = {
   launchSuites: parseAsJson(z.array(z.string())),
   launchConcurrency: parseAsString,
   launchCaseTimeout: parseAsString,
+  launchGradingTimeout: parseAsString,
   launchRunTimeout: parseAsString,
   launchCases: parseAsJson(z.array(z.string())),
   launchSuiteCases: parseAsJson(
@@ -66,6 +67,10 @@ export function useEvalSetup(targets: EvalTargets) {
         : `${suite}: no App judge configured`,
     )
     .join("; ");
+  const judge =
+    query.launchJudge ??
+    targets.settings?.defaults.judge ??
+    (studioAvailable ? "studio" : appJudge ? "app" : null);
   const overrides: EvalSettings = {
     ...(query.launchAttempts !== null
       ? { repetitions: Number(query.launchAttempts) }
@@ -75,6 +80,9 @@ export function useEvalSetup(targets: EvalTargets) {
       : {}),
     ...(query.launchCaseTimeout !== null
       ? { caseTimeoutMs: Number(query.launchCaseTimeout) }
+      : {}),
+    ...(query.launchGradingTimeout !== null
+      ? { gradingTimeoutMs: Number(query.launchGradingTimeout) }
       : {}),
     ...(query.launchRunTimeout !== null
       ? { runTimeoutMs: Number(query.launchRunTimeout) }
@@ -89,14 +97,19 @@ export function useEvalSetup(targets: EvalTargets) {
     {
       defaults: target?.manifest?.execution?.defaults ?? {},
       limits: {},
-      overrides: ["repetitions", "concurrency", "caseTimeoutMs"],
+      overrides: [
+        "repetitions",
+        "concurrency",
+        "caseTimeoutMs",
+        "gradingTimeoutMs",
+      ],
     },
     targets.settings?.installation,
   );
   let settingsError = "";
   try {
     resolveEvalSettings(
-      overrides,
+      { ...overrides, ...(judge ? { judge } : {}) },
       targets.settings?.defaults,
       target?.manifest?.execution,
       targets.settings?.installation,
@@ -106,10 +119,6 @@ export function useEvalSetup(targets: EvalTargets) {
     settingsError =
       error instanceof Error ? error.message : "Invalid evaluation defaults.";
   }
-  const judge =
-    query.launchJudge ??
-    targets.settings?.defaults.judge ??
-    (studioAvailable ? "studio" : appJudge ? "app" : null);
   const selected =
     query.launchSuites ?? (query.launchSuite ? [query.launchSuite] : []);
   const suite =
@@ -149,6 +158,7 @@ export function useEvalSetup(targets: EvalTargets) {
         launchSuites: suiteId && suite ? [suite.id] : null,
         launchConcurrency: null,
         launchCaseTimeout: null,
+        launchGradingTimeout: null,
         launchRunTimeout: null,
         launchCases: null,
         launchSuiteCases: null,
@@ -173,6 +183,7 @@ export function useEvalSetup(targets: EvalTargets) {
         launchSuites: null,
         launchConcurrency: null,
         launchCaseTimeout: null,
+        launchGradingTimeout: null,
         launchRunTimeout: null,
         launchCases: null,
         launchSuiteCases: null,

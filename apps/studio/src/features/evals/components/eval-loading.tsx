@@ -73,7 +73,7 @@ export function EvalTableSkeleton({
         header={header}
         toolbarStart={toolbar}
         search={{ placeholder: searchPlaceholder }}
-        className={embedded ? "rounded-none border-0 shadow-none" : undefined}
+        variant={embedded ? "inline" : "standalone"}
       />
     </section>
   );
@@ -195,7 +195,7 @@ export function EvalEvaluationBodySkeleton() {
       aria-label="Loading evaluation run"
     >
       <Header>
-        <div className="mt-2 flex h-[58px] min-w-0 overflow-x-auto rounded-md border bg-muted/20">
+        <div className="mt-2 grid min-w-0 grid-cols-2 rounded-md border bg-muted/20 @xl:grid-cols-4 @5xl:grid-cols-8 [&>div]:min-w-0">
           {[
             "Suites finished",
             "Recorded outcomes",

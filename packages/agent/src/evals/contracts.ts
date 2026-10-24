@@ -303,6 +303,7 @@ export const EvalCaseResultSchema = z
 const judge = EvalJudgeIdentitySchema;
 export const StudioEvalJudgeRequestSchema = z
   .object({
+    gradingTimeoutMs: EvalSettingsSchema.shape.gradingTimeoutMs,
     environment: id,
     prompt: EvalJudgePromptSchema.optional(),
     judge: EvalJudgeIdentitySchema,
@@ -444,6 +445,7 @@ export const EvalRemoteRunRequestSchema = z
     promptSnapshot: PromptSnapshotSchema.optional(),
     promptGroupName: z.string().optional(),
     caseTimeoutMs: EvalSettingsSchema.shape.caseTimeoutMs,
+    gradingTimeoutMs: EvalSettingsSchema.shape.gradingTimeoutMs,
     runTimeoutMs: EvalSettingsSchema.shape.runTimeoutMs,
     resolvedSettings: ResolvedEvalSettingsSchema.optional(),
     suiteId: id,

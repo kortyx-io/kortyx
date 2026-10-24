@@ -16,6 +16,7 @@ import { TruncatedText } from "@/features/telemetry/components/truncated-text";
 import {
   studioColumnFilters,
   studioValueColumn,
+  withStudioSorting,
 } from "@/features/telemetry/lib/column-filters";
 import { costDisplay } from "@/lib/cost";
 import {
@@ -77,7 +78,7 @@ export function createRunColumns({
               ↳ Child · {run.callId}
             </span>
             <DetailLink
-              className="truncate text-muted-foreground hover:underline"
+              className="line-clamp-2 whitespace-normal break-words text-muted-foreground hover:underline"
               href={studioDetailHref("runs", run.parentRunId, { tab: "calls" })}
               onClick={(event) => event.stopPropagation()}
             >
@@ -139,7 +140,9 @@ export function createRunColumns({
                 run.status === "running" && "animate-spin",
               )}
             />
-            <span className="truncate">{status.label}</span>
+            <span className="line-clamp-2 whitespace-normal break-words">
+              {status.label}
+            </span>
           </button>
         );
       },
@@ -213,7 +216,7 @@ export function createRunColumns({
           new Set(workflowRefs.map((ref) => ref.workflowId)).size - 1,
         );
         return (
-          <div className="truncate text-xs font-medium">
+          <div className="line-clamp-2 whitespace-normal break-words text-xs font-medium">
             {primary.workflowId}
             <span className="ml-1 text-muted-foreground">
               {primary.declaredVersion ?? "unversioned"}
@@ -299,7 +302,9 @@ export function createRunColumns({
               ? "Your app did not report which AI service handled this call. The request may still have run."
               : `Your app used ${run.provider} for AI model requests. Open the run to see the calls and their usage.`}
           </InfoTooltip>
-          <span className="min-w-0 truncate">{run.model}</span>
+          <span className="min-w-0 line-clamp-2 whitespace-normal break-words">
+            {run.model}
+          </span>
           {run.models && (
             <InfoTooltip
               label={`${run.models} additional models`}
@@ -377,7 +382,7 @@ export function createRunColumns({
         <>
           <p
             className={cn(
-              "max-w-full truncate text-xs",
+              "max-w-full line-clamp-2 whitespace-normal break-words text-xs",
               run.status === "failed"
                 ? "text-red-700 dark:text-red-400"
                 : "text-muted-foreground",
@@ -399,5 +404,5 @@ export function createRunColumns({
     ),
     studioValueColumn<Run, SortKey>("runs", "pricingStatus"),
   ];
-  return withStudioColumnHelp(columns, "runs");
+  return withStudioColumnHelp(withStudioSorting(columns, "runs"), "runs");
 }

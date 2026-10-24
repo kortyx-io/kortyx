@@ -334,7 +334,7 @@ export function PromptTables({
                 ? "Search workflow, model or run ID…"
                 : "Search evaluation runs…",
           }}
-          className="rounded-none border-0 shadow-none"
+          variant="inline"
           data={rows.runs}
           getRowKey={(run) => run.id}
           header={header}
@@ -372,7 +372,7 @@ export function PromptTables({
             label: `Search prompt ${kind}`,
             placeholder: "Search evaluation runs…",
           }}
-          className="rounded-none border-0 shadow-none"
+          variant="inline"
           data={rows.evaluations}
           getRowKey={(run) => run.id}
           header={header}

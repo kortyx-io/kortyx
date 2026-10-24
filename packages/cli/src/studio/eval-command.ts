@@ -29,6 +29,7 @@ type EvalOptions = ConnectionOptions & {
   repetitions?: number;
   concurrency?: number;
   caseTimeoutMs?: number;
+  gradingTimeoutMs?: number;
   runTimeoutMs?: number;
   all?: boolean;
   suite?: string[];
@@ -377,6 +378,11 @@ export function registerStudioEvalCommands(
       integer(2_147_483_647),
     )
     .option(
+      "--grading-timeout-ms <milliseconds>",
+      "Override the per-step grading timeout shared by its criteria.",
+      integer(2_147_483_647),
+    )
+    .option(
       "--run-timeout-ms <milliseconds>",
       "Override the overall evaluation deadline, including grading.",
       integer(2_147_483_647),
@@ -465,6 +471,9 @@ export function registerStudioEvalCommands(
           : {}),
         ...(options.caseTimeoutMs !== undefined
           ? { caseTimeoutMs: options.caseTimeoutMs }
+          : {}),
+        ...(options.gradingTimeoutMs !== undefined
+          ? { gradingTimeoutMs: options.gradingTimeoutMs }
           : {}),
         ...(options.runTimeoutMs !== undefined
           ? { runTimeoutMs: options.runTimeoutMs }

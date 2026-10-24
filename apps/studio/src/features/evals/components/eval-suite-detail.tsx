@@ -81,6 +81,7 @@ export function EvalSuiteDetail({
       label: "Conversation",
       defaultWidth: 320,
       sortKey: "name",
+      cellClassName: "[&>.table-cell-content]:line-clamp-none",
       filter: columnFilter(
         "name",
         "Conversation",
@@ -88,9 +89,25 @@ export function EvalSuiteDetail({
         (c) => c.name ?? c.id,
       ),
       render: (c) => (
-        <Button variant="link" size="sm" onClick={() => inspect(c.id)}>
-          {c.name ?? displayName(c.id)}
-        </Button>
+        <div>
+          <Button
+            variant="link"
+            size="inline"
+            className="max-w-full whitespace-normal text-left"
+            onClick={() => inspect(c.id)}
+            title={c.name ?? displayName(c.id)}
+          >
+            <span className="line-clamp-2 break-words">
+              {c.name ?? displayName(c.id)}
+            </span>
+          </Button>
+          <p
+            className="line-clamp-1 break-all font-mono text-[11px] text-muted-foreground"
+            title={c.id}
+          >
+            {c.id}
+          </p>
+        </div>
       ),
     },
     {
@@ -101,7 +118,7 @@ export function EvalSuiteDetail({
         "message" in c.steps[0] ? c.steps[0].message : "Respond to human input",
       ),
       render: (c) => (
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="line-clamp-2 whitespace-normal break-words text-xs text-muted-foreground">
           {"message" in c.steps[0]
             ? c.steps[0].message
             : "Respond to human input"}
@@ -127,7 +144,11 @@ export function EvalSuiteDetail({
         expectations,
       ),
       cellTitle: expectations,
-      render: (c) => <p className="truncate text-xs">{expectations(c)}</p>,
+      render: (c) => (
+        <p className="line-clamp-2 whitespace-normal break-words text-xs">
+          {expectations(c)}
+        </p>
+      ),
     },
     {
       key: "workflow",

@@ -421,6 +421,9 @@ export function createEvalWorker(
         resolvedSettings: _settings,
         ...consumerRequest
       } = run.request;
+      // Studio grades centrally; old consumers reject unknown request fields.
+      if (consumerRequest.grading === "studio")
+        delete consumerRequest.gradingTimeoutMs;
       const body = JSON.stringify(consumerRequest);
       const executionId = evalExecutionIdentity(
         run.id,
@@ -725,6 +728,8 @@ export function createEvalWorker(
             await store.progress(run.id, owner, event);
           },
           (error) => reportError(run, error),
+          run.request.resolvedSettings?.values.gradingTimeoutMs ??
+            run.request.gradingTimeoutMs,
         );
       } else if (counts.ungraded)
         throw new EvalDispatchError(

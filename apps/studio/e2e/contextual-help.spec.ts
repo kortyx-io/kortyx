@@ -159,6 +159,7 @@ test("Escape closes help without closing its owning run drawer", async ({
   page,
 }) => {
   await page.goto(`/runs?range=All+time&live=false&q=${DRAWER_FIXTURE.runId}`);
+  await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   await page
     .locator(`[data-row-key="${DRAWER_FIXTURE.runId}"] td`)
     .first()
@@ -166,7 +167,9 @@ test("Escape closes help without closing its owning run drawer", async ({
   const drawer = page.locator(
     `[data-detail-drawer="/runs/${DRAWER_FIXTURE.runId}"]`,
   );
-  await expect(drawer).toBeVisible();
+  // This is the first Run detail in this shard. The development server can
+  // finish its RSC response before its cold detail chunks have hydrated.
+  await expect(drawer).toBeVisible({ timeout: 16_000 });
   await expect
     .poll(() =>
       drawer.evaluate(

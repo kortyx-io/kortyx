@@ -15,7 +15,7 @@ it("awaits the filtered server snapshot and supplies its exact client cache key"
     searchParams: { q: "welcome", archived: "true", cursor: "20" },
   });
   const query =
-    "search=welcome&cursor=20&limit=20&archived=true&categoryId=root";
+    "search=welcome&cursor=20&limit=20&archived=true&sort=name&dir=asc&categoryId=root";
   expect(readPromptLibrary).toHaveBeenCalledWith(query);
   expect(view.props.initialPath).toBe(`library?${query}`);
   expect(view.props.initial).toEqual({ categories: [] });

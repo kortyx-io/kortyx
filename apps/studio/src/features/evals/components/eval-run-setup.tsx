@@ -582,10 +582,23 @@ export function EvalRunSetup({
           </summary>
           <div className="mt-4 space-y-3">
             <EvalSettingsFields
-              fields={["concurrency", "caseTimeoutMs", "runTimeoutMs"]}
+              fields={[
+                "concurrency",
+                "caseTimeoutMs",
+                "gradingTimeoutMs",
+                "runTimeoutMs",
+              ]}
               resolved={resolved}
               overrides={overrides}
               disabled={working}
+              supportsGradingTimeout={
+                judge === "studio" ||
+                Boolean(
+                  target?.manifest?.execution?.overrides.includes(
+                    "gradingTimeoutMs",
+                  ),
+                )
+              }
               supportsCaseTimeout={Boolean(
                 target?.manifest?.execution?.overrides.includes(
                   "caseTimeoutMs",
@@ -600,6 +613,7 @@ export function EvalRunSetup({
                   repetitions: "launchAttempts",
                   concurrency: "launchConcurrency",
                   caseTimeoutMs: "launchCaseTimeout",
+                  gradingTimeoutMs: "launchGradingTimeout",
                   runTimeoutMs: "launchRunTimeout",
                 }[key as Exclude<keyof EvalSettings, "judge">];
                 void setQuery({

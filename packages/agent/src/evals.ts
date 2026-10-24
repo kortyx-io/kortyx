@@ -7,6 +7,11 @@ export { createEvalIssue } from "./evals/errors";
 export * from "./evals/evaluation-contracts";
 export { getEvalGradeEvidence } from "./evals/evidence";
 export { EvalEvidencePolicySchema } from "./evals/evidence-policy";
+export {
+  DEFAULT_EVAL_GRADING_TIMEOUT_MS,
+  EvalGradingTimeoutError,
+  withEvalGradingTimeout,
+} from "./evals/grading-timeout";
 export * from "./evals/judge-prompt-contracts";
 export * from "./evals/settings";
 export * from "./evals/studio-contracts";

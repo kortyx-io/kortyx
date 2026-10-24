@@ -14,6 +14,7 @@ import { useDetailStackSlotState } from "@/components/detail/detail-stack";
 import { usePathname } from "@/lib/scoped-navigation";
 
 type DetailSlotMotionValue = {
+  slotKey?: string;
   active: boolean;
   entered: boolean;
   markEntered: () => void;
@@ -37,9 +38,11 @@ export function useDetailSlotMotion() {
 export function DetailSlotPresence({
   children,
   dismissPath,
+  slotKey = dismissPath,
 }: {
   children: ReactNode;
   dismissPath: string;
+  slotKey?: string;
 }) {
   const pathname = usePathname();
   const layer = useDetailStackSlotState(dismissPath, pathname);
@@ -55,8 +58,8 @@ export function DetailSlotPresence({
   const [entered, setEntered] = useState(false);
   const markEntered = useCallback(() => setEntered(true), []);
   const motion = useMemo(
-    () => ({ active, entered, markEntered }),
-    [active, entered, markEntered],
+    () => ({ active, entered, markEntered, slotKey }),
+    [active, entered, markEntered, slotKey],
   );
 
   useEffect(() => {

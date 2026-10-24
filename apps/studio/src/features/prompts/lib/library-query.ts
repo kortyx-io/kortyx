@@ -21,6 +21,8 @@ export function promptLibraryQuery(
       ? value("pageSize", "20")
       : "20",
     archived: value("archived", "false"),
+    sort: value("sort", "name"),
+    dir: value("dir", "asc"),
     ...(value("tableFilters", "")
       ? { tableFilters: value("tableFilters", "") }
       : {}),

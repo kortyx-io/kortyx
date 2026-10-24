@@ -27,6 +27,11 @@ export { createEvalIssue } from "./errors";
 export * from "./evaluation-contracts";
 export { getEvalGradeEvidence } from "./evidence";
 export { EvalEvidencePolicySchema } from "./evidence-policy";
+export {
+  DEFAULT_EVAL_GRADING_TIMEOUT_MS,
+  EvalGradingTimeoutError,
+  withEvalGradingTimeout,
+} from "./grading-timeout";
 export { createEvalJudge } from "./judge";
 export type { EvalJudgeVariables } from "./judge-prompt";
 export { defineJudgePrompt, evalJudgeVariablesSchema } from "./judge-prompt";

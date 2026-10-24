@@ -5,6 +5,7 @@ import {
   StudioEvaluationHistorySchema,
   type StudioEvaluationSummary,
 } from "@kortyx/agent/evals";
+import { EVALUATION_TABLE_SORT_KEYS } from "@kortyx/telemetry-contracts";
 import { Play, RefreshCw } from "lucide-react";
 import {
   parseAsBoolean,
@@ -68,11 +69,9 @@ export function EvaluationList({
       q: parseAsString.withDefault(""),
       application: parseAsString.withDefault("all"),
       status: parseAsString.withDefault("all"),
-      sort: parseAsStringLiteral([
-        "name",
+      sort: parseAsStringLiteral(EVALUATION_TABLE_SORT_KEYS).withDefault(
         "created",
-        "status",
-      ] as const).withDefault("created"),
+      ),
       dir: parseAsStringLiteral(["asc", "desc"] as const).withDefault("desc"),
       cursor: parseAsInteger.withDefault(0),
       pageSize: parseAsInteger.withDefault(20),
@@ -128,7 +127,7 @@ export function EvaluationList({
   const baseColumns = createEvaluationColumns(navigate, referenceTime);
   const columns: DataTableColumn<
     StudioEvaluationSummary,
-    "name" | "created" | "status"
+    (typeof EVALUATION_TABLE_SORT_KEYS)[number]
   >[] = [
     ...baseColumns.slice(0, 4),
     {

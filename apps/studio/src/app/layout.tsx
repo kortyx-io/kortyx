@@ -2,10 +2,10 @@ import { studioUsage } from "@studio/usage";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cookies } from "next/headers";
-import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { DetailDrawerHost } from "@/components/detail/detail-drawer";
 import { DetailSlotPresence } from "@/components/detail/detail-slot-presence";
 import { SidebarLayout } from "@/components/layouts/sidebar-layout";
+import { StudioQueryAdapter } from "@/components/studio-query-adapter";
 import { ThemeProvider } from "@/components/theme-toggle";
 import {
   parseResolvedTheme,
@@ -80,14 +80,20 @@ export default async function RootLayout({
         <UsageProvider config={studioUsage.browserConfig()}>
           <Providers>
             <ThemeProvider initialTheme={theme}>
-              <NuqsAdapter>
+              <StudioQueryAdapter>
                 <SidebarLayout
                   detailSlots={
                     <DetailDrawerHost>
-                      <DetailSlotPresence dismissPath="/prompts">
+                      <DetailSlotPresence
+                        dismissPath="/prompts"
+                        slotKey="prompt-details"
+                      >
                         {promptDrawer}
                       </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/prompts">
+                      <DetailSlotPresence
+                        dismissPath="/prompts"
+                        slotKey="prompt-groups-list"
+                      >
                         {promptGroupsDrawer}
                       </DetailSlotPresence>
                       <DetailSlotPresence dismissPath="/prompts/groups">
@@ -116,7 +122,7 @@ export default async function RootLayout({
                 >
                   {children}
                 </SidebarLayout>
-              </NuqsAdapter>
+              </StudioQueryAdapter>
             </ThemeProvider>
           </Providers>
         </UsageProvider>

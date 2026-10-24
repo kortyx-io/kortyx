@@ -398,14 +398,23 @@ it("reports malformed SSE error chunks as SDK validation failures, preserving pa
   if (error?.type !== "error") throw new Error("Expected error");
   expect(error.error).toMatchObject({
     code: "PROVIDER_INVALID_RESPONSE",
-    cause: { name: "ZodError" },
+    cause: {
+      name: "ZodError",
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          code: "invalid_type",
+          path: expect.arrayContaining(["error", "code"]),
+          expected: "number",
+        }),
+      ]),
+    },
     usage: { total: 3 },
   });
   expect(serializeFailure(error.error).message).toContain(
     "did not match its SDK schema",
   );
-  const liveError = error.error as Error;
-  expect(liveError.message).toBe((liveError.cause as Error).message);
+  // Zod can expose message as a lazy getter. Normalization must not invoke
+  // accessors; the original cause retains the precise validation issues.
 });
 
 it("normalizes string status fields without confusing a provider-specific metadata code with HTTP status", () => {

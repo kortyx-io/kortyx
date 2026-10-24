@@ -145,3 +145,41 @@ it("keeps successful suites when another fails and ignores an aborted previous e
     await act(() => root.unmount());
   }
 });
+
+it("retains visible results while dispatch adds suites and ignores membership order changes", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const first = fixture(1),
+    second = fixture(2);
+  let finishNew: (value: unknown) => void = () => {};
+  vi.mocked(evalRequest).mockImplementation(async (path) => {
+    if (path.includes(first.id)) return { run: first };
+    return new Promise((resolve) => {
+      finishNew = resolve;
+    });
+  });
+  const root = createRoot(document.createElement("div"));
+  let current: ReturnType<typeof useEvaluationLiveRuns> | undefined;
+  const renders: number[] = [];
+  function Probe({ ids }: { ids: string[] }) {
+    current = useEvaluationLiveRuns("evaluation", ids);
+    renders.push(current.runs.length);
+    return null;
+  }
+  try {
+    await act(() => root.render(<Probe ids={[first.id]} />));
+    expect(current?.runs).toHaveLength(1);
+    renders.length = 0;
+    await act(() => root.render(<Probe ids={[first.id, second.id]} />));
+    expect(current?.runs.map((run) => run.id)).toEqual([first.id]);
+    expect(current?.loading).toBe(false);
+    expect(renders).not.toContain(0);
+    const calls = vi.mocked(evalRequest).mock.calls.length;
+    await act(() => root.render(<Probe ids={[second.id, first.id]} />));
+    expect(evalRequest).toHaveBeenCalledTimes(calls);
+    await act(async () => finishNew({ run: second }));
+    expect(current?.runs).toHaveLength(2);
+    expect(renders).not.toContain(0);
+  } finally {
+    await act(() => root.unmount());
+  }
+});

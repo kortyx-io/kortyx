@@ -534,15 +534,20 @@ includes it; never silently substitute aborting close when graceful drain is abs
 const evals = createEvals({
   agent,
   suites: [suite],
-  defaults: { repetitions: 2, concurrency: 2, caseTimeoutMs: 120_000 },
-  limits: { concurrency: 4, caseTimeoutMs: 300_000 },
+  defaults: {
+    repetitions: 2,
+    concurrency: 2,
+    caseTimeoutMs: 120_000,
+    gradingTimeoutMs: 60_000,
+  },
+  limits: { concurrency: 4, caseTimeoutMs: 300_000, gradingTimeoutMs: 120_000 },
 });
 // Direct SDK execution uses explicit run values, then configured SDK defaults.
 await evals.run({ suiteId: suite.id, caseTimeoutMs: 180_000 });
 ```
 
 Studio resolves each field as: per-run override → Studio project default →
-explicit SDK default → SDK built-in default. Omitted values remain omitted until
+installation default → explicit SDK default → SDK built-in default. Omitted values remain omitted until
 resolution. The manifest's `execution` advertises declared defaults, limits and
 supported overrides. Application limits are ceilings, independent of precedence;
 an excessive value is rejected before setup, never silently clamped.
@@ -553,6 +558,13 @@ integers up to 2,147,483,647. Setup, verification and cleanup budgets remain
 application-owned (`defaults.setupTimeoutMs`, `verificationTimeoutMs`,
 `cleanupTimeoutMs`). Changing the per-run case deadline does not change these
 independently resolved lifecycle budgets.
+
+Grading has a separate 60-second built-in budget per step, shared across all of
+that step's criteria. Configure `gradingTimeoutMs` through the same defaults,
+limits and per-run overrides. Studio records the effective value and its source;
+reruns preserve them. A shorter case/evaluation deadline or cancellation still
+wins, and a verdict returned after the grading deadline is discarded. Older
+consumers must advertise support before Studio sends an App-judge override.
 
 The whole-evaluation deadline belongs to Studio scheduling, independently of the
 SDK case budget. Studio defaults to 30 minutes across all selected suites,

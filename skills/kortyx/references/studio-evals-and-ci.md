@@ -583,11 +583,17 @@ includes it; never silently substitute aborting close when graceful drain is abs
 **Settings → Evaluations** stores sparse project defaults in
 `projects.eval_defaults`. Reading uses the existing project Studio permission;
 saving requires `studio:write` through the installation's authorization adapter.
-The run drawer shows effective repetitions, concurrency, case timeout, overall
+The run drawer shows effective repetitions, concurrency, case timeout, grading timeout, overall
 evaluation timeout and judge, along with their source. Enter a value to override
 it for that run; Reset to default removes that override. There is no separate
 inherit mode. Project defaults apply to the whole project across targets and
 environments; application-specific defaults stay in the SDK.
+
+Grading timeout defaults to 60 seconds per step across all criteria. Set it in
+the run drawer or project defaults, with `--grading-timeout-ms` in the Studio
+CLI, or with the installation's `KORTYX_EVAL_GRADING_TIMEOUT_MS`. The saved value
+and source remain attached to historical executions and reruns. Inspect
+`EVAL_GRADING_TIMEOUT` separately from a case or overall evaluation timeout.
 
 Per-field precedence is run override → Studio project default → SDK declared
 default → built-in. Installation timeout defaults sit below project defaults.

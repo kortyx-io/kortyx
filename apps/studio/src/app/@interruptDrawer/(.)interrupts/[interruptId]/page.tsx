@@ -18,6 +18,10 @@ export default async function InterruptDrawerPage({
     );
   }
   return (
-    <InterruptDetailDrawer interruptId={interruptId} detail={result.data} />
+    <InterruptDetailDrawer
+      interruptId={interruptId}
+      detail={result.data}
+      initialNow={Date.now()}
+    />
   );
 }

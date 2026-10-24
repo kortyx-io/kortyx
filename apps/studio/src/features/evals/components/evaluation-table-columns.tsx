@@ -1,5 +1,9 @@
 import type { StudioEvaluationSummary } from "@kortyx/agent/evals";
-import { tablePassRate, tableQueueMs } from "@kortyx/telemetry-contracts";
+import {
+  EVALUATION_TABLE_SORT_KEYS,
+  tablePassRate,
+  tableQueueMs,
+} from "@kortyx/telemetry-contracts";
 import type { DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { valueColumn } from "@/components/data-table/value-column";
@@ -10,7 +14,7 @@ import { withStudioColumnHelp } from "@/lib/studio-help";
 import { EvalCost, evalFilterCost } from "./eval-cost";
 import { EvalDuration } from "./eval-duration";
 import { EvalStatus } from "./eval-status";
-export type EvaluationSort = "name" | "created" | "status";
+export type EvaluationSort = (typeof EVALUATION_TABLE_SORT_KEYS)[number];
 export function createEvaluationColumns(
   onOpen: (run: StudioEvaluationSummary) => void,
   referenceTime?: number,
@@ -40,7 +44,9 @@ export function createEvaluationColumns(
             className="max-w-full justify-start"
             onClick={() => onOpen(run)}
           >
-            <span className="truncate">{run.name}</span>
+            <span className="line-clamp-2 whitespace-normal break-words">
+              {run.name}
+            </span>
           </Button>
           <p className="text-[11px] text-muted-foreground">
             {run.legacy
@@ -96,6 +102,7 @@ export function createEvaluationColumns(
         ),
       ],
       label: "Progress",
+      sortKey: "completedAttempts",
       defaultWidth: 200,
       render: (run) => (
         <div className="text-xs">
@@ -126,6 +133,7 @@ export function createEvaluationColumns(
         ),
       ],
       label: "Results",
+      sortKey: "passed",
       defaultWidth: 230,
       render: (run) => (
         <span className="text-xs">
@@ -153,6 +161,7 @@ export function createEvaluationColumns(
         ),
       ],
       label: "Application",
+      sortKey: "application",
       defaultWidth: 180,
       render: (run) => (
         <div className="text-xs">
@@ -168,6 +177,7 @@ export function createEvaluationColumns(
         columnFilter("commit", "Commit", "text", (r) => r.metadata.commit),
       ],
       label: "Trigger / Commit",
+      sortKey: "trigger",
       defaultWidth: 170,
       render: (run) => (
         <div className="text-xs">
@@ -198,6 +208,7 @@ export function createEvaluationColumns(
         evalFilterCost(r.costs),
       ),
       label: "Cost",
+      sortKey: "cost",
       defaultWidth: 100,
       render: (run) => <EvalCost costs={run.costs} />,
     },
@@ -207,6 +218,7 @@ export function createEvaluationColumns(
         evalDurationMs(r, referenceTime ?? Date.now()),
       ),
       label: "Duration",
+      sortKey: "duration",
       defaultWidth: 100,
       render: (run) => (
         <span className="font-mono text-xs">
@@ -256,7 +268,16 @@ export function createEvaluationColumns(
     "created",
   ];
   return withStudioColumnHelp(
-    order.flatMap((key) => columns.filter((column) => column.key === key)),
+    order.flatMap((key) =>
+      columns
+        .filter((column) => column.key === key)
+        .map((column) => ({
+          ...column,
+          sortKey:
+            column.sortKey ??
+            EVALUATION_TABLE_SORT_KEYS.find((key) => key === column.key),
+        })),
+    ),
     "evals",
   );
 }

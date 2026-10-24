@@ -47,7 +47,7 @@
     "diff": "^9.0.0",
     "lucide-react": "catalog:",
     "next": "catalog:",
-    "nuqs": "^2.8.9",
+    "nuqs": "^2.10.2",
     "radix-ui": "^1.4.3",
     "react": "catalog:",
     "react-day-picker": "^10.0.1",
@@ -60,7 +60,7 @@
     "swr": "^2.5.1",
     "tailwind-merge": "catalog:",
     "yaml": "2.8.3",
-    "zod": "^4.3.6"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@kortyx/agent": "workspace:*",

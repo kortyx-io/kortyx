@@ -1,7 +1,6 @@
 "use client";
 
 import type { StudioEvaluationDetail } from "@kortyx/agent/evals";
-import { Square } from "lucide-react";
 import { parseAsString } from "nuqs";
 import { useCallback, useState, useTransition } from "react";
 import { usePrepareDetailNavigation } from "@/components/detail/detail-stack";
@@ -10,7 +9,6 @@ import { formatDateTime } from "@/lib/format";
 import { detailNavigationHref, useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioFeature } from "@/usage/client";
-import { evalRequest } from "../api/client";
 import { useComparisonQuery } from "../hooks/use-comparison-query";
 import { useEvaluationLiveRuns } from "../hooks/use-evaluation-live-runs";
 import {
@@ -21,7 +19,7 @@ import {
   type EvaluationChanges,
   evaluationSignature,
 } from "../lib/evaluation-changes";
-import { evalCaseHref, evaluationHref } from "../lib/navigation";
+import { evalCaseHref } from "../lib/navigation";
 import {
   caseRows,
   groupCaseRows,
@@ -34,19 +32,17 @@ import {
 } from "./eval-case-table";
 import { EvalChangeModal } from "./eval-change-modal";
 import { EvalDropdown } from "./eval-dropdown";
-import { EvalRerunFailed } from "./eval-rerun-failed";
-import { EvalRunConfiguration, EvalRunNotices } from "./eval-run-detail";
+import { EvalRunConfiguration } from "./eval-run-detail";
 import { EvalSuiteDetails } from "./eval-suite-details";
 import { EvalSuiteNavigation } from "./eval-suite-navigation";
 import { EvalSuitePreview } from "./eval-suite-preview";
+import { suiteStatusCounts } from "./eval-suite-status-bar";
 
 export function EvaluationSuiteWorkspace({
   evaluation,
-  canRun,
   comparison,
 }: {
   evaluation: StudioEvaluationDetail;
-  canRun: boolean;
   comparison?: EvaluationChanges;
 }) {
   const [baselinePending, startTransition] = useTransition();
@@ -87,35 +83,16 @@ export function EvaluationSuiteWorkspace({
     },
     [query.suiteRun],
   );
-  const [cancelling, setCancelling] = useState(false);
-  const [error, setError] = useState("");
   const router = useRouter();
   const search = useSearchParams();
   const prepare = usePrepareDetailNavigation();
   const select = (id: string | null) => {
-    setError("");
     studioFeature("studio.inspect", {
       surface: "evals",
       action: "select",
       tab: "results",
     });
     void setQuery({ suiteRun: id, evalTab: null });
-  };
-  const cancel = async () => {
-    if (!selectedRun || !canRun) return;
-    setCancelling(true);
-    setError("");
-    try {
-      await evalRequest(
-        `runs/${encodeURIComponent(selectedRun.id)}/cancel`,
-        {},
-      );
-      await current.refresh();
-    } catch {
-      setError("Could not cancel this suite. Try again.");
-    } finally {
-      setCancelling(false);
-    }
   };
   const rows = current.runs.flatMap((run) => {
     const cases = caseRows(run);
@@ -137,6 +114,14 @@ export function EvaluationSuiteWorkspace({
       className="flex h-full min-h-0 flex-col lg:flex-row"
       data-tour-surface="evaluation-workspace"
     >
+      {selectedRun ? (
+        <EvalSuiteDetails
+          showTrigger={false}
+          title={selectedRun.suite.name ?? selectedRun.suiteId}
+          suite={selectedRun.suite}
+          configuration={<EvalRunConfiguration run={selectedRun} />}
+        />
+      ) : null}
       <EvalChangeModal
         comparisons={
           visibleComparison ? { [evaluation.id]: visibleComparison } : {}
@@ -149,15 +134,22 @@ export function EvaluationSuiteWorkspace({
         }
       />
       <EvalSuiteNavigation
-        suites={evaluation.suites.map((suite) => ({
-          id: suite.id,
-          name: suite.suiteName ?? suite.suiteId,
-          preview: <EvalSuitePreview suite={suite} />,
-          description:
-            suite.totalAttempts === undefined
-              ? undefined
-              : `${suite.completedAttempts ?? 0}/${suite.totalAttempts} results recorded`,
-        }))}
+        suites={evaluation.suites.map((suite) => {
+          const liveRun = current.runs.find((run) => run.id === suite.id);
+          return {
+            id: suite.id,
+            name: suite.suiteName ?? suite.suiteId,
+            preview: <EvalSuitePreview suite={suite} />,
+            statusCounts: suiteStatusCounts(
+              suite,
+              liveRun ? caseRows(liveRun) : undefined,
+            ),
+            description:
+              suite.totalAttempts === undefined
+                ? undefined
+                : `${suite.completedAttempts ?? 0}/${suite.totalAttempts} results recorded`,
+          };
+        })}
         selected={query.suiteRun}
         onSelect={select}
       />
@@ -165,15 +157,13 @@ export function EvaluationSuiteWorkspace({
         className="flex min-h-0 min-w-0 flex-1 flex-col"
         data-eval-run-id={summary?.id}
       >
-        {error || current.failed.length > 0 ? (
+        {current.failed.length > 0 ? (
           <p role="alert" className="px-4 py-2 text-xs text-destructive">
-            {error ||
-              `Could not refresh ${current.failed.length} suite${current.failed.length === 1 ? "" : "s"}. Results may be incomplete or out of date.`}
+            {`Could not refresh ${current.failed.length} suite${current.failed.length === 1 ? "" : "s"}. Results may be incomplete or out of date.`}
             <Button
               variant="ghost"
               size="xs"
               onClick={() => {
-                setError("");
                 void current.refresh();
               }}
             >
@@ -188,17 +178,6 @@ export function EvaluationSuiteWorkspace({
               All conversations
             </Button>
           </p>
-        ) : null}
-        {selectedRun ? (
-          <div className="empty:hidden px-4 [&:not(:empty)]:py-2">
-            <EvalRunNotices run={selectedRun} />
-            {selectedRun.cancelRequestedAt && isActive(selectedRun.status) ? (
-              <p className="text-xs text-muted-foreground">
-                Cancellation requested. Waiting for the application to finish
-                cleanup.
-              </p>
-            ) : null}
-          </div>
         ) : null}
         <div
           className="min-h-0 flex-1"
@@ -265,35 +244,6 @@ export function EvaluationSuiteWorkspace({
                       Retry changes
                     </Button>
                   </span>
-                ) : null}
-                {selectedRun ? (
-                  <div className="flex items-center gap-2">
-                    <EvalSuiteDetails
-                      title={selectedRun.suite.name ?? selectedRun.suiteId}
-                      suite={selectedRun.suite}
-                      configuration={<EvalRunConfiguration run={selectedRun} />}
-                    />
-                    <EvalRerunFailed
-                      run={selectedRun}
-                      canRun={canRun}
-                      matchPath={evaluationHref(evaluation.id)}
-                    />
-                    {canRun && isActive(selectedRun.status) ? (
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        disabled={
-                          cancelling || Boolean(selectedRun.cancelRequestedAt)
-                        }
-                        onClick={() => void cancel()}
-                      >
-                        <Square />
-                        {selectedRun.cancelRequestedAt
-                          ? "Cancelling…"
-                          : "Cancel suite"}
-                      </Button>
-                    ) : null}
-                  </div>
                 ) : null}
               </div>
             }

@@ -124,6 +124,7 @@ export const StudioEvalDetailSchema = z.object({
         repetitions: z.number().int().positive(),
         concurrency: z.number().optional(),
         caseTimeoutMs: z.number().optional(),
+        gradingTimeoutMs: z.number().optional(),
         runTimeoutMs: z.number().optional(),
         resolvedSettings: ResolvedEvalSettingsSchema.optional(),
         promptSnapshot: PromptSnapshotSchema.optional(),

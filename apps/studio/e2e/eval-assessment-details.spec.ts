@@ -253,11 +253,11 @@ test("comparison shares attached stats expansion and returns from judge instruct
   const earlier = modal.locator('[data-comparison-side="Earlier"]');
   const current = modal.locator('[data-comparison-side="This run"]');
   const a = earlier.getByRole("button", {
-    name: "See more stats",
+    name: /See (more|less) stats/,
     exact: true,
   });
   const b = current.getByRole("button", {
-    name: "See more stats",
+    name: /See (more|less) stats/,
     exact: true,
   });
   await expect(a).toHaveAttribute("aria-expanded", "false");

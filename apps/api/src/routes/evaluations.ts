@@ -7,6 +7,7 @@ import {
   resolveEvalSettings,
   StudioEvaluationStartRequestSchema,
 } from "@kortyx/agent/evals";
+import { EVALUATION_TABLE_SORT_KEYS } from "@kortyx/telemetry-contracts";
 import {
   cancelEvaluation,
   enqueueEvaluation,
@@ -58,7 +59,7 @@ export function registerEvaluationRoutes(
         q: z.string().max(512).optional(),
         status: z.string().max(80).optional(),
         application: z.string().max(200).optional(),
-        sort: z.enum(["name", "created", "status"]).optional(),
+        sort: z.enum(EVALUATION_TABLE_SORT_KEYS).optional(),
         dir: z.enum(["asc", "desc"]).optional(),
         cursor: z
           .string()
@@ -181,6 +182,7 @@ export function registerEvaluationRoutes(
                 "repetitions",
                 "concurrency",
                 "caseTimeoutMs",
+                "gradingTimeoutMs",
                 "runTimeoutMs",
               ].includes(key),
             ),
@@ -374,6 +376,10 @@ export function registerEvaluationRoutes(
               repetitions: request.repetitions,
               concurrency: request.concurrency,
               runTimeoutMs: request.runTimeoutMs,
+              ...(request.judge === "studio" ||
+              manifest.execution?.overrides.includes("gradingTimeoutMs")
+                ? { gradingTimeoutMs: request.gradingTimeoutMs }
+                : {}),
               resolvedSettings,
               ...(manifest.execution?.overrides.includes("caseTimeoutMs")
                 ? { caseTimeoutMs: request.caseTimeoutMs }

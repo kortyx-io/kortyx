@@ -111,10 +111,10 @@ export function PromptDiff({
         onInteractOutside={(event) => {
           // The guided tour is portalled above this comparison. Its controls
           // own focus and pointer events without dismissing the inspected diff.
-          if (
-            event.target instanceof Element &&
-            event.target.closest('[data-studio-tour="true"]')
-          )
+          // During a step change Joyride replaces its tooltip and temporarily
+          // moves focus outside this dialog. Keep the inspected comparison
+          // open for the whole tour, including that waiting interval.
+          if (document.querySelector('[data-studio-tour="true"]'))
             event.preventDefault();
         }}
       >

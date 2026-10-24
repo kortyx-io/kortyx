@@ -78,3 +78,34 @@ describe("evaluation table", () => {
     ).rejects.toThrow("Invalid evaluation filters");
   });
 });
+
+it("sorts numeric costs across the full history before slicing the page, with missing costs last", async () => {
+  state.rows = state.rows.map((row, index) => ({
+    ...row,
+    costs: {
+      total: {
+        amount: index === 0 ? null : index,
+        costSummary: { amounts: [] },
+      },
+    },
+  }));
+  const result = await listEvaluationTable({} as TelemetryDb, scope, {
+    sort: "cost",
+    dir: "desc",
+    pageSize: "2",
+    cursor: "1",
+  });
+  expect(result.runs.map((run) => run.id)).toEqual([
+    "evaluation-123",
+    "evaluation-122",
+  ]);
+  const ascending = await listEvaluationTable({} as TelemetryDb, scope, {
+    sort: "cost",
+    dir: "asc",
+    pageSize: "2",
+  });
+  expect(ascending.runs.map((run) => run.id)).toEqual([
+    "evaluation-1",
+    "evaluation-2",
+  ]);
+});

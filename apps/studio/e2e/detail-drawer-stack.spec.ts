@@ -188,6 +188,9 @@ test.describe("Studio detail drawer stack", () => {
           exact: tab === "Trace",
         })
         .click();
+      await expect(page).toHaveURL(
+        (url) => url.searchParams.get("tab") === tab.toLowerCase(),
+      );
       await run
         .getByRole("tabpanel")
         .locator(
@@ -238,7 +241,12 @@ test.describe("Studio detail drawer stack", () => {
     const session = drawer(page, sessionPath);
     await expect(session).toHaveAttribute("data-state", "open");
     await session.getByRole("button", { name: /^Runs \d+$/ }).click();
-    const link = session.getByRole("tabpanel").locator(`a[href^="${runPath}"]`);
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get("sessionTab") === "runs",
+    );
+    const link = session.getByRole("tabpanel").getByRole("link", {
+      name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
+    });
     await expect(link).toBeVisible();
     // Fire during the DOM commit's microtask, before passive React effects.
     // The newly active Run must own Escape, rather than the departing Session.
@@ -485,7 +493,12 @@ test.describe("Studio detail drawer stack", () => {
 
     await expect(drawer(page, sessionPath)).toHaveCSS("box-shadow", "none");
     await page.getByRole("button", { name: /^Runs \d+$/ }).click();
-    await page.getByRole("tabpanel").locator(`a[href^="${runPath}"]`).click();
+    await page
+      .getByRole("tabpanel")
+      .getByRole("link", {
+        name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
+      })
+      .click();
     await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
     await drawer(page, runPath)
       .getByRole("button", { name: "Expand detail" })
@@ -554,9 +567,12 @@ async function openSessionDrawer(page: Page) {
 async function openRunFromSession(page: Page) {
   const session = drawer(page, sessionPath);
   await session.getByRole("button", { name: /^Runs \d+$/ }).click();
-  const runLink = session
-    .getByRole("tabpanel")
-    .locator(`a[href^="${runPath}"]`);
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("sessionTab") === "runs",
+  );
+  const runLink = session.getByRole("tabpanel").getByRole("link", {
+    name: new RegExp(`^${escapeRegExp(DRAWER_FIXTURE.runId)}(?:\\s|$)`),
+  });
   await expect(runLink).toBeVisible();
   await runLink.click();
   // The first intercepted Run route is compiled on demand by the dev server.
@@ -572,6 +588,9 @@ async function openRunFromSession(page: Page) {
 async function openTraceInspector(page: Page) {
   const run = drawer(page, runPath);
   await run.getByRole("button", { name: "Trace", exact: true }).click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("tab") === "trace",
+  );
   const traceRow = run
     .getByRole("tabpanel")
     .locator(
@@ -580,6 +599,7 @@ async function openTraceInspector(page: Page) {
     .first();
   await expect(traceRow).toBeVisible();
   await traceRow.click();
+  await expect(page).toHaveURL((url) => Boolean(url.searchParams.get("trace")));
   await expect(inspector(page)).toBeVisible();
   await waitForSurfaceMotion(inspector(page));
 }
@@ -655,13 +675,27 @@ async function waitForSurfaceMotion(surface: Locator) {
   );
   await expect
     .poll(() =>
-      surface.evaluate((element) =>
-        element
+      surface.evaluate((element) => ({
+        state: element.getAttribute("data-state"),
+        ownerClosing: element.getAttribute("data-detail-owner-closing"),
+        nestedClosing: element.getAttribute("data-detail-nested-closing"),
+        selfClosing: element.getAttribute("data-detail-self-closing"),
+        open: element.getAttribute("data-detail-open"),
+        animations: element
           .getAnimations({ subtree: false })
-          .some((animation) => animation.playState === "running"),
-      ),
+          .filter((animation) => animation.playState === "running")
+          .map((animation) => ({
+            name:
+              "animationName" in animation
+                ? animation.animationName
+                : "transitionProperty" in animation
+                  ? animation.transitionProperty
+                  : animation.id,
+            timing: animation.effect?.getTiming(),
+          })),
+      })),
     )
-    .toBe(false);
+    .toMatchObject({ state: "open", animations: [] });
   // Finished animations may still have an animationend event queued. Drain
   // those entry events before installing an audit of the next close operation.
   await surface.evaluate(

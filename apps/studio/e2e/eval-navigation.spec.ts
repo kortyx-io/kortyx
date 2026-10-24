@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { EVAL_FIXTURE } from "./support/eval-fixture";
 import { EVAL_OPAQUE_CASES, EVAL_SUITE } from "./support/eval-plan";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
+import { setUrlSelection } from "./support/url-selection";
 
 const runPath = `/evals/runs/${EVAL_FIXTURE.candidate}`;
 const comparePath = `${runPath}/compare?baseline=${EVAL_FIXTURE.baseline}`;
@@ -163,9 +164,9 @@ test.describe("Eval route and drawer navigation", () => {
   test("persists comparison filters and attempts in URL", async ({ page }) => {
     await page.goto(comparePath);
     await page.getByRole("button", { name: "Filters", exact: true }).click();
-    await page
-      .getByRole("checkbox", { name: "Change: improved", exact: true })
-      .check();
+    await setUrlSelection(
+      page.getByRole("checkbox", { name: "Change: improved", exact: true }),
+    );
     await expect
       .poll(() =>
         new URL(page.url()).searchParams.get("tableFilters.eval-comparison"),
@@ -238,7 +239,9 @@ test.describe("Eval drawer hardening", () => {
       .getByRole("button", { name: "Case definition", exact: true })
       .click();
     await expect(page).toHaveURL(/expand\.suite-definition-raw=true/);
-    const viewer = suite.locator("[data-payload-viewer]").last();
+    const viewer = suite.locator(
+      '[data-eval-disclosure="suite-definition-raw"] [data-payload-viewer]',
+    );
     await viewer
       .getByRole("button", { name: /Payload representation/ })
       .click();
@@ -254,10 +257,11 @@ test.describe("Eval drawer hardening", () => {
         exact: true,
       }),
     ).toHaveAttribute("aria-expanded", "true");
-    await expect(page.locator("[data-payload-viewer]").last()).toHaveAttribute(
-      "data-mode",
-      "yaml",
-    );
+    await expect(
+      page.locator(
+        '[data-eval-disclosure="suite-definition-raw"] [data-payload-viewer]',
+      ),
+    ).toHaveAttribute("data-mode", "yaml");
     await page
       .getByRole("button", {
         name: "Close conversation definition",
@@ -379,7 +383,9 @@ test.describe("Eval drawer hardening", () => {
           exact: true,
         }),
     ).toBeVisible();
-    await launch.getByRole("checkbox", { name: /Ambiguous role/ }).check();
+    await setUrlSelection(
+      launch.getByRole("checkbox", { name: /Ambiguous role/ }),
+    );
     await expect(
       launch
         .getByRole("group", { name: EVAL_SUITE.name!, exact: true })
@@ -407,9 +413,12 @@ test.describe("Eval drawer hardening", () => {
     await expect(page.locator('[data-row-key$=":repeated-role"]')).toHaveCount(
       0,
     );
-    await page
-      .getByRole("button", { name: "Suite details", exact: true })
-      .click();
+    await expect(
+      page.getByRole("button", { name: "Suite details", exact: true }),
+    ).toHaveCount(0);
+    const detailsUrl = new URL(page.url());
+    detailsUrl.searchParams.set("evalTab", "definition");
+    await page.goto(detailsUrl.toString());
     await expect(
       page
         .getByRole("dialog", { name: "Suite details", exact: true })
@@ -551,6 +560,14 @@ test.describe("Eval drawer hardening", () => {
     await comparison
       .getByRole("button", { name: "Candidate", exact: true })
       .click();
+    // The tab's throttled URL update can remount its content. Wait for that
+    // transition before opening a menu owned by the newly selected tab.
+    await expect(page).toHaveURL(
+      (url) => url.searchParams.get("comparisonTab") === "candidate",
+    );
+    await expect(
+      comparison.locator('[data-detail-tab-content="candidate"]'),
+    ).toBeVisible();
     await comparison
       .getByRole("button", { name: "Candidate repetition", exact: true })
       .click();

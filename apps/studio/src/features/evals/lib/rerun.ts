@@ -97,6 +97,12 @@ export function failedRerunQuery(
       previous?.caseTimeoutMs === undefined
         ? null
         : String(previous.caseTimeoutMs),
+    launchGradingTimeout:
+      previous?.gradingTimeoutMs === undefined ||
+      (judge === "app" &&
+        !target.manifest.execution?.overrides.includes("gradingTimeoutMs"))
+        ? null
+        : String(previous.gradingTimeoutMs),
     launchRunTimeout:
       previous?.runTimeoutMs === undefined
         ? null

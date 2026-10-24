@@ -6,6 +6,10 @@ import {
   StudioEvalJudgeResponseSchema,
 } from "./contracts";
 import { compactEvalObservation } from "./evidence";
+import {
+  DEFAULT_EVAL_GRADING_TIMEOUT_MS,
+  withEvalGradingTimeout,
+} from "./grading-timeout";
 import type { EvalJudge, StudioEvalJudgeOptions } from "./types";
 
 async function readJson(
@@ -104,6 +108,10 @@ export async function createStudioEvalJudge(
           "Studio judge does not support prompt templates. Update the Studio backend.",
         );
       const request = StudioEvalJudgeRequestSchema.parse({
+        ...(input.gradingTimeoutMs !== undefined &&
+        input.gradingTimeoutMs !== DEFAULT_EVAL_GRADING_TIMEOUT_MS
+          ? { gradingTimeoutMs: input.gradingTimeoutMs }
+          : {}),
         ...(input.prompt ? { prompt: input.prompt } : {}),
         environment: options.environment,
         judge: {
@@ -122,25 +130,25 @@ export async function createStudioEvalJudge(
           }),
         ),
       });
-      const signal = AbortSignal.any([
+      const response = await withEvalGradingTimeout(
+        async (signal) =>
+          StudioEvalJudgeResponseSchema.parse(
+            await readJson(
+              await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                  authorization: `Bearer ${options.apiKey}`,
+                  "content-type": "application/json",
+                },
+                body: JSON.stringify(request),
+                redirect: "error",
+                signal,
+              }),
+              signal,
+            ),
+          ),
         input.signal,
-        AbortSignal.timeout(60_000),
-      ]);
-      signal.throwIfAborted();
-      const response = StudioEvalJudgeResponseSchema.parse(
-        await readJson(
-          await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              authorization: `Bearer ${options.apiKey}`,
-              "content-type": "application/json",
-            },
-            body: JSON.stringify(request),
-            redirect: "error",
-            signal,
-          }),
-          signal,
-        ),
+        input.gradingTimeoutMs,
       );
       if (
         response.judge.id !== identity.id ||

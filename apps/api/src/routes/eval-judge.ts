@@ -4,6 +4,7 @@ import {
   createEvalIssue,
   EvalVerdictSchema,
   StudioEvalJudgeRequestSchema,
+  withEvalGradingTimeout,
 } from "@kortyx/agent/evals";
 import { ensureProjectEnvironmentAllowed } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
@@ -87,25 +88,24 @@ export function registerEvalJudgeRoutes(
     if (active >= 4) return c.json({ error: "Studio judge is busy." }, 429);
     active++;
     try {
-      const signal = AbortSignal.any([
-        c.req.raw.signal,
-        AbortSignal.timeout(60_000),
-      ]);
-      signal.throwIfAborted();
       const { environment: _environment, judge: _judge, ...grade } = input.data;
       const usage: import("@kortyx/agent/evals").EvalJudgeUsage[] = [];
       let request: import("@kortyx/agent/evals").EvalGradingRequest | undefined;
-      const verdict = EvalVerdictSchema.parse(
-        await judge.grade({
-          ...grade,
-          signal,
-          onRequest: (value) => {
-            request = structuredClone(value);
-          },
-          onUsage: (record) => usage.push(record),
-        } as EvalGradeInput),
+      const verdict = await withEvalGradingTimeout(
+        async (signal) =>
+          EvalVerdictSchema.parse(
+            await judge.grade({
+              ...grade,
+              signal,
+              onRequest: (value) => {
+                request = structuredClone(value);
+              },
+              onUsage: (record) => usage.push(record),
+            } as EvalGradeInput),
+          ),
+        c.req.raw.signal,
+        input.data.gradingTimeoutMs,
       );
-      signal.throwIfAborted();
       return c.json({
         judge: {
           ...identity,

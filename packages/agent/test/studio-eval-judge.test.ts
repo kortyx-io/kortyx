@@ -431,3 +431,25 @@ it("forwards custom templates and the exact returned request with an optional ob
   expect(onRequest).toHaveBeenCalledExactlyOnceWith(gradingRequest);
   expect(await judge.grade({ ...input(), prompt })).toEqual(verdict);
 });
+
+it("forwards an extended grading budget and allows an HTTP response after 60 seconds", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: unknown, init?: RequestInit) => {
+      if (init?.method !== "POST") return Response.json(identity);
+      expect(JSON.parse(String(init.body)).gradingTimeoutMs).toBe(120_000);
+      await new Promise((resolve) => setTimeout(resolve, 75_000));
+      expect(init.signal?.aborted).toBe(false);
+      return Response.json({ judge: identity, verdict });
+    }),
+  );
+  const judge = await createStudioEvalJudge(options);
+  vi.useFakeTimers();
+  try {
+    const pending = judge.grade({ ...input(), gradingTimeoutMs: 120_000 });
+    await vi.advanceTimersByTimeAsync(75_000);
+    expect(await pending).toEqual(verdict);
+  } finally {
+    vi.useRealTimers();
+  }
+});

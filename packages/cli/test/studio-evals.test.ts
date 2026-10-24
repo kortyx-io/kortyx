@@ -265,12 +265,15 @@ describe("Studio eval CLI", () => {
       "5400000",
       "--case-timeout-ms",
       "180000",
+      "--grading-timeout-ms",
+      "120000",
       "--json",
     ]);
     const body = JSON.parse(String(request.mock.calls[1]?.[1]?.body));
     expect(body).toMatchObject({
       runTimeoutMs: 5_400_000,
       caseTimeoutMs: 180_000,
+      gradingTimeoutMs: 120_000,
     });
     for (const field of ["repetitions", "concurrency", "judge"])
       expect(body).not.toHaveProperty(field);

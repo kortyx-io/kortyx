@@ -8,9 +8,11 @@ import { studioDetailHref } from "@/lib/studio-routes";
 export function InterruptDetailDrawer({
   interruptId,
   detail,
+  initialNow,
 }: {
   interruptId: string;
   detail: StudioInterruptDetailResponse;
+  initialNow: number;
 }) {
   return (
     <DetailDrawer
@@ -19,7 +21,7 @@ export function InterruptDetailDrawer({
       title="Interrupt details"
       description="Inspect the decision and resume audit trail"
     >
-      <InterruptDetail detail={detail} />
+      <InterruptDetail detail={detail} initialNow={initialNow} />
     </DetailDrawer>
   );
 }
