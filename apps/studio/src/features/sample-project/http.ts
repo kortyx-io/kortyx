@@ -427,7 +427,8 @@ export function sampleResponse(path: string, method = "GET"): Response {
       if (
         id === "evaluations" &&
         (parts.length === 3 ||
-          (parts.length === 4 && ["results", "comparison"].includes(parts[3])))
+          (parts.length === 4 &&
+            ["results", "comparison"].includes(parts[3] ?? "")))
       ) {
         const evaluation = data.evals.evaluations.find(
           (evaluation) => evaluation.detail.run.id === parts[2],

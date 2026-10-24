@@ -48,8 +48,8 @@ export function sumCaseCosts(
       .sort(([a], [b]) => (a ?? "").localeCompare(b ?? ""))
       .map(([currency, amount]) => ({ currency, amount: amount / 1_000_000 }));
     return {
-      amount: values.length === 1 ? values[0].amount : null,
-      currency: values.length === 1 ? values[0].currency : null,
+      amount: values.length === 1 ? (values[0]?.amount ?? null) : null,
+      currency: values.length === 1 ? (values[0]?.currency ?? null) : null,
       status:
         complete && values.length === 1
           ? "complete"
