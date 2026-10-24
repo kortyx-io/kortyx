@@ -274,8 +274,13 @@ test("explained eval headers can be dragged and still open their help", async ({
         headers.map((header) => header.getAttribute("data-column")),
       );
     await header.scrollIntoViewIfNeeded();
-    const title = header.locator('button[data-slot="popover-trigger"]');
-    const box = await title.boundingBox();
+    const dragHandle = header.locator('[aria-roledescription="sortable"]');
+    const helpTrigger = header.getByRole("button", {
+      name:
+        path === evaluation ? "About Change" : "About Evaluation comparison",
+      exact: true,
+    });
+    const box = await dragHandle.boundingBox();
     if (!box) throw new Error("Missing header");
     await page.mouse.move(box.x + 8, box.y + box.height / 2);
     await page.mouse.down();
@@ -302,14 +307,15 @@ test("explained eval headers can be dragged and still open their help", async ({
       )
       .not.toEqual(before);
     await page.mouse.move(5, 600);
-    await title.hover();
+    await header.hover();
+    await helpTrigger.hover();
     const help = page.getByRole("dialog", {
       name:
         path === evaluation ? "About Change" : "About Evaluation comparison",
       exact: true,
     });
     await expect(help).toBeVisible();
-    await title.click();
+    await helpTrigger.click();
     await expect(help).toBeVisible();
     await page.keyboard.press("Escape");
   }

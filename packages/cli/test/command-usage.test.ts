@@ -74,6 +74,28 @@ it("counts one invocation from declared command names and excludes IDs, credenti
   });
   expect(JSON.stringify(f.records)).not.toContain("customer-secret");
 });
+
+it.each([
+  "overview",
+  "attempts",
+  "turn",
+  "evidence",
+])("counts bounded eval %s without capturing identifiers or content", async (action) => {
+  const f = fixture();
+  f.program.commands[0]
+    ?.command("evals")
+    .command(`${action} <id>`)
+    .action(() => {});
+  await runCliWithUsage(
+    f.program,
+    ["studio", "evals", action, "customer-secret-id"],
+    { usage: f.usage },
+  );
+  expect(f.records[0]).toMatchObject({
+    properties: { cli_command: "studio.evals", cli_action: action },
+  });
+  expect(JSON.stringify(f.records)).not.toContain("customer-secret");
+});
 it.each([
   [2, "failed"],
   ["2", "failed"],

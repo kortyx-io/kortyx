@@ -1,5 +1,9 @@
-import { STUDIO_API_PROTOCOL_VERSION } from "@kortyx/telemetry-contracts";
-import type { z } from "zod";
+import {
+  redactDiagnosticText,
+  STUDIO_API_PROTOCOL_VERSION,
+} from "@kortyx/telemetry-contracts";
+import { z } from "zod";
+import packageJson from "../../package.json";
 
 export type StudioCompatibility = {
   protocolVersion: string | null;
@@ -12,6 +16,7 @@ export class StudioReadError extends Error {
     message: string,
     public readonly status?: number,
     public readonly requestId?: string,
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "StudioReadError";
@@ -24,6 +29,7 @@ export class StudioReadError extends Error {
         message: this.message,
         status: this.status,
         requestId: this.requestId,
+        ...(this.details ? { details: this.details } : {}),
       },
     };
   }
@@ -116,10 +122,24 @@ export class StudioApiTransport {
         "Studio API request failed or timed out. Check the URL, network/VPN, and TLS. Redirects are not followed.",
       );
     }
-    const requestId = response.headers.get("x-request-id") ?? undefined;
+    const requestId = response.headers.get("x-request-id")
+      ? redactDiagnosticText(response.headers.get("x-request-id") ?? "").slice(
+          0,
+          128,
+        )
+      : undefined;
+    const protocol = response.headers.get("x-kortyx-studio-api-version");
     this.compatibility = {
-      protocolVersion: response.headers.get("x-kortyx-studio-api-version"),
-      release: response.headers.get("x-kortyx-studio-release"),
+      protocolVersion:
+        protocol && /^\d{1,3}$/.test(protocol)
+          ? protocol
+          : protocol
+            ? "invalid"
+            : null,
+      release:
+        redactDiagnosticText(
+          response.headers.get("x-kortyx-studio-release") ?? "",
+        ).match(/^[a-zA-Z0-9_.+-]{1,100}$/)?.[0] ?? null,
     };
     if (
       this.compatibility.protocolVersion &&
@@ -161,9 +181,11 @@ export class StudioApiTransport {
           ? "Invalid, expired, or revoked Studio read key."
           : response.status === 403
             ? "The API key lacks studio:read or the operation's required permission (diagnostics:read for diagnostics; eval:run for execution)."
-            : response.status === 404
-              ? "Entity not found in this connection's project. Check the URL and selected connection."
-              : `Studio API returned HTTP ${response.status}.`;
+            : response.status === 413
+              ? "Studio inspection exceeded its response budget. Reduce --limit or select one evidence section with --content-limit."
+              : response.status === 404
+                ? "Entity not found in this connection's project. Check the URL and selected connection."
+                : `Studio API returned HTTP ${response.status}.`;
       // Never echo arbitrary server error bodies: they can contain credentials/content.
       throw new StudioReadError(
         promptCode ?? "api_error",
@@ -211,14 +233,49 @@ export class StudioApiTransport {
     }
     const result = schema.safeParse(value);
     if (!result.success) {
+      // Describe schema-owned fields and issue codes, never received values or
+      // Zod's free-form messages (which can contain credentials/customer data).
+      let wire: unknown;
+      try {
+        wire = z.toJSONSchema(schema);
+      } catch {
+        /* Custom schemas may have no JSON representation. */
+      }
+      const path = (parts: PropertyKey[]) => {
+        let current = wire as Record<string, unknown> | undefined;
+        return parts.slice(0, 12).map((part) => {
+          if (typeof part === "number") {
+            current = current?.items as typeof current;
+            return part;
+          }
+          const props = current?.properties as
+            | Record<string, unknown>
+            | undefined;
+          if (typeof part === "string" && props && Object.hasOwn(props, part)) {
+            current = props[part] as typeof current;
+            return part;
+          }
+          current = undefined;
+          return "[field]";
+        });
+      };
+      const issues = result.error.issues
+        .slice(0, 10)
+        .map((issue) => ({ path: path(issue.path), code: issue.code }));
       const server = this.compatibility.protocolVersion
         ? `Studio API v${this.compatibility.protocolVersion}${this.compatibility.release ? ` (${this.compatibility.release})` : ""}`
         : "a server that did not report its Studio API version";
       throw new StudioReadError(
         "schema_mismatch",
-        `Studio response does not match this CLI's Studio API v${STUDIO_API_PROTOCOL_VERSION} contracts. The response came from ${server}. Upgrade both components if this server predates protocol negotiation; otherwise report this as an API compatibility regression.`,
+        `Studio response does not match CLI ${packageJson.version} / Studio API v${STUDIO_API_PROTOCOL_VERSION} contracts at ${issues.map((issue) => `${issue.path.join(".")} (${issue.code})`).join(", ")}. The response came from ${server}. Upgrade both components if this server predates protocol negotiation; otherwise report this as an API compatibility regression.`,
         response.status,
         requestId,
+        {
+          clientVersion: packageJson.version,
+          serverVersion: this.compatibility.release,
+          protocolVersion: this.compatibility.protocolVersion,
+          issues,
+        },
       );
     }
     return result.data;

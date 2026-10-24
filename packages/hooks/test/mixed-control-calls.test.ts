@@ -435,6 +435,7 @@ describe("mixed tools, outputs, and interrupts", () => {
       useReason({
         model: modelRef,
         input: "Save",
+        schemaCorrections: 0,
         stream: false,
         tools: [{ name: "save_record", inputSchema: {}, execute }],
         outputs: { emit: { card: answer }, return: { answer } },

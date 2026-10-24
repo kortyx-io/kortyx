@@ -97,7 +97,9 @@ verification. Record this assessment explicitly in the PR checklist.
   states, including existing symbol explanations. When understanding requires
   explanation, include concise guidance, an arrow pointing to the trigger, and a
   separate documentation footer; default to adding help when uncertain. Table
-  header titles and explained symbols own their help without extra question marks.
+  headers use a help circle to the left of the column menu, visible on hover or
+  keyboard focus. Overlay these controls without reducing the label width.
+  Explained state symbols own their help.
   Other compact surfaces use help circles; align metric-card help to the right.
   Use a documentation button only where there is enough space.
   Keep essential prerequisites and recovery instructions visible. Verify hover,

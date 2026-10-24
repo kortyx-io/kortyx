@@ -1839,7 +1839,18 @@ describe("Studio URL inspection and evidence", () => {
       path,
       "--json",
     ];
-    const doctor = cli(mockFetch(context));
+    const doctor = cli(
+      vi.fn<typeof fetch>(async (input) =>
+        String(input).includes("/inspection/capabilities")
+          ? Response.json({
+              inspectionVersion: 1,
+              views: ["overview", "attempts", "turn", "evidence"],
+              maxPageSize: 100,
+              maxContentLength: 32768,
+            })
+          : Response.json(context),
+      ),
+    );
     await doctor.run(["doctor", ...args]);
     expect(JSON.parse(doctor.output[0] ?? "").context.project.name).toBe(
       "Canvas",

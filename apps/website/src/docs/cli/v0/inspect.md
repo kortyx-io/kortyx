@@ -53,3 +53,8 @@ telemetry/content does not prove an action did not happen.
 Next: [Command reference](/docs/cli/reference).
 
 > **Good to know:** `--include-content` can return only content the app captured. Check [capture configuration](/docs/studio/connect-project#choose-what-content-studio-may-store) and [missing-data troubleshooting](/docs/studio/troubleshooting) before assuming the original value was empty.
+
+
+Evaluation `/evals/evaluations/<uuid>` and saved suite `/evals/runs/<uuid>` URLs
+dispatch to bounded summaries. Use `studio evals attempts`, `turn`, and `evidence`
+to expand only the needed cases. See [evaluation inspection](evaluations.md#bounded-saved-evaluation-investigation).

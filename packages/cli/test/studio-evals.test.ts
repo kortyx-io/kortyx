@@ -1,7 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { StudioEvaluationResultsSchema } from "@kortyx/agent/evals";
 import { Command } from "commander";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { saveConnections } from "../src/connections";
@@ -135,6 +134,14 @@ const evaluationSummary = {
 const evaluationResults = {
   run: { ...evaluationSummary, suites: [detail.run] },
 };
+const inspected = (data: unknown, view = "overview") => ({
+  inspectionVersion: 1,
+  id,
+  view,
+  data,
+  page: { available: 1, returned: 1, omitted: 0, nextCursor: null },
+  expand: [],
+});
 const homes: string[] = [];
 afterEach(async () => {
   vi.unstubAllEnvs();
@@ -174,6 +181,10 @@ async function configured(
 const mockFetch = (targets: unknown[] = [target], canRun = true) =>
   vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
     const path = new URL(String(url)).pathname;
+    if (path.includes("/inspection/"))
+      return Response.json(
+        inspected({ ...evaluationSummary, suites: [summary] }),
+      );
     if (path.includes("/evaluations/") && !path.endsWith("/cancel"))
       return new Response(
         JSON.stringify(
@@ -278,52 +289,35 @@ describe("Studio eval CLI", () => {
     for (const field of ["repetitions", "concurrency", "judge"])
       expect(body).not.toHaveProperty(field);
   });
-  it("shows original recorded case errors without requiring include-content", async () => {
+  it("shows bounded failure diagnostics without downloading exception artifacts", async () => {
     const args = await configured();
-    const run = {
-      ...structuredClone(detail.run),
-      status: "error",
-      error: "Provider rejected execution with HTTP 429",
-    };
-    run.result.status = "error";
-    run.result.cases[0]!.errors = [
-      {
-        phase: "execute",
-        code: "HTTP_429",
-        message: "Provider concurrency quota exceeded",
-        exception: {
-          schemaVersion: 1,
-          data: {
-            type: "HttpError",
-            stack: "HttpError: Provider quota exceeded",
-            response: {
-              content: "quota_exceeded",
-              authorization: "Bearer SECRET_CREDENTIAL",
+    const request = vi.fn<typeof fetch>(async () =>
+      Response.json(
+        inspected(
+          [
+            {
+              caseId: "ambiguity",
+              repetition: 1,
+              errors: [
+                {
+                  phase: "execute",
+                  code: "HTTP_429",
+                  message: "Provider concurrency quota exceeded",
+                  diagnosticId: id,
+                },
+              ],
             },
-          },
-          capture: { status: "complete", omissions: [], redactions: [] },
-        },
-      },
-    ] as never;
-    const command = cli(
-      vi.fn(async (url) =>
-        String(url).includes("/evaluations/")
-          ? Response.json({ error: "Legacy suite run" }, { status: 404 })
-          : Response.json({ run }),
+          ],
+          "attempts",
+        ),
       ),
     );
-    await command.run(["runs", "get", id, ...args, "--json"]);
-    const observed = JSON.parse(command.output[0] ?? "").run;
-    expect(observed.error).toBe("Provider rejected execution with HTTP 429");
-    expect(observed.caseResults[0].errors[0].message).toBe(
-      "Provider concurrency quota exceeded",
-    );
-    expect(
-      observed.caseResults[0].errors[0].exception.data.response.content,
-    ).toBe("quota_exceeded");
-    expect(command.output[0]).not.toContain("SECRET_CREDENTIAL");
+    const command = cli(request);
+    await command.run(["attempts", id, ...args, "--status", "error", "--json"]);
+    expect(command.output[0]).toContain("Provider concurrency quota exceeded");
+    expect(command.output[0]).toContain("diagnosticId");
+    expect(String(request.mock.calls[0]?.[0])).toContain("status=error");
     expect(command.output[0]).not.toContain("private prompt");
-    expect(command.output[0]).not.toContain("private answer");
   });
   it("enqueues once with discovered revision, selected cases, repetitions and URL", async () => {
     const args = await configured();
@@ -499,15 +493,12 @@ describe("Studio eval CLI", () => {
         ]),
       ).rejects.toThrow("integer");
   });
-  it("returns verdicts without content and redacts continuation credentials even when content is included", async () => {
+  it("reads summaries without downloading full results, including with include-content", async () => {
     const args = await configured();
-    const command = cli(mockFetch());
+    const request = mockFetch();
+    const command = cli(request);
     await command.run(["runs", "get", id, ...args, "--json"]);
-    expect(
-      JSON.parse(command.output[0] ?? "").run.suites[0].caseResults[0].steps[0]
-        .criteria,
-    ).toEqual([{ id: "description", passed: true }]);
-    expect(command.output[0]).not.toContain("private");
+    expect(JSON.parse(command.output[0] ?? "").run.counts.passed).toBe(1);
     await command.run([
       "runs",
       "get",
@@ -515,53 +506,51 @@ describe("Studio eval CLI", () => {
       ...args,
       "--include-content",
     ]);
-    expect(command.output[1]).toContain("private answer");
-    expect(command.output[1]).not.toContain("never-print");
+    expect(command.output.join("")).not.toContain("private answer");
+    expect(command.output.join("")).not.toContain("never-print");
+    expect(
+      request.mock.calls.every(([url]) => String(url).includes("/inspection/")),
+    ).toBe(true);
   });
-  it("keeps check verdicts in compact JSON without disclosing definitions, reasons or evidence", async () => {
+  it("expands selected criterion evidence only with explicit content opt-in", async () => {
     const args = await configured();
-    const base = mockFetch();
-    const request = vi
-      .fn<typeof fetch>()
-      .mockImplementation(async (url, init) => {
-        const response = await base(url, init);
-        if (!new URL(String(url)).pathname.endsWith("/results"))
-          return response;
-        const body = StudioEvaluationResultsSchema.parse(await response.json());
-        const step = body.run.suites[0]?.result?.cases[0]?.steps[0];
-        if (!step) throw new Error("Recorded step fixture required");
-        step.checks = [
+    const request = vi.fn<typeof fetch>(async () =>
+      Response.json(
+        inspected(
           {
-            index: 0,
-            check: {
-              type: "text-equals",
-              value: "private answer",
-              ignoreCase: true,
-            },
-            passed: true,
-            reason: "private check reasoning",
-            evidence: ["private answer"],
+            section: "criteria",
+            content: JSON.stringify([
+              {
+                passed: true,
+                reason: "private check reasoning",
+                authorization: "Bearer never-print",
+              },
+            ]),
           },
-        ];
-        return Response.json(body, { status: response.status });
-      });
+          "evidence",
+        ),
+      ),
+    );
     const command = cli(request);
-    await command.run(["runs", "get", id, ...args, "--json"]);
-    const step = JSON.parse(command.output[0] ?? "").run.suites[0]
-      .caseResults[0].steps[0];
-    expect(step.checks).toEqual([{ index: 0, passed: true }]);
-    expect(command.output[0]).not.toContain("private");
-    expect(command.output[0]).not.toContain("text-equals");
+    await expect(command.run(["evidence", id, ...args])).rejects.toThrow(
+      "requires --include-content",
+    );
+    expect(request).not.toHaveBeenCalled();
     await command.run([
-      "runs",
-      "get",
+      "evidence",
       id,
       ...args,
-      "--json",
+      "--case",
+      "ambiguity",
+      "--repetition",
+      "1",
+      "--section",
+      "criteria",
       "--include-content",
+      "--json",
     ]);
-    expect(command.output[1]).toContain("private check reasoning");
-    expect(command.output[1]).toContain("text-equals");
+    expect(command.output[0]).toContain("private check reasoning");
+    expect(command.output[0]).not.toContain("never-print");
   });
   it("reads unfinished runs and filters latest history", async () => {
     const args = await configured();
@@ -576,12 +565,7 @@ describe("Studio eval CLI", () => {
                     { ...evaluationSummary, environment: "development" },
                   ],
                 }
-              : {
-                  run: {
-                    ...evaluationSummary,
-                    suites: [{ ...detail.run, result: null }],
-                  },
-                },
+              : inspected({ ...evaluationSummary, suites: [summary] }),
           ),
         ),
     );
@@ -667,7 +651,7 @@ describe("Studio eval CLI", () => {
       "--include-content",
       "--json",
     ]);
-    expect(command.output[1]).toContain("private answer");
+    expect(command.output[1]).not.toContain("private answer");
     expect(command.output[1]).not.toContain(key);
   });
   it("pins repeated suite selections and waits for final verdicts after launch", async () => {
@@ -726,15 +710,19 @@ describe("Studio eval CLI", () => {
     const request = vi.fn<typeof fetch>(
       async (url) =>
         new Response(
-          JSON.stringify({
-            run: {
-              ...evaluationSummary,
-              status,
-              suites: String(url).endsWith("/results")
-                ? [detail.run]
-                : [summary],
-            },
-          }),
+          JSON.stringify(
+            String(url).includes("/inspection/")
+              ? inspected({ ...evaluationSummary, status, suites: [summary] })
+              : {
+                  run: {
+                    ...evaluationSummary,
+                    status,
+                    suites: String(url).endsWith("/results")
+                      ? [detail.run]
+                      : [summary],
+                  },
+                },
+          ),
         ),
     );
     const command = cli(request);
@@ -769,19 +757,15 @@ describe("Studio eval CLI", () => {
       true,
     );
   });
-  it("reads old suite-run links when the parent is absent", async () => {
+  it("rejects unsupported bounded reads without downloading legacy full results", async () => {
     const args = await configured();
-    const request = vi.fn<typeof fetch>(async (url) =>
-      String(url).includes("/evaluations/")
-        ? new Response("missing", { status: 404 })
-        : new Response(JSON.stringify(detail)),
+    const request = vi.fn<typeof fetch>(
+      async () => new Response("missing", { status: 404 }),
     );
-    const command = cli(request);
-    await command.run(["runs", "get", id, ...args, "--json"]);
-    expect(
-      JSON.parse(command.output[0] ?? "").run.caseResults[0].steps[0]
-        .criteria[0].passed,
-    ).toBe(true);
+    await expect(
+      cli(request).run(["runs", "get", id, ...args, "--json"]),
+    ).rejects.toMatchObject({ code: "eval_inspection_unavailable" });
+    expect(request).toHaveBeenCalledTimes(1);
   });
   it("never retries a start rejected by a changed suite", async () => {
     const args = await configured();
@@ -920,6 +904,10 @@ describe("eval endpoint validation", () => {
       "evaluation UUID",
     );
     await expect(client.runs()).resolves.toMatchObject({ runs: [summary] });
+    await expect(client.run(id)).resolves.toEqual(detail);
+    await expect(client.evaluationResults(id)).resolves.toEqual(
+      evaluationResults,
+    );
     await expect(
       client.start({
         targetId: "hiring",

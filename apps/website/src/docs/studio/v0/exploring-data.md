@@ -41,6 +41,8 @@ Refresh manually to request current data. Live mode does not bypass filters, rec
 Use **Explore → Explain this page** for a guided explanation of your current view.
 The guide keeps your record and filters in place. [Sample tours and page help](/docs/studio/sample-project#guided-tours-and-page-help) explain how to explore fictional examples when your application has no records yet.
 
-A circled question mark opens a short help card on hover, keyboard focus, or click/tap. Move into the card to use **Read documentation**, which opens the related page/section in a new tab and preserves Studio's current state. Escape dismisses the card. Table header titles and explained state symbols open their own help without an extra question mark. Other compact controls use help circles; roomier setup and empty states can show a documentation button.
+A circled question mark opens a short help card on hover, keyboard focus, or click/tap. Move into the card to use **Read documentation**, which opens the related page/section in a new tab and preserves Studio's current state. Escape dismisses the card. Table headers show a help circle to the left of the column menu on hover or keyboard focus. These buttons overlay the label area without changing its width. Click the label to sort; use the help circle for its explanation. Explained state symbols open their own help. Other compact controls use help circles; roomier setup and empty states can show a documentation button.
+
+Opening another tooltip closes the previous card, including a card pinned by a click. Header help prefers the space above its help circle and moves below when there is not enough room.
 
 Next: [Runs](/docs/studio/runs), [Sessions](/docs/studio/sessions), [Interrupts](/docs/studio/interrupts), or [Metrics](/docs/studio/metrics).

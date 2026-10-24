@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { studioHelp } from "@/lib/studio-help";
+import { cn } from "@/lib/utils";
 import { EvalSuiteStatusBar } from "./eval-suite-status-bar";
 
 export function EvalSuiteNavigation({
@@ -51,12 +52,15 @@ export function EvalSuiteNavigation({
         {overviewLabel}
       </Button>
       {suites.map((suite) => (
-        <Tooltip key={suite.id}>
+        <Tooltip key={suite.id} delayDuration={200}>
           <TooltipTrigger asChild>
             <Button
               variant={selected === suite.id ? "secondary" : "ghost"}
               size="sm"
-              className="h-auto min-h-8 max-w-full justify-start py-2"
+              className={cn(
+                "h-auto min-h-8 w-44 max-w-full justify-start border py-2 lg:w-full",
+                selected !== suite.id && "border-transparent",
+              )}
               aria-current={selected === suite.id ? "page" : undefined}
               onClick={() => onSelect(suite.id)}
             >

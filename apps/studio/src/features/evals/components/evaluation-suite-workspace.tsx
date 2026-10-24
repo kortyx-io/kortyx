@@ -136,14 +136,17 @@ export function EvaluationSuiteWorkspace({
       <EvalSuiteNavigation
         suites={evaluation.suites.map((suite) => {
           const liveRun = current.runs.find((run) => run.id === suite.id);
+          const statusCounts = suiteStatusCounts(
+            suite,
+            liveRun ? caseRows(liveRun) : undefined,
+          );
           return {
             id: suite.id,
             name: suite.suiteName ?? suite.suiteId,
-            preview: <EvalSuitePreview suite={suite} />,
-            statusCounts: suiteStatusCounts(
-              suite,
-              liveRun ? caseRows(liveRun) : undefined,
+            preview: (
+              <EvalSuitePreview suite={suite} statusCounts={statusCounts} />
             ),
+            statusCounts,
             description:
               suite.totalAttempts === undefined
                 ? undefined

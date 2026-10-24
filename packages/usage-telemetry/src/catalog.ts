@@ -277,6 +277,10 @@ export const publicCatalog: UsageCatalog = {
       "unknown",
     ],
     cli_action: [
+      "overview",
+      "attempts",
+      "turn",
+      "evidence",
       "start",
       "stop",
       "restart",

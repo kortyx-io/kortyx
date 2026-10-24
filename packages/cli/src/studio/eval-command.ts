@@ -1,7 +1,3 @@
-import type {
-  StudioEvalDetail,
-  StudioEvalRunSummary,
-} from "@kortyx/agent/evals";
 import { type Command, InvalidArgumentError } from "commander";
 import {
   type ConnectionOptions,
@@ -15,6 +11,7 @@ import {
   evalDoctorFailure,
   formatEvalDoctorReport,
 } from "./eval-doctor";
+import { registerEvalInspectionCommands } from "./eval-inspection";
 import { StudioReadError } from "./read-client";
 import { formatReadOutput, sanitizeStudioData } from "./read-output";
 import { defaultStudioHome } from "./state";
@@ -46,32 +43,6 @@ const integer = (max: number) => (value: string) => {
     throw new InvalidArgumentError(`Expected an integer between 1 and ${max}.`);
   return Number(value);
 };
-const summary = (run: StudioEvalRunSummary) => run;
-const compactDetail = (run: StudioEvalDetail) => ({
-  ...summary(run),
-  suite: undefined,
-  events: undefined,
-  result: undefined,
-  caseResults: run.result?.cases.map(
-    ({ caseId, repetition, status, durationMs, steps, errors }) => ({
-      caseId,
-      repetition,
-      status,
-      durationMs,
-      errors,
-      steps: steps.map(({ index, status, criteria, checks, reason }) => ({
-        index,
-        status,
-        reason,
-        criteria: criteria.map(({ id, passed }) => ({ id, passed })),
-        ...(checks
-          ? { checks: checks.map(({ index, passed }) => ({ index, passed })) }
-          : {}),
-      })),
-    }),
-  ),
-});
-
 export function registerStudioEvalCommands(
   studio: Command,
   log: (message: string) => void,
@@ -129,6 +100,7 @@ export function registerStudioEvalCommands(
     .description(
       "Discover suites, enqueue evals, inspect saved results and cancel runs.",
     );
+  registerEvalInspectionCommands(evals, common, log, request);
   const suites = evals
     .command("suites")
     .description("Discover application-owned eval suites.");
@@ -297,11 +269,16 @@ export function registerStudioEvalCommands(
     id: string,
     includeContent: boolean,
   ) => {
-    // Summary reads include criterion pass/fail without prompts or observations.
-    const { run } = await client.evaluationResults(id);
-    return includeContent
-      ? run
-      : { ...run, suites: run.suites.map(compactDetail) };
+    const inspection = await client.inspection(id);
+    return {
+      ...(inspection.data as Record<string, unknown>),
+      inspection: {
+        page: inspection.page,
+        expand: inspection.expand,
+        contentRequested: includeContent,
+        note: "Use evals attempts, turn, and evidence for bounded detail. --include-content does not download an entire evaluation.",
+      },
+    };
   };
   const waitOptions = (command: Command) =>
     command.option(
@@ -557,19 +534,11 @@ export function registerStudioEvalCommands(
   ).action(async (input: string, options: EvalOptions) => {
     const target = parseEvalRunTarget(input);
     const { connection, client } = await clientFor(options, target.url);
-    let run: unknown;
-    try {
-      run = await readEvaluation(
-        client,
-        target.id,
-        options.includeContent ?? false,
-      );
-    } catch (error) {
-      if (!(error instanceof StudioReadError) || error.status !== 404)
-        throw error;
-      const legacy = await client.run(target.id);
-      run = options.includeContent ? legacy.run : compactDetail(legacy.run);
-    }
+    const run = await readEvaluation(
+      client,
+      target.id,
+      options.includeContent ?? false,
+    );
     print(
       {
         connection: connection.name,

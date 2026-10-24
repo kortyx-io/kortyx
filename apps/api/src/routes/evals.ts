@@ -2,6 +2,7 @@ import type { OpenAPIHono } from "@hono/zod-openapi";
 import { type EvalJudge, getEvalSuiteRevision } from "@kortyx/agent";
 import {
   createEvalIssue,
+  EvalInspectionQuerySchema,
   EvalSettingsSchema,
   type EvalSuite,
   resolveEvalSettings,
@@ -14,6 +15,7 @@ import {
   getEvalLiveState,
   getEvalRun,
   getEvalSettings,
+  inspectEvaluation,
   listEvalRuns,
   requestEvalCancellation,
   TelemetryForbiddenError,
@@ -50,6 +52,33 @@ export function registerEvalRoutes(
   app.use("/v1/studio/evals/settings", bodyLimit({ maxSize: 16_384 }));
   registerEvalSettingsRoutes(app);
   registerEvaluationRoutes(app, targets, studioJudge, adapter);
+  app.get("/v1/studio/evals/inspection/capabilities", (c) =>
+    c.json({
+      inspectionVersion: 1,
+      views: ["overview", "attempts", "turn", "evidence"],
+      maxPageSize: 100,
+      maxContentLength: 32768,
+    }),
+  );
+  app.get("/v1/studio/evals/inspection/:id", async (c) => {
+    const id = z.uuid().safeParse(c.req.param("id"));
+    const query = EvalInspectionQuerySchema.safeParse(c.req.query());
+    if (!id.success || !query.success)
+      return c.json({ error: "Invalid evaluation inspection query." }, 400);
+    const result = await c.get("withTenantDatabase")((db) =>
+      inspectEvaluation(db, c.get("principal"), id.data, query.data),
+    );
+    c.header("Cache-Control", "no-store");
+    if (Buffer.byteLength(JSON.stringify(result)) > 512 * 1024)
+      return c.json(
+        {
+          error:
+            "Inspection page exceeds 512 KiB. Reduce limit or select a smaller evidence section.",
+        },
+        413,
+      );
+    return c.json(result);
+  });
   const manifestFor = adapter
     ? (target: EvalTarget) => adapter.manifest(target)
     : fetchEvalManifest;

@@ -998,3 +998,31 @@ Tool faults automatically capture error type and message in Studio and OpenTelem
 With tracing configured, provider/model-call failures and `useReason` decision/output-parsing failures automatically export bounded error type/message, without additional call-site wiring. Studio's failed model request inspector shows provider diagnostics; a separate **Model reasoning** row shows JSON/schema processing failures after an otherwise normally completed model response. Failed provider requests do not add a duplicate reasoning-failure row. Interrupts and cancellation retain their control-flow treatment.
 
 Unhandled workflow and model errors automatically include bounded exception type, message, stack and cause diagnostics in trusted Studio/OpenTelemetry observations. Failed-generation events retain normalized usage counts and omit arbitrary provider metadata/raw usage. Prompts, outputs and raw provider responses remain controlled by explicit content capture. Both `createKortyxTelemetryAdapter` and `createOpenTelemetryTraceAdapter` optionally accept `error(error)` returning `{type, message, stack?, cause?}` or `null` to replace or suppress diagnostics before export; a throwing override suppresses them without changing execution. Tool diagnostics retain their narrower optional `tool.telemetry.error` projection. Client-facing `serializeFailure` and execution failure contracts remain sanitized and unchanged.
+
+
+## Output schema correction
+
+`useReason` gives invalid emitted/returned contract payloads and ordinary
+`outputSchema` JSON one output-only repair pass by default. Set
+`schemaCorrections: 0` to disable repair, or choose an integer from 1 to 10.
+This is separate from `toolExecution.missingReturnCorrections`, which only
+handles a missing terminal control call.
+
+Correction receives the declared schema, invalid schema fields, the failed
+value, and completed tool/human results. Business tools and human-input tools
+are disabled during repair. A corrected emission continues the reason loop;
+a corrected return completes it. Invalid provisional streamed fields are
+invalidated before the validated final value is published.
+
+Every repair consumes `toolExecution.maxSteps` and the root execution budget,
+adds provider usage/cost, and retains its attempt count in the reason checkpoint.
+Resume and explicit Continue retain completed effects and the remaining repair
+allowance. Exhaustion uses `REASON_OUTPUT_SCHEMA_CORRECTION_EXHAUSTED`, with the
+contract, attempts and terminal reason; disabling repair preserves the original
+validation failure. Cancellation, provider errors/refusals, and output truncation
+are not schema repair requests. Provider-native decision schemas and the deprecated
+singular no-tool `interrupt` path retain their existing behavior.
+
+Keep side effects outside Kortyx tools idempotent: replaying node code still
+requires the application's existing guards. Never wrap the entire workflow in a
+retry just to repair a model-produced field.

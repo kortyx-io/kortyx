@@ -252,7 +252,13 @@ async function runReason<
       // resume during the deprecation window; legacy + tools is normalized to
       // the new control-tool runtime.
       if (
-        (args.tools?.length || args.interrupts || args.outputs) &&
+        (args.tools?.length ||
+          args.interrupts ||
+          args.outputs ||
+          (args.outputSchema &&
+            !args.interrupt &&
+            !usesNativeOutput(args.outputSchema) &&
+            args.schemaCorrections !== 0)) &&
         !existingCheckpoint
       ) {
         return runReasonToolLoop({

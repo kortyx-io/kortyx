@@ -29,6 +29,8 @@ commit, and deployment context. Compare evaluations from the Runs list.
 For a selected suite, **Suite details** opens its saved Definition and Configuration
 in a platform drawer. The suite list stays available without another header or tabs. Hover or focus a suite to preview its status, progress, results, workflow/judge/total costs, duration, pass rate, and queue time beside the navigation.
 
+Each suite's progress bar shows the proportion of attempts in each status. The preview lists each status on its own row with a matching color and count, including pending work when present.
+
 Results show **one row per conversation**, including all repetitions. Open a row
 in the platform drawer to read its recorded input, answer, checks, and workflow
 links. **Inspect workflow** opens the existing execution drawer on top; closing

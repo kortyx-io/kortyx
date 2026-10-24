@@ -1,19 +1,46 @@
 import type { StudioEvalRunSummary } from "@kortyx/agent/evals";
 import type { CaseRow } from "../lib/presentation";
 
-const colors: Record<string, string> = {
-  passed: "bg-emerald-500",
-  failed: "bg-red-500",
-  error: "bg-red-700 dark:bg-red-400",
-  running: "bg-blue-500",
-  queued: "bg-muted-foreground/30",
-  pending: "bg-muted-foreground/30",
-  retrying: "bg-amber-500",
-  reconnecting: "bg-amber-500",
-  interrupted: "bg-amber-500",
-  ungraded: "bg-amber-500",
-  cancelled: "bg-muted-foreground/60",
+export const suiteStatusColors: Record<string, string> = {
+  passed: "text-emerald-500",
+  failed: "text-red-500",
+  error: "text-red-700 dark:text-red-400",
+  running: "text-blue-500",
+  queued: "text-muted-foreground/30",
+  pending: "text-muted-foreground/30",
+  retrying: "text-amber-500",
+  reconnecting: "text-amber-500",
+  interrupted: "text-amber-500",
+  ungraded: "text-amber-500",
+  cancelled: "text-muted-foreground/60",
+  "not-run": "text-muted-foreground/30",
 };
+
+export const suiteStatusLabels: Record<string, string> = {
+  passed: "Passed",
+  failed: "Failed",
+  error: "Errors",
+  running: "Running",
+  queued: "Queued",
+  pending: "Pending",
+  retrying: "Retrying",
+  reconnecting: "Reconnecting",
+  interrupted: "Interrupted",
+  ungraded: "Ungraded",
+  cancelled: "Cancelled",
+  "not-run": "Not run",
+};
+
+export function suiteStatusEntries(counts: Record<string, number>) {
+  return [
+    ...Object.keys(suiteStatusColors),
+    ...Object.keys(counts)
+      .filter((status) => !Object.hasOwn(suiteStatusColors, status))
+      .sort(),
+  ]
+    .filter((status) => Object.hasOwn(counts, status))
+    .map((status) => [status, counts[status] ?? 0] as const);
+}
 
 export function suiteStatusCounts(
   suite: Pick<StudioEvalRunSummary, "counts" | "totalAttempts" | "status">,
@@ -43,34 +70,50 @@ export function EvalSuiteStatusBar({
 }: {
   counts: Record<string, number>;
 }) {
-  const statuses = [
-    ...Object.keys(colors),
-    ...Object.keys(counts)
-      .filter((status) => !Object.hasOwn(colors, status))
-      .sort(),
-  ];
-  const segments = statuses
-    .map((status) => [status, counts[status] ?? 0] as const)
-    .filter(([, count]) => count > 0);
+  const segments = suiteStatusEntries(counts).filter(([, count]) => count > 0);
   const total = segments.reduce((sum, [, count]) => sum + count, 0);
   const label = segments
     .map(([status, count]) => `${count} ${status}`)
     .join(" · ");
+  let offset = 0;
   return (
-    <span
+    <svg
       role="img"
       aria-label={label || "No conversation results"}
-      title={label || "No conversation results"}
-      className="mt-2 flex h-1.5 w-full overflow-hidden bg-muted"
+      viewBox={`0 0 ${total || 1} 1`}
+      preserveAspectRatio="none"
+      className="mt-2 block size-full h-1 shrink-0 overflow-hidden rounded-full bg-muted"
     >
-      {segments.map(([status, count]) => (
-        <span
-          key={status}
-          data-status={status}
-          className={colors[status] ?? "bg-muted-foreground/30"}
-          style={{ width: `${(count / total) * 100}%` }}
-        />
-      ))}
-    </span>
+      {segments.map(([status, count], index) => {
+        const x = offset;
+        offset += count;
+        return (
+          <g key={status}>
+            <rect
+              data-status={status}
+              x={x}
+              y={0}
+              width={count}
+              height={1}
+              fill="currentColor"
+              className={
+                suiteStatusColors[status] ?? "text-muted-foreground/30"
+              }
+            />
+            {index > 0 && (
+              <line
+                x1={x}
+                x2={x}
+                y1={0}
+                y2={1}
+                stroke="var(--background)"
+                strokeWidth={1}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+          </g>
+        );
+      })}
+    </svg>
   );
 }

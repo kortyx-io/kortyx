@@ -12,6 +12,7 @@ export {
   EvalGradingTimeoutError,
   withEvalGradingTimeout,
 } from "./evals/grading-timeout";
+export * from "./evals/inspection-contracts";
 export * from "./evals/judge-prompt-contracts";
 export * from "./evals/settings";
 export * from "./evals/studio-contracts";

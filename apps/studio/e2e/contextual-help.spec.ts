@@ -81,23 +81,129 @@ async function screenshot(page: import("@playwright/test").Page, name: string) {
   await page.screenshot({ path: path.join(screenshots, name), fullPage: true });
 }
 
-test("header title owns help, preserves sort, and supports hover and keyboard", async ({
+async function expectPreferredHelpSide(
+  card: import("@playwright/test").Locator,
+  trigger: import("@playwright/test").Locator,
+) {
+  await expectArrowAttached(card, trigger);
+  const anchor = await trigger.boundingBox();
+  const panel = await card.boundingBox();
+  const arrow = await card.locator('[data-slot="popover-arrow"]').boundingBox();
+  if (!anchor || !panel || !arrow)
+    throw new Error("Header help must be visible");
+  await expect(card).toHaveAttribute(
+    "data-side",
+    anchor.y >= panel.height + arrow.height + 18 ? "top" : "bottom",
+  );
+}
+
+test("opening another header help replaces pinned help and prefers available space above", async ({
+  page,
+}) => {
+  await page.goto(
+    "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003",
+  );
+  const outcome = page
+    .locator('th[data-column="status"]')
+    .getByRole("button", { name: "About Outcome", exact: true });
+  const change = page
+    .locator('th[data-column="change"]')
+    .getByRole("button", { name: "About Change", exact: true });
+  const outcomeHelp = page.getByRole("dialog", {
+    name: "About Outcome",
+    exact: true,
+  });
+  const changeHelp = page.getByRole("dialog", {
+    name: "About Change",
+    exact: true,
+  });
+  await expect(
+    page.locator('[data-table-ready="true"][aria-busy="false"]'),
+  ).toBeVisible();
+  const before = page.url();
+  await page.locator('th[data-column="status"]').hover();
+  await outcome.hover();
+  await outcome.click();
+  await expect(outcomeHelp).toBeVisible();
+  await page.locator('th[data-column="change"]').hover();
+  await change.hover();
+  await expect(changeHelp).toBeVisible();
+  await expect(outcomeHelp).toBeHidden();
+  await expect(
+    page.locator(
+      '[data-slot="popover-content"][data-state="open"][aria-label^="About "]',
+    ),
+  ).toHaveCount(1);
+  expect(page.url()).toBe(before);
+
+  await expectPreferredHelpSide(changeHelp, change);
+  await change.click();
+  await page.locator('th[data-column="status"]').hover();
+  await outcome.hover();
+  await expect(outcomeHelp).toBeVisible();
+  await expect(changeHelp).toBeHidden();
+  await outcome.focus();
+  await change.focus();
+  await expect(changeHelp).toBeVisible();
+  await expect(outcomeHelp).toBeHidden();
+  await page.keyboard.press("Tab");
+  await expect(
+    changeHelp.getByRole("link", { name: /Read documentation/ }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(changeHelp).toBeHidden();
+  await expect(change).toBeFocused();
+  await change.click();
+  await expect(changeHelp).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Evaluation suites" })
+    .getByRole("button", { name: /^Support quality / })
+    .focus();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await expect(changeHelp).toBeHidden();
+});
+
+test("header help overlays the label without shifting it and preserves sorting", async ({
   page,
 }) => {
   await page.goto("/runs?range=All+time&live=false");
+  await expect(
+    page.locator('[data-table-ready="true"][aria-busy="false"]'),
+  ).toBeVisible();
   const header = page.locator('th[data-column="status"]');
   const sort = header.locator("button").filter({ hasText: /^Status$/ });
-  // The title itself owns help; there is no extra question-mark button.
-  await expect(header.locator('button[aria-haspopup="dialog"]')).toHaveCount(1);
-  await expect(header.locator(".lucide-circle-help")).toHaveCount(0);
-  const trigger = sort;
+  const trigger = header.getByRole("button", {
+    name: "About Status",
+    exact: true,
+  });
+  const menu = header.getByRole("button", {
+    name: "Status column menu",
+    exact: true,
+  });
+  await expect(header.locator(".lucide-circle-help")).toHaveCount(1);
+  await page.getByRole("heading", { name: "Runs", exact: true }).hover();
+  await expect(trigger).toHaveCSS("opacity", "0");
+  await expect(menu).toHaveCSS("opacity", "0");
+  const labelBefore = await sort.boundingBox();
   const before = page.url();
+  await sort.hover();
+  await expect(trigger).toHaveCSS("opacity", "1");
+  await expect(menu).toHaveCSS("opacity", "1");
+  await expect(
+    page.getByRole("dialog", { name: "About Status", exact: true }),
+  ).toBeHidden();
+  expect(await sort.boundingBox()).toEqual(labelBefore);
+  const helpBounds = await trigger.boundingBox();
+  const menuBounds = await menu.boundingBox();
+  if (!helpBounds || !menuBounds || !labelBefore)
+    throw new Error("Header controls must be visible");
+  expect(helpBounds.x + helpBounds.width).toBeLessThanOrEqual(menuBounds.x);
+  expect(helpBounds.x).toBeLessThan(labelBefore.x + labelBefore.width);
   await trigger.hover();
   const card = page.getByRole("dialog", { name: "About Status", exact: true });
   await expect(card).toBeVisible();
-  await expect(card).toHaveAttribute("data-side", "bottom");
   await expect(card.locator('[data-slot="popover-arrow"]')).toBeVisible();
-  await expectArrowAttached(card, trigger);
+  await expectPreferredHelpSide(card, trigger);
   expect(page.url()).toBe(before);
   const docs = card.getByRole("link", { name: /Read documentation/ });
   await expect(docs).toHaveAttribute(
@@ -121,10 +227,10 @@ test("header title owns help, preserves sort, and supports hover and keyboard", 
   expect(page.url()).toBe(before);
   await sort.first().click();
   await expect(header).toHaveAttribute("aria-sort", "descending");
-  await trigger.press("Enter");
+  await sort.press("Enter");
   await expect(header).toHaveAttribute("aria-sort", "ascending");
   await expect(header).not.toHaveAttribute("data-column-dragging", "true");
-  await trigger.press(" ");
+  await sort.press(" ");
   await expect(header).toHaveAttribute("aria-sort", "descending");
   await expect(header).not.toHaveAttribute("data-column-dragging", "true");
 
@@ -276,11 +382,21 @@ test("touch help fits a narrow screen and can be dismissed outside", async ({
   await page.touchscreen.tap(5, 5);
   await expect(card).toBeHidden();
   await page.goto("/runs?range=All+time&live=false");
-  const headerTitle = page.locator(
-    'th[data-column="status"] button[data-slot="popover-trigger"]',
-  );
-  await headerTitle.tap();
+  await expect(
+    page.locator('[data-table-ready="true"][aria-busy="false"]'),
+  ).toBeVisible();
+  const header = page.locator('th[data-column="status"]');
+  // On touch screens, help overlays part of the full-width sort button.
+  // Tap the visible label, as a user would, rather than the overlaid controls.
+  await header
+    .locator("button")
+    .filter({ hasText: /^Status$/ })
+    .locator("span")
+    .tap();
   await expect(page).toHaveURL(/sort=status/);
+  const sorted = page.url();
+  await header.getByRole("button", { name: "About Status", exact: true }).tap();
+  expect(page.url()).toBe(sorted);
   const headerHelp = page.getByRole("dialog", {
     name: "About Status",
     exact: true,

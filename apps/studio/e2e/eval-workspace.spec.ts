@@ -31,7 +31,7 @@ test("keeps suite context, previews its table facts, and opens conversation evid
   const preview = page.getByRole("tooltip");
   await expect(preview).toContainText("3 / 3 recorded outcomes");
   for (const fact of [
-    "Results",
+    "Passed",
     "Workflow cost",
     "Judge cost",
     "Total cost",
@@ -40,7 +40,31 @@ test("keeps suite context, previews its table facts, and opens conversation evid
     "Queue time",
   ])
     await expect(preview).toContainText(fact);
+  const passedLegend = page
+    .locator('[data-slot="tooltip-content"] dl dt')
+    .filter({ hasText: /^Passed$/ })
+    .first();
+  await expect(passedLegend.locator("span")).toHaveCSS(
+    "background-color",
+    await suite
+      .locator('[data-status="passed"]')
+      .evaluate((element) => getComputedStyle(element).fill),
+  );
   await page.screenshot({ path: testInfo.outputPath("suite-preview.png") });
+  const otherSuite = navigation
+    .locator('button[data-slot="tooltip-trigger"]')
+    .filter({ hasNotText: /^Support quality / })
+    .first();
+  const otherName = await otherSuite
+    .locator("span.block.truncate")
+    .first()
+    .innerText();
+  await otherSuite.hover();
+  await expect(preview).toHaveCount(1);
+  await expect(preview).toContainText(otherName);
+  await suite.hover();
+  await expect(preview).toHaveCount(1);
+  await expect(preview).toContainText("Support quality");
   await suite.focus();
   await expect(preview).toBeVisible();
   await suite.click();

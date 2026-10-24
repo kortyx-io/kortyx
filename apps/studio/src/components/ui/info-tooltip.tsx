@@ -4,6 +4,7 @@ import { CircleHelp } from "lucide-react";
 import {
   type ReactElement,
   type ReactNode,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -21,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { studioFeature } from "@/usage/client";
 import type { HelpDefinition } from "./help-types";
+import { useExclusiveTooltip } from "./use-exclusive-tooltip";
 
 export type { HelpDefinition } from "./help-types";
 
@@ -78,6 +80,13 @@ export function InfoTooltip({
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const dismiss = useCallback(() => {
+    clearTimeout(timer.current);
+    openRef.current = false;
+    pinned.current = false;
+    setOpen(false);
+  }, []);
+  const announceOpen = useExclusiveTooltip(dismiss);
   const clearTimer = () => clearTimeout(timer.current);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
@@ -92,6 +101,7 @@ export function InfoTooltip({
     clearTimer();
     if (disabled && next) return;
     if (next && !openRef.current) {
+      announceOpen();
       studioFeature("studio.help", {
         help_action: "open",
         help_placement: "card",
