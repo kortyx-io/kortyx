@@ -131,32 +131,18 @@
         "api_keys_project_tenant_fk": {
           "name": "api_keys_project_tenant_fk",
           "tableFrom": "api_keys",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "api_keys_environment_tenant_fk": {
           "name": "api_keys_environment_tenant_fk",
           "tableFrom": "api_keys",
-          "columnsFrom": [
-            "organization_id",
-            "project_id",
-            "environment_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id", "environment_id"],
           "tableTo": "project_environments",
-          "columnsTo": [
-            "organization_id",
-            "project_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "project_id", "id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -286,13 +272,9 @@
         "auth_accounts_user_id_fkey": {
           "name": "auth_accounts_user_id_fkey",
           "tableFrom": "auth_accounts",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -385,15 +367,9 @@
         "diagnostic_access_project_tenant_fk": {
           "name": "diagnostic_access_project_tenant_fk",
           "tableFrom": "diagnostic_access",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -472,11 +448,7 @@
             "diagnostic_record_id"
           ],
           "tableTo": "error_diagnostics",
-          "columnsTo": [
-            "organization_id",
-            "project_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "project_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -636,15 +608,9 @@
         "error_diagnostics_project_tenant_fk": {
           "name": "error_diagnostics_project_tenant_fk",
           "tableFrom": "error_diagnostics",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -747,17 +713,9 @@
         "eval_run_events_tenant_fk": {
           "name": "eval_run_events_tenant_fk",
           "tableFrom": "eval_run_events",
-          "columnsFrom": [
-            "organization_id",
-            "project_id",
-            "run_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id", "run_id"],
           "tableTo": "eval_runs",
-          "columnsTo": [
-            "organization_id",
-            "project_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "project_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1059,32 +1017,18 @@
         "eval_runs_project_tenant_fk": {
           "name": "eval_runs_project_tenant_fk",
           "tableFrom": "eval_runs",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "eval_runs_evaluation_tenant_fk": {
           "name": "eval_runs_evaluation_tenant_fk",
           "tableFrom": "eval_runs",
-          "columnsFrom": [
-            "organization_id",
-            "project_id",
-            "evaluation_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id", "evaluation_id"],
           "tableTo": "evaluation_runs",
-          "columnsTo": [
-            "organization_id",
-            "project_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "project_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1272,15 +1216,9 @@
         "evaluation_runs_project_tenant_fk": {
           "name": "evaluation_runs_project_tenant_fk",
           "tableFrom": "evaluation_runs",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1558,15 +1496,9 @@
         "model_rate_cards_project_tenant_fk": {
           "name": "model_rate_cards_project_tenant_fk",
           "tableFrom": "model_rate_cards",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -1756,39 +1688,27 @@
         "organization_invitations_organization_id_fkey": {
           "name": "organization_invitations_organization_id_fkey",
           "tableFrom": "organization_invitations",
-          "columnsFrom": [
-            "organization_id"
-          ],
+          "columnsFrom": ["organization_id"],
           "tableTo": "organizations",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "organization_invitations_invited_by_user_id_fkey": {
           "name": "organization_invitations_invited_by_user_id_fkey",
           "tableFrom": "organization_invitations",
-          "columnsFrom": [
-            "invited_by_user_id"
-          ],
+          "columnsFrom": ["invited_by_user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         },
         "organization_invitations_accepted_by_user_id_fkey": {
           "name": "organization_invitations_accepted_by_user_id_fkey",
           "tableFrom": "organization_invitations",
-          "columnsFrom": [
-            "accepted_by_user_id"
-          ],
+          "columnsFrom": ["accepted_by_user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "set null"
         }
@@ -1917,26 +1837,18 @@
         "organization_memberships_organization_id_fkey": {
           "name": "organization_memberships_organization_id_fkey",
           "tableFrom": "organization_memberships",
-          "columnsFrom": [
-            "organization_id"
-          ],
+          "columnsFrom": ["organization_id"],
           "tableTo": "organizations",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "organization_memberships_user_id_fkey": {
           "name": "organization_memberships_user_id_fkey",
           "tableFrom": "organization_memberships",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -2122,15 +2034,9 @@
         "project_environments_project_tenant_fk": {
           "name": "project_environments_project_tenant_fk",
           "tableFrom": "project_environments",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -2249,13 +2155,9 @@
         "projects_organization_id_fkey": {
           "name": "projects_organization_id_fkey",
           "tableFrom": "projects",
-          "columnsFrom": [
-            "organization_id"
-          ],
+          "columnsFrom": ["organization_id"],
           "tableTo": "organizations",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -2360,15 +2262,9 @@
         "prompt_activity_project_fk": {
           "name": "prompt_activity_project_fk",
           "tableFrom": "prompt_activity",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -2562,32 +2458,18 @@
         "prompt_assets_project_fk": {
           "name": "prompt_assets_project_fk",
           "tableFrom": "prompt_assets",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "prompt_assets_category_fk": {
           "name": "prompt_assets_category_fk",
           "tableFrom": "prompt_assets",
-          "columnsFrom": [
-            "organization_id",
-            "project_id",
-            "category_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id", "category_id"],
           "tableTo": "prompt_categories",
-          "columnsTo": [
-            "organization_id",
-            "project_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "project_id", "id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -2832,15 +2714,9 @@
         "prompt_categories_project_fk": {
           "name": "prompt_categories_project_fk",
           "tableFrom": "prompt_categories",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -2935,15 +2811,9 @@
         "prompt_groups_project_fk": {
           "name": "prompt_groups_project_fk",
           "tableFrom": "prompt_groups",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -3059,17 +2929,9 @@
         "prompt_policies_asset_fk": {
           "name": "prompt_policies_asset_fk",
           "tableFrom": "prompt_policies",
-          "columnsFrom": [
-            "organization_id",
-            "project_id",
-            "prompt_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id", "prompt_id"],
           "tableTo": "prompt_assets",
-          "columnsTo": [
-            "organization_id",
-            "project_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "project_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -3275,15 +3137,9 @@
         "prompt_transfer_project_fk": {
           "name": "prompt_transfer_project_fk",
           "tableFrom": "prompt_transfer_plans",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -3439,17 +3295,9 @@
         "prompt_versions_asset_fk": {
           "name": "prompt_versions_asset_fk",
           "tableFrom": "prompt_versions",
-          "columnsFrom": [
-            "organization_id",
-            "project_id",
-            "prompt_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id", "prompt_id"],
           "tableTo": "prompt_assets",
-          "columnsTo": [
-            "organization_id",
-            "project_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "project_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -3815,15 +3663,9 @@
         "studio_interrupts_project_tenant_fk": {
           "name": "studio_interrupts_project_tenant_fk",
           "tableFrom": "studio_interrupts",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -4254,15 +4096,9 @@
         "studio_runs_project_tenant_fk": {
           "name": "studio_runs_project_tenant_fk",
           "tableFrom": "studio_runs",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -4665,15 +4501,9 @@
         "studio_sessions_project_tenant_fk": {
           "name": "studio_sessions_project_tenant_fk",
           "tableFrom": "studio_sessions",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -4822,28 +4652,18 @@
         "studio_table_preferences_user_id_users_id_fk": {
           "name": "studio_table_preferences_user_id_users_id_fk",
           "tableFrom": "studio_table_preferences",
-          "columnsFrom": [
-            "user_id"
-          ],
+          "columnsFrom": ["user_id"],
           "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
         "studio_table_preferences_project_tenant_fk": {
           "name": "studio_table_preferences_project_tenant_fk",
           "tableFrom": "studio_table_preferences",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -4923,13 +4743,9 @@
         "studio_table_views_preference_id_studio_table_preferences_id_fk": {
           "name": "studio_table_views_preference_id_studio_table_preferences_id_fk",
           "tableFrom": "studio_table_views",
-          "columnsFrom": [
-            "preference_id"
-          ],
+          "columnsFrom": ["preference_id"],
           "tableTo": "studio_table_preferences",
-          "columnsTo": [
-            "id"
-          ],
+          "columnsTo": ["id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
@@ -5343,15 +5159,9 @@
         "telemetry_events_project_tenant_fk": {
           "name": "telemetry_events_project_tenant_fk",
           "tableFrom": "telemetry_events",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         },
@@ -5364,11 +5174,7 @@
             "workflow_revision_id"
           ],
           "tableTo": "workflow_revisions",
-          "columnsTo": [
-            "organization_id",
-            "project_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "project_id", "id"],
           "onUpdate": "no action",
           "onDelete": "no action"
         }
@@ -5919,15 +5725,9 @@
         "workflow_revisions_project_tenant_fk": {
           "name": "workflow_revisions_project_tenant_fk",
           "tableFrom": "workflow_revisions",
-          "columnsFrom": [
-            "organization_id",
-            "project_id"
-          ],
+          "columnsFrom": ["organization_id", "project_id"],
           "tableTo": "projects",
-          "columnsTo": [
-            "organization_id",
-            "id"
-          ],
+          "columnsTo": ["organization_id", "id"],
           "onUpdate": "no action",
           "onDelete": "cascade"
         }
