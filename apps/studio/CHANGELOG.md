@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.0...studio-v0.26.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **studio:** support strict evaluation adapter imports ([#396](https://github.com/kortyx-io/kortyx/issues/396)) ([453ef55](https://github.com/kortyx-io/kortyx/commit/453ef55a5bdf8f3c99fb05663f784341d32fa565))
+
 ## [0.26.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.25.0...studio-v0.26.0) (2026-10-24)
 
 
