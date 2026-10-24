@@ -82,7 +82,7 @@ export function EvalSuiteStatusBar({
       aria-label={label || "No conversation results"}
       viewBox={`0 0 ${total || 1} 1`}
       preserveAspectRatio="none"
-      className="mt-2 block size-full h-1 shrink-0 overflow-hidden rounded-full bg-muted"
+      className="mt-2 block size-full h-1 shrink-0 overflow-hidden rounded-full bg-muted outline-1 outline-foreground/15"
     >
       {segments.map(([status, count]) => {
         const x = offset;
