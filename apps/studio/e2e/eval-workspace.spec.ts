@@ -52,8 +52,8 @@ test("keeps suite context, previews its table facts, and opens conversation evid
   );
   await page.screenshot({ path: testInfo.outputPath("suite-preview.png") });
   const otherSuite = navigation
-    .getByRole("button")
-    .filter({ hasNotText: /^(Support quality |All conversations$)/ })
+    .locator('button[data-slot="tooltip-trigger"]')
+    .filter({ hasNotText: /^Support quality / })
     .first();
   const otherName = await otherSuite
     .locator("span.block.truncate")

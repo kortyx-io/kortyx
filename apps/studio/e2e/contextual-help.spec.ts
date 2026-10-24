@@ -117,8 +117,12 @@ test("opening another header help replaces pinned help and prefers available spa
     name: "About Change",
     exact: true,
   });
+  await expect(
+    page.locator('[data-table-ready="true"][aria-busy="false"]'),
+  ).toBeVisible();
   const before = page.url();
-  await outcome.focus();
+  await page.locator('th[data-column="status"]').hover();
+  await outcome.hover();
   await outcome.click();
   await expect(outcomeHelp).toBeVisible();
   await page.locator('th[data-column="change"]').hover();
@@ -162,6 +166,9 @@ test("header help overlays the label without shifting it and preserves sorting",
   page,
 }) => {
   await page.goto("/runs?range=All+time&live=false");
+  await expect(
+    page.locator('[data-table-ready="true"][aria-busy="false"]'),
+  ).toBeVisible();
   const header = page.locator('th[data-column="status"]');
   const sort = header.locator("button").filter({ hasText: /^Status$/ });
   const trigger = header.getByRole("button", {
@@ -374,6 +381,9 @@ test("touch help fits a narrow screen and can be dismissed outside", async ({
   await page.touchscreen.tap(5, 5);
   await expect(card).toBeHidden();
   await page.goto("/runs?range=All+time&live=false");
+  await expect(
+    page.locator('[data-table-ready="true"][aria-busy="false"]'),
+  ).toBeVisible();
   const header = page.locator('th[data-column="status"]');
   await header
     .locator("button")
