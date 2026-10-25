@@ -8,6 +8,18 @@
   event replay, explicit cancellation and optional PostgreSQL recovery.
 
 
+## [0.43.1](https://github.com/kortyx-io/kortyx/compare/agent-v0.43.0...agent-v0.43.1) (2026-10-25)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/runtime bumped to 0.26.5
+    * @kortyx/telemetry-contracts bumped to 0.20.3
+  * devDependencies
+    * @kortyx/hooks bumped to 0.35.6
+
 ## [0.43.0](https://github.com/kortyx-io/kortyx/compare/agent-v0.42.0...agent-v0.43.0) (2026-10-24)
 
 
