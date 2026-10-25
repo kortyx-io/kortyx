@@ -314,6 +314,7 @@ function TraceRow({
               <span className="flex min-w-0 items-center gap-1.5">
                 <OverflowText
                   ariaLabel={item.label}
+                  nativeTitle={false}
                   className={cn(
                     "flex-1 text-xs font-medium",
                     (item.status === "failed" || item.status === "fault") &&
@@ -348,6 +349,7 @@ function TraceRow({
               </span>
               <OverflowText
                 ariaLabel={item.description}
+                nativeTitle={false}
                 className="mt-0.5 text-[9px] text-muted-foreground"
               >
                 {item.description}
@@ -360,7 +362,6 @@ function TraceRow({
               <span
                 key={gap.startMs}
                 aria-hidden="true"
-                title={`${formatDurationMs(gap.actualDurationMs)} without telemetry; compressed on this axis`}
                 className="absolute inset-y-0 border-x border-dashed border-amber-500/35 bg-amber-500/8"
                 style={{
                   left: `${scale.toPercent(gap.startMs)}%`,
@@ -382,7 +383,6 @@ function TraceRow({
               >
                 <span
                   aria-hidden="true"
-                  title={`Waiting for first token: ${formatDurationMs(generationTiming.ttftMs)}`}
                   className="h-full bg-amber-500"
                   style={{
                     width: `${percentOf(generationTiming.ttftMs, item.durationMs)}%`,
@@ -390,7 +390,6 @@ function TraceRow({
                 />
                 <span
                   aria-hidden="true"
-                  title={`First to last output chunk: ${formatDurationMs(generationTiming.streamDurationMs ?? 0)}`}
                   className="h-full bg-violet-500"
                   style={{
                     width: `${percentOf(generationTiming.streamDurationMs ?? 0, item.durationMs)}%`,
@@ -398,7 +397,6 @@ function TraceRow({
                 />
                 <span
                   aria-hidden="true"
-                  title={`Finalizing response: ${formatDurationMs(generationTiming.postStreamDurationMs ?? 0)}`}
                   className="h-full flex-1 bg-slate-400 dark:bg-slate-500"
                 />
               </span>
@@ -439,12 +437,36 @@ function TraceRow({
           </span>
         </button>
       </TooltipTrigger>
-      {item.modelCalls > 0 && (
-        <TooltipContent side="top">
-          {item.modelCalls} model {item.modelCalls === 1 ? "call" : "calls"}{" "}
-          inside this operation
-        </TooltipContent>
-      )}
+      <TooltipContent side="top" className="max-w-sm">
+        <p>
+          {item.label} · {durationLabel}
+        </p>
+        {item.description && <p>{item.description}</p>}
+        {item.modelCalls > 0 && (
+          <p>
+            {item.modelCalls} model {item.modelCalls === 1 ? "call" : "calls"}{" "}
+            inside this operation
+          </p>
+        )}
+        {generationTiming && (
+          <p>
+            Waiting for first token:{" "}
+            {generationTiming.ttftMs === null
+              ? "not captured"
+              : formatDurationMs(generationTiming.ttftMs)}{" "}
+            · Streaming:{" "}
+            {formatDurationMs(generationTiming.streamDurationMs ?? 0)} ·
+            Finalizing:{" "}
+            {formatDurationMs(generationTiming.postStreamDurationMs ?? 0)}
+          </p>
+        )}
+        {scale.gaps.map((gap) => (
+          <p key={gap.startMs}>
+            {formatDurationMs(gap.actualDurationMs)} without telemetry;
+            compressed on this axis
+          </p>
+        ))}
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -527,7 +549,9 @@ function TraceInspector({
               aria-label={item.label}
               className="min-w-0 flex-1 text-sm font-semibold"
             >
-              <OverflowText ariaLabel={item.label}>{item.label}</OverflowText>
+              <OverflowText ariaLabel={item.label} nativeTitle={false}>
+                {item.label}
+              </OverflowText>
             </h3>
             <StatusPill tone={traceStatusTone(item.status)}>
               {statusLabel(item.status)}

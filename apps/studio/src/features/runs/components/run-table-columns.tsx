@@ -78,7 +78,7 @@ export function createRunColumns({
               ↳ Child · {run.callId}
             </span>
             <DetailLink
-              className="line-clamp-2 whitespace-normal break-words text-muted-foreground hover:underline"
+              className="min-w-0 truncate text-muted-foreground hover:underline"
               href={studioDetailHref("runs", run.parentRunId, { tab: "calls" })}
               onClick={(event) => event.stopPropagation()}
             >
@@ -130,7 +130,7 @@ export function createRunColumns({
               onToggleStatus(run.status);
             }}
             className={cn(
-              "flex max-w-full min-w-0 items-center gap-2 text-xs font-medium hover:underline",
+              "flex w-full max-w-full min-w-0 items-center justify-start gap-2 text-left text-xs font-medium hover:underline",
               status.className,
             )}
           >
@@ -140,9 +140,7 @@ export function createRunColumns({
                 run.status === "running" && "animate-spin",
               )}
             />
-            <span className="line-clamp-2 whitespace-normal break-words">
-              {status.label}
-            </span>
+            <span className="min-w-0 truncate">{status.label}</span>
           </button>
         );
       },
@@ -216,7 +214,7 @@ export function createRunColumns({
           new Set(workflowRefs.map((ref) => ref.workflowId)).size - 1,
         );
         return (
-          <div className="line-clamp-2 whitespace-normal break-words text-xs font-medium">
+          <div className="min-w-0 truncate text-xs font-medium">
             {primary.workflowId}
             <span className="ml-1 text-muted-foreground">
               {primary.declaredVersion ?? "unversioned"}
@@ -302,9 +300,7 @@ export function createRunColumns({
               ? "Your app did not report which AI service handled this call. The request may still have run."
               : `Your app used ${run.provider} for AI model requests. Open the run to see the calls and their usage.`}
           </InfoTooltip>
-          <span className="min-w-0 line-clamp-2 whitespace-normal break-words">
-            {run.model}
-          </span>
+          <span className="min-w-0 min-w-0 truncate">{run.model}</span>
           {run.models && (
             <InfoTooltip
               label={`${run.models} additional models`}
@@ -382,7 +378,7 @@ export function createRunColumns({
         <>
           <p
             className={cn(
-              "max-w-full line-clamp-2 whitespace-normal break-words text-xs",
+              "max-w-full min-w-0 truncate text-xs",
               run.status === "failed"
                 ? "text-red-700 dark:text-red-400"
                 : "text-muted-foreground",

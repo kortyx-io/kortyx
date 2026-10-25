@@ -263,10 +263,12 @@ test("assessment separates the criterion from the recorded grading messages", as
     assessment.getByRole("heading", { name: "1. system message" }),
   ).toBeVisible();
   await expect(
-    assessment.getByRole("heading", { name: "2. user message" }),
+    assessment.getByRole("heading", { name: "3. user message" }),
   ).toBeVisible();
-  await expect(assessment.locator("pre").last()).toContainText('"criterion"');
-  await expect(assessment.locator("pre").last()).toContainText('"observation"');
+  await expect(assessment.locator("pre").last()).toContainText("Criterion:");
+  await expect(assessment.locator("pre").last()).toContainText(
+    "Current observation:",
+  );
   await page.screenshot({
     path: "/tmp/kortyx-pr2-grading-request.png",
     fullPage: true,
@@ -430,7 +432,9 @@ test("historical judge instructions use recorded grades before finalization and 
     await sql`insert into eval_runs (id,organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,requested_by,status) values (${id},${scope.organization_id},${scope.project_id},'development','e2e-saved-judge','Saved judge history',${savedSuite.id},${execution.suiteRevision},${sql.json(savedSuite)},${sql.json({ suiteId: savedSuite.id, suiteRevision: execution.suiteRevision, repetitions: 1, judge: { id: "configured-only", version: "2", instructions: "Queued configuration must not replace history" } })},'e2e','running')`;
     await sql`insert into eval_run_events (run_id,organization_id,project_id,event) values (${id},${scope.organization_id},${scope.project_id},${sql.json(JSON.parse(JSON.stringify({ type: "step-completed", caseId: "discovery", repetition: 1, step })))})`;
     await page.goto(`/evals/judges/run/${id}?caseId=discovery&repetition=1`);
-    const reader = page.locator("[data-judge-instructions]");
+    const reader = page
+      .locator("[data-judge-instructions]")
+      .filter({ visible: true });
     await expect(reader).toContainText("Recorded grading request");
     await expect(reader).toContainText(
       "final judge snapshot is not yet available",

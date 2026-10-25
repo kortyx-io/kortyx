@@ -38,7 +38,6 @@ export function DetailHeader({
         <div className="mt-1 flex min-w-0 items-center gap-2">
           <h2
             aria-label={title}
-            title={title}
             className="min-w-0 max-w-full truncate font-mono text-sm font-semibold @lg:text-base"
           >
             <OverflowText ariaLabel={title}>{title}</OverflowText>
@@ -72,14 +71,14 @@ export function Metric({
   return (
     <div className="min-w-20 shrink-0 border-r px-3 py-1.5 last:border-r-0 @2xl:min-w-24">
       <div className="flex items-center gap-1">
-        <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
+        <p className="text-[9px] whitespace-nowrap uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
         {help && <HelpCircle help={help} className="ml-auto shrink-0" />}
       </div>
       <div
         className="min-w-0 truncate font-mono text-[11px] font-medium"
-        title={title}
+        title={help ? undefined : title}
       >
         {value}
       </div>

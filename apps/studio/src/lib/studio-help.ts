@@ -56,7 +56,7 @@ export const studioHelp = {
   ),
   filters: help(
     "Search and filters",
-    "Show only the records you need. All means every condition must match; Any means at least one must match.",
+    "Show only the records you need. Click a table status to filter by it; click the selected status again to clear it. All means every condition must match; Any means at least one must match.",
     "exploring-data#search-and-filters",
   ),
   live: help(

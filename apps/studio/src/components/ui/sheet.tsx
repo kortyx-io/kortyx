@@ -3,12 +3,21 @@
 import { XIcon } from "lucide-react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 import type * as React from "react";
+import { createContext, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { cn } from "@/lib/utils";
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />;
+const SheetModalContext = createContext(true);
+function Sheet({
+  modal = true,
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  return (
+    <SheetModalContext.Provider value={modal}>
+      <SheetPrimitive.Root modal={modal} data-slot="sheet" {...props} />
+    </SheetModalContext.Provider>
+  );
 }
 
 function SheetTrigger({
@@ -62,11 +71,13 @@ function SheetContent({
   overlayClassName?: string;
   overlayStyle?: React.CSSProperties;
 }) {
+  const modal = useContext(SheetModalContext);
   return (
     <SheetPortal>
       <SheetOverlay className={overlayClassName} style={overlayStyle} />
       <SheetPrimitive.Content
         data-slot="sheet-content"
+        data-notice-modal={modal}
         className={cn(
           "fixed flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-300",
           side === "right" &&

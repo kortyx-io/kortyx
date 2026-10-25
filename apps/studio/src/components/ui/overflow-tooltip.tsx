@@ -5,15 +5,17 @@ export function OverflowText({
   children,
   className,
   ariaLabel,
+  nativeTitle = true,
 }: {
   children: ReactNode;
   className?: string;
   ariaLabel?: string;
+  nativeTitle?: boolean;
 }) {
   const fullText = ariaLabel ?? textFromNode(children);
   return (
     <span
-      title={fullText || undefined}
+      title={nativeTitle ? fullText || undefined : undefined}
       className={cn(
         "min-w-0 line-clamp-2 whitespace-normal break-words",
         className,
@@ -28,15 +30,17 @@ export function OverflowBlock({
   children,
   className,
   ariaLabel,
+  nativeTitle = true,
 }: {
   children: ReactNode;
   className?: string;
   ariaLabel?: string;
+  nativeTitle?: boolean;
 }) {
   const fullText = ariaLabel ?? textFromNode(children);
   return (
     <div
-      title={fullText || undefined}
+      title={nativeTitle ? fullText || undefined : undefined}
       className={cn(
         "min-w-0 line-clamp-2 whitespace-normal break-words",
         className,

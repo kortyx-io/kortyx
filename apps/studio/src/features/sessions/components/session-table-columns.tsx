@@ -113,7 +113,7 @@ export function createSessionColumns({
                   className: "text-muted-foreground",
                 }
               : statusMeta[session.status];
-        return <CompactStatus meta={meta} />;
+        return <CompactStatus meta={meta} filterValue={session.status} />;
       },
     },
     {

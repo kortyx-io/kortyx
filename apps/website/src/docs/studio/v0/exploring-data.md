@@ -14,6 +14,8 @@ These controls work across Cloud and self-hosted Studio. Select the intended pro
 
 Search narrows the current list. Filters expose supported fields and operators; **All** requires every condition and **Any** accepts any condition. Time range and environment also narrow the available evidence.
 
+Click a status in a Runs, Sessions, Interrupts, or evaluation table to filter that table by the selected status. Click the selected status again to clear it. Other conditions stay in place; clicking the status does not open the record.
+
 Environment is an informational label supplied by your application. It is not a project, a separate authorization boundary, or proof of a deployment. Use the exact label your server emits.
 
 Runs defaults to root executions. **Include child workflows** exposes individual child calls; it does not change session root-run counts.

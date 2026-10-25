@@ -519,7 +519,10 @@ export function DataTableFilterControls<T>({
                 : "relative flex h-full min-h-0 w-72 max-w-full flex-col overflow-hidden rounded-xl border bg-background shadow-sm"
             }
           >
-            <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+            <div
+              style={{ height: "var(--table-filter-header-height, 3.5rem)" }}
+              className="flex shrink-0 items-center justify-between border-b px-4"
+            >
               <div className="flex items-center gap-1">
                 <h2 className="font-semibold">Filters</h2>
                 {help && <HelpCircle help={help.filters} />}
@@ -599,7 +602,10 @@ export function DataTableFilterControls<T>({
                 </p>
               )}
             </div>
-            <div className="shrink-0 border-t p-3">
+            <div
+              style={{ height: "var(--table-filter-footer-height, 3.5rem)" }}
+              className="flex shrink-0 items-center border-t px-3"
+            >
               <Button
                 variant="ghost"
                 size="sm"

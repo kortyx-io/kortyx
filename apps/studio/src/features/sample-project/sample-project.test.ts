@@ -473,9 +473,15 @@ it("keeps tool attempts, approvals, and replay evidence coherent", () => {
 });
 it("uses authored sample content and exposes every prompt revision without network access", async () => {
   const data = readSampleDataset();
-  expect(JSON.stringify(data)).not.toMatch(
-    /https?:\/\/|Bearer |@[a-z0-9.-]+\.(com|io)/i,
-  );
+  // JSON Schema identifiers describe the portable prompt contract, not external evidence.
+  expect(
+    JSON.stringify(data, (key, value) =>
+      key === "$schema" &&
+      value === "https://json-schema.org/draft/2020-12/schema"
+        ? undefined
+        : value,
+    ),
+  ).not.toMatch(/https?:\/\/|Bearer |@[a-z0-9.-]+\.(com|io)/i);
   const declaredTools = data.workflows.workflows.flatMap((workflow) =>
     workflow.nodes.flatMap((node) => node.tools ?? []).map((tool) => tool.name),
   );
@@ -562,4 +568,44 @@ it("offers two- and three-repetition samples with separate captured executions a
     "passed",
   ]);
   expect(mixed[1].steps[0].observation.text).toContain("cannot tell you");
+});
+
+it("uses a versioned system/user judge definition and matching rendered grading requests", () => {
+  const data = readSampleDataset();
+  const saved = data.evals.runs.find((detail) =>
+    detail.run.result?.cases.some((entry) => entry.caseId === "order-status"),
+  );
+  const judge = saved?.run.result?.judge;
+  expect(
+    judge?.prompt?.content.messages.map((message) => message.role),
+  ).toEqual(["system", "user"]);
+  expect(judge?.prompt?.content.messages[1].content).toContain(
+    "{{conversation}}",
+  );
+  const requests =
+    saved?.run.result?.cases.flatMap((entry) =>
+      entry.steps.flatMap((step) =>
+        step.criteria.flatMap((criterion) =>
+          criterion.request ? [criterion.request] : [],
+        ),
+      ),
+    ) ?? [];
+  expect(requests.length).toBeGreaterThan(1);
+  for (const request of requests) {
+    expect(request.prompt).toEqual({
+      id: judge?.prompt?.id,
+      version: judge?.prompt?.version,
+      hash: judge?.prompt?.hash,
+    });
+    expect(request.messages.map((message) => message.role)).toEqual([
+      "system",
+      "system",
+      "user",
+    ]);
+    expect(request.messages[2].content).not.toContain("{{");
+    expect(request.messages[2].content).toContain("Current observation:");
+  }
+  expect(requests[1].messages[2].content).toContain(
+    "Where is order SAMPLE-42?",
+  );
 });
