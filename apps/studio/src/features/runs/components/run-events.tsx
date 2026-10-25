@@ -106,8 +106,8 @@ export function RunEvents({
     <div className="h-full min-h-0">
       <div className="flex h-full min-h-0 flex-col">
         <header className="@container shrink-0 border-b bg-muted/10 px-3 py-1.5">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 @3xl:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
-            <h3 className="whitespace-nowrap text-xs font-semibold @3xl:mr-2">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 @lg:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+            <h3 className="whitespace-nowrap text-xs font-semibold @lg:mr-2">
               Events
               <output className="ml-1.5 font-mono text-[10px] font-normal text-muted-foreground">
                 {visibleItems.length === items.length
@@ -121,13 +121,13 @@ export function RunEvents({
               placeholder="Search events…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              className="col-span-2 h-7 min-w-0 rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring @3xl:col-span-1"
+              className="col-span-2 h-7 min-w-0 rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring @lg:col-span-1"
             />
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger
                 size="sm"
                 aria-label="Filter event category"
-                className="h-7 w-full text-xs @3xl:w-28"
+                className="h-7 w-full text-xs @lg:w-32"
               >
                 <SelectValue />
               </SelectTrigger>
@@ -149,7 +149,7 @@ export function RunEvents({
               <SelectTrigger
                 size="sm"
                 aria-label="Filter event status"
-                className="h-7 w-full text-xs @3xl:w-36"
+                className="h-7 w-full text-xs @lg:w-36"
               >
                 <SelectValue />
               </SelectTrigger>

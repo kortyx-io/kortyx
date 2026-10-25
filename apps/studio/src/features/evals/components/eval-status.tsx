@@ -1,3 +1,5 @@
+"use client";
+
 import {
   CheckCircle2,
   Circle,
@@ -12,10 +14,13 @@ import { CompactStatus } from "@/features/telemetry/components/compact-status";
 export function EvalStatus({
   status,
   termination,
+  filterField = "status",
 }: {
   status: string;
+  filterField?: string;
   termination?: { code: string } | null;
 }) {
+  const filterValue = status;
   if (status === "error" && termination?.code === "EVAL_RUN_TIMEOUT")
     status = "timed-out";
   const neutral = "text-muted-foreground";
@@ -75,6 +80,8 @@ export function EvalStatus({
   };
   return (
     <CompactStatus
+      filterValue={filterValue}
+      filterField={filterField}
       meta={meta[status as keyof typeof meta] ?? meta["not-run"]}
     />
   );

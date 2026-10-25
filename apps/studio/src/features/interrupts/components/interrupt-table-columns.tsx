@@ -83,6 +83,7 @@ export function createInterruptColumns({
         const status = effectiveInterruptStatus(interrupt, now);
         return (
           <CompactStatus
+            filterValue={status}
             meta={{
               ...statusMeta[status],
               label: interruptStatusLabel(status),

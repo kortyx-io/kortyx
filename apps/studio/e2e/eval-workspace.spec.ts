@@ -459,6 +459,32 @@ test("shared headers use available width before truncating a label", async ({
   await page.goto(evaluationPath);
   await expect(page.locator("[data-row-key]")).toHaveCount(8);
   const header = page.locator('th[data-column="cost"]');
+  const title = header
+    .getByRole("button", { name: "Total cost", exact: true })
+    .locator("span")
+    .first();
+  const minimumWidth = await title.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const cell = element.closest("th");
+    if (!cell) throw new Error("Missing header cell");
+    const style = getComputedStyle(cell);
+    const iconWidth =
+      element.parentElement?.querySelector("svg")?.getBoundingClientRect()
+        .width ?? 0;
+    return Math.ceil(
+      range.getBoundingClientRect().width +
+        Number.parseFloat(style.paddingLeft) +
+        Number.parseFloat(style.paddingRight) +
+        iconWidth +
+        2,
+    );
+  });
+  const currentWidth = await header.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  // Leave enough space for the actual font, including macOS system-font metrics.
+  const delta = Math.max(-30, minimumWidth - currentWidth);
   const handle = header.getByRole("button", {
     name: "Resize Total cost column",
     exact: true,
@@ -472,7 +498,7 @@ test("shared headers use available width before truncating a label", async ({
   );
   await page.mouse.down();
   await page.mouse.move(
-    bounds.x + bounds.width / 2 - 30,
+    bounds.x + bounds.width / 2 + delta,
     bounds.y + bounds.height / 2,
     { steps: 5 },
   );
@@ -481,10 +507,7 @@ test("shared headers use available width before truncating a label", async ({
     .locator('[data-tour-surface="evaluation-metrics"]')
     .click({ position: { x: 1, y: 1 } });
   await page.mouse.move(0, 0);
-  const title = header
-    .getByRole("button", { name: "Total cost", exact: true })
-    .locator("span")
-    .first();
+
   await expect
     .poll(() =>
       title.evaluate((element) => element.scrollWidth - element.clientWidth),

@@ -171,7 +171,7 @@ when the bundled dataset is viewed later. All sample controls remain read-only.
 
 Three saved evaluations show iterative prompt changes:
 
-| Snapshot | Suites | Recorded outcomes | Results |
+| Snapshot | Suites | Outcomes | Results |
 | --- | --- | --- | --- |
 | Initial baseline | Support quality; Resolution safety | 6 / 6 | 3 passed, 2 failed, 1 error |
 | Grading in progress | Same two suites; one finished | 5 / 6 | 4 passed, 1 failed, 1 still grading |
@@ -180,6 +180,10 @@ Three saved evaluations show iterative prompt changes:
 Each suite includes its full case definitions, recorded observations, criteria,
 grading reasons, execution links, and frozen prompt versions. Shared cases and the
 judge stay comparable across snapshots; the final evaluation expands coverage.
+The saved judge has a versioned system/user prompt with criterion, input,
+observation, reference and conversation variables. Recorded grading requests
+include the runtime guardrail and rendered messages with the same prompt identity
+and hash; these are authored examples, not live judge calls.
 The intermediate evaluation is a frozen grading snapshot: its Support quality
 suite has two passed conversations and one with captured execution still awaiting
 grading. It exposes no final verdict, grading criteria, or judge charge for the

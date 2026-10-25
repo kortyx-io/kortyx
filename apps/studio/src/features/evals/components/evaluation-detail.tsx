@@ -244,7 +244,7 @@ export function EvaluationDetail({
                   help={studioHelp.evalResults}
                 />
                 <Metric
-                  label="Recorded outcomes"
+                  label="Outcomes"
                   value={`${run.completedAttempts}/${run.totalAttempts}`}
                   help={studioHelp.evalResults}
                 />

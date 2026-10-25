@@ -38,6 +38,27 @@ export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
   const detailDrawer = useDetailDrawer();
   const [leavingTabId, setLeavingTabId] = useState<string | null>(null);
   const releaseTimerRef = useRef<number | null>(null);
+  const tabScroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const scroller = tabScroller.current;
+    if (!scroller) return;
+    const reveal = () => {
+      const active = Array.from(
+        scroller.querySelectorAll<HTMLButtonElement>("[data-detail-tab]"),
+      ).find((button) => button.dataset.detailTab === selected?.id);
+      const bounds = active?.getBoundingClientRect();
+      const viewport = scroller.getBoundingClientRect();
+      if (!bounds) return;
+      if (bounds.left < viewport.left)
+        scroller.scrollLeft += bounds.left - viewport.left;
+      else if (bounds.right > viewport.right)
+        scroller.scrollLeft += bounds.right - viewport.right;
+    };
+    const observer = new ResizeObserver(reveal);
+    observer.observe(scroller);
+    reveal();
+    return () => observer.disconnect();
+  }, [selected?.id]);
 
   useEffect(
     () => () => {
@@ -79,26 +100,37 @@ export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
     <div className="@container flex h-full min-h-0 flex-col">
       <div
         data-page-help="tabs"
-        className="data-table-header-scroll z-10 flex shrink-0 gap-1 overflow-x-auto border-b bg-background px-3 @lg:px-6"
+        className={cn(
+          "z-10 flex min-w-0 shrink-0 items-stretch border-b bg-background px-3 @lg:px-6",
+          detailDrawer.supportsSplitInspector &&
+            detailDrawer.nestedOpen &&
+            !detailDrawer.isMobile &&
+            "@lg:pr-[calc(30rem+1.5rem)]",
+        )}
       >
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            data-detail-tab={tab.id}
-            type="button"
-            onClick={() => changeTab(tab.id)}
-            className={cn(
-              "shrink-0 whitespace-nowrap border-b-2 px-2 py-2.5 text-xs font-medium transition-colors",
-              tab.id === selected?.id
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+        <div
+          ref={tabScroller}
+          className="data-table-header-scroll flex min-w-0 flex-1 gap-1 overflow-x-auto"
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              data-detail-tab={tab.id}
+              type="button"
+              onClick={() => changeTab(tab.id)}
+              className={cn(
+                "shrink-0 whitespace-nowrap border-b-2 px-2 py-2.5 text-xs font-medium transition-colors",
+                tab.id === selected?.id
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
         {selected && helpByTab?.[selected.id] && (
-          <div className="flex shrink-0 items-center">
+          <div className="ml-auto flex shrink-0 items-center pl-2">
             <HelpCircle help={helpByTab[selected.id]} />
           </div>
         )}

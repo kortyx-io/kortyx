@@ -130,7 +130,7 @@ export function createRunColumns({
               onToggleStatus(run.status);
             }}
             className={cn(
-              "flex max-w-full min-w-0 items-center gap-2 text-xs font-medium hover:underline",
+              "flex w-full max-w-full min-w-0 items-center justify-start gap-2 text-left text-xs font-medium hover:underline",
               status.className,
             )}
           >
@@ -140,9 +140,7 @@ export function createRunColumns({
                 run.status === "running" && "animate-spin",
               )}
             />
-            <span className="line-clamp-2 whitespace-normal break-words">
-              {status.label}
-            </span>
+            <span className="min-w-0 truncate">{status.label}</span>
           </button>
         );
       },

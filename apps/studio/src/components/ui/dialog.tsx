@@ -29,11 +29,12 @@ export function DialogContent({
         className={cn("fixed inset-0 bg-black/50", overlayClassName)}
         style={{ zIndex: OVERLAY_LAYERS.modalBackdrop }}
       />
+      {/* Center without a transform so fixed notices retain their viewport anchor. */}
       <Primitive.Content
         data-slot="dialog-content"
         {...props}
         className={cn(
-          "fixed top-1/2 left-1/2 grid w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-background p-6 shadow-xl",
+          "fixed inset-0 m-auto grid h-fit w-[calc(100%_-_2rem)] max-w-md gap-4 rounded-xl border bg-background p-6 shadow-xl",
           className,
         )}
         style={{ zIndex: OVERLAY_LAYERS.modalSurface }}

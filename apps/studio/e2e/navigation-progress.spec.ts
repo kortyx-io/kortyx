@@ -69,7 +69,7 @@ for (const clickTarget of ["row", "button"] as const) {
     );
     try {
       await (clickTarget === "row"
-        ? row.locator("td").nth(1)
+        ? row.locator('td[data-column="results"]')
         : row.getByRole("button", {
             name: "E2E job conversations",
             exact: true,
@@ -129,8 +129,7 @@ test("a newer navigation wins while an eval row navigation is still pending", as
   try {
     await page
       .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`)
-      .locator("td")
-      .nth(1)
+      .locator('td[data-column="results"]')
       .click();
     await expect.poll(() => requested).toBe(true);
     await expect(page.locator(".bprogress .bar")).toBeVisible();
@@ -170,8 +169,7 @@ test("returning to the current list cancels pending detail navigation and clears
   try {
     await page
       .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`)
-      .locator("td")
-      .nth(1)
+      .locator('td[data-column="results"]')
       .click();
     await expect.poll(() => requested).toBe(true);
     await expect(page.locator(".bprogress .bar")).toBeVisible();

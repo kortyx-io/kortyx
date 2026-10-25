@@ -52,6 +52,7 @@ import {
 } from "./table-persistence";
 import { sortTableRows } from "./table-rows";
 import { matchesTableSearch } from "./table-search";
+import { TableValueFilterContext } from "./table-value-filter";
 import type {
   DataTableColumn,
   DataTableFilter,
@@ -370,283 +371,342 @@ function DataTableContent<T, S extends string>({
     </colgroup>
   );
 
+  const tableRoot = useRef<HTMLDivElement>(null);
+  const tableSurface = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = tableRoot.current;
+    const surface = tableSurface.current;
+    const controls = surface?.querySelector<HTMLElement>(
+      "[data-table-controls]",
+    );
+    const footer = surface?.querySelector<HTMLElement>("[data-table-footer]");
+    if (!root || !surface || !controls || !footer) return;
+    const align = () => {
+      const headerHeight =
+        controls.getBoundingClientRect().bottom -
+        surface.getBoundingClientRect().top -
+        surface.clientTop;
+      const footerHeight = footer.getBoundingClientRect().height;
+      root.style.setProperty(
+        "--table-filter-header-height",
+        `${headerHeight}px`,
+      );
+      root.style.setProperty(
+        "--table-filter-footer-height",
+        `${footerHeight}px`,
+      );
+    };
+    const observer = new ResizeObserver(align);
+    observer.observe(controls);
+    observer.observe(footer);
+    observer.observe(surface);
+    for (const child of surface.children) {
+      if (child === controls) break;
+      observer.observe(child);
+    }
+    align();
+    return () => observer.disconnect();
+  }, []);
+
   const tableStyle = { width: tableWidth, minWidth: "100%" as const };
 
   return (
-    <div className={cn("relative flex h-full min-h-0 min-w-0", className)}>
+    <TableValueFilterContext.Provider
+      value={{ filters: filtering.filters, fields, apply: filtering.apply }}
+    >
       <div
-        data-table-ready={interactive}
-        aria-busy={loading}
-        inert={loading || undefined}
-        data-page-help-records={data.length}
-        className={cn(
-          "flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
-          variant === "inline" && "rounded-none border-0 shadow-none",
-          className,
-        )}
+        ref={tableRoot}
+        className={cn("relative flex h-full min-h-0 min-w-0", className)}
       >
-        {header}
-        <DataTableFilterControls
-          disabled={loading}
-          variant={variant}
-          help={help}
-          tableId={tableId}
-          searching={searching}
-          start={toolbarStart}
-          panelContainer={filterContainer}
-          fields={fields}
-          data={data}
-          resource={filterResource}
-          state={filtering}
-          scopeFields={scopeFilters}
-          scopeState={scope}
-          legacyViews={legacyViews}
-          clearQuery={() => {
-            void query.change({
-              sort: null,
-              dir: null,
-              pageSize: null,
-              cursor: null,
-            });
-          }}
-          pagination={pagination}
-          sort={sort}
-          direction={direction}
-          onSetSortDirection={
-            onSetSortDirection as
-              | ((key: string, direction: "asc" | "desc") => void)
-              | undefined
-          }
-        />
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div
-            ref={headerScrollerRef}
-            onScroll={(event) =>
-              handleHorizontalScroll(event.currentTarget, scrollerRef.current)
+        <div
+          ref={tableSurface}
+          data-table-ready={interactive}
+          aria-busy={loading}
+          inert={loading || undefined}
+          data-page-help-records={data.length}
+          className={cn(
+            "flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl border bg-background shadow-sm",
+            variant === "inline" && "rounded-none border-0 shadow-none",
+            className,
+          )}
+        >
+          {header}
+          <DataTableFilterControls
+            disabled={loading}
+            variant={variant}
+            help={help}
+            tableId={tableId}
+            searching={searching}
+            start={toolbarStart}
+            panelContainer={filterContainer}
+            fields={fields}
+            data={data}
+            resource={filterResource}
+            state={filtering}
+            scopeFields={scopeFilters}
+            scopeState={scope}
+            legacyViews={legacyViews}
+            clearQuery={() => {
+              void query.change({
+                sort: null,
+                dir: null,
+                pageSize: null,
+                cursor: null,
+              });
+            }}
+            pagination={pagination}
+            sort={sort}
+            direction={direction}
+            onSetSortDirection={
+              onSetSortDirection as
+                | ((key: string, direction: "asc" | "desc") => void)
+                | undefined
             }
-            className="data-table-header-scroll shrink-0 overflow-x-auto overflow-y-hidden"
-          >
-            <div className="overflow-clip" style={tableStyle}>
-              <DndContext
-                id={`data-table-columns-${tableId}`}
-                sensors={sensors}
-                modifiers={[restrictToHorizontalAxis]}
-                collisionDetection={collisionDetection}
-                autoScroll={false}
-                onDragStart={onDragStart}
-                onDragOver={onDragOver}
-                onDragMove={onDragMove}
-                onDragCancel={onDragCancel}
-                onDragEnd={onDragEnd}
-              >
-                <SortableContext
-                  items={visibleColumnOrder}
-                  strategy={horizontalListSortingStrategy}
+          />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div
+              ref={headerScrollerRef}
+              onScroll={(event) =>
+                handleHorizontalScroll(event.currentTarget, scrollerRef.current)
+              }
+              className="data-table-header-scroll shrink-0 overflow-x-auto overflow-y-hidden"
+            >
+              <div className="overflow-clip" style={tableStyle}>
+                <DndContext
+                  id={`data-table-columns-${tableId}`}
+                  sensors={sensors}
+                  modifiers={[restrictToHorizontalAxis]}
+                  collisionDetection={collisionDetection}
+                  autoScroll={false}
+                  onDragStart={onDragStart}
+                  onDragOver={onDragOver}
+                  onDragMove={onDragMove}
+                  onDragCancel={onDragCancel}
+                  onDragEnd={onDragEnd}
                 >
+                  <SortableContext
+                    items={visibleColumnOrder}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    <table
+                      className="table-fixed border-separate border-spacing-0 text-left text-sm"
+                      style={tableStyle}
+                    >
+                      {colGroup}
+                      <thead className="bg-muted text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
+                        <tr>
+                          {visibleColumnOrder.map((column, index) => (
+                            <DataTableColumnHeader
+                              key={column}
+                              column={columnsByKey[column]}
+                              isLast={index === visibleColumnOrder.length - 1}
+                              active={sort}
+                              direction={direction}
+                              onSort={onSort}
+                              onSetSortDirection={onSetSortDirection}
+                              onClearSort={onClearSort}
+                              menuOpen={openColumnMenu === column}
+                              onMenuOpenChange={(open) =>
+                                setOpenColumnMenu(open ? column : null)
+                              }
+                            />
+                          ))}
+                        </tr>
+                      </thead>
+                    </table>
+                  </SortableContext>
+                </DndContext>
+              </div>
+            </div>
+            <ScrollAreaPrimitive.Root
+              type="auto"
+              className="relative min-h-0 flex-1 overflow-hidden"
+            >
+              <ScrollAreaPrimitive.Viewport
+                ref={scrollerRef}
+                onScroll={(event) =>
+                  handleHorizontalScroll(
+                    event.currentTarget,
+                    headerScrollerRef.current,
+                  )
+                }
+                className="data-table-body-scroll size-full [&>div]:!block"
+              >
+                <div className="overflow-clip" style={tableStyle}>
                   <table
                     className="table-fixed border-separate border-spacing-0 text-left text-sm"
                     style={tableStyle}
                   >
                     {colGroup}
-                    <thead className="bg-muted text-xs font-medium text-muted-foreground shadow-[0_1px_0_0_var(--border)]">
-                      <tr>
-                        {visibleColumnOrder.map((column, index) => (
-                          <DataTableColumnHeader
-                            key={column}
-                            column={columnsByKey[column]}
-                            isLast={index === visibleColumnOrder.length - 1}
-                            active={sort}
-                            direction={direction}
-                            onSort={onSort}
-                            onSetSortDirection={onSetSortDirection}
-                            onClearSort={onClearSort}
-                            menuOpen={openColumnMenu === column}
-                            onMenuOpenChange={(open) =>
-                              setOpenColumnMenu(open ? column : null)
-                            }
-                          />
-                        ))}
-                      </tr>
-                    </thead>
-                  </table>
-                </SortableContext>
-              </DndContext>
-            </div>
-          </div>
-          <ScrollAreaPrimitive.Root
-            type="auto"
-            className="relative min-h-0 flex-1 overflow-hidden"
-          >
-            <ScrollAreaPrimitive.Viewport
-              ref={scrollerRef}
-              onScroll={(event) =>
-                handleHorizontalScroll(
-                  event.currentTarget,
-                  headerScrollerRef.current,
-                )
-              }
-              className="data-table-body-scroll size-full [&>div]:!block"
-            >
-              <div className="overflow-clip" style={tableStyle}>
-                <table
-                  className="table-fixed border-separate border-spacing-0 text-left text-sm"
-                  style={tableStyle}
-                >
-                  {colGroup}
-                  <tbody>
-                    {loading
-                      ? Array.from({ length: 6 }, (_, index) => (
-                          <tr key={`loading-${index}`}>
-                            {visibleColumnOrder.map((column) => (
-                              <td
-                                key={column}
-                                className={CELL_BASE}
-                                style={{ height: loadingRowHeight }}
-                              >
-                                <Skeleton className="h-4 w-3/4 max-w-48" />
-                              </td>
-                            ))}
-                          </tr>
-                        ))
-                      : null}
-                    {!loading &&
-                      pageRows.map((item) => (
-                        <tr
-                          key={getRowKey(item)}
-                          data-row-key={getRowKey(item)}
-                          data-row-tone={rowTone?.(item)}
-                          style={
-                            {
-                              "--table-row-base":
-                                rowTone?.(item) === "danger"
-                                  ? "color-mix(in oklab, var(--destructive) 2.5%, var(--background))"
-                                  : "var(--background)",
-                            } as React.CSSProperties
-                          }
-                          onClick={
-                            onRowClick
-                              ? (event) => handleRowClick(item, event)
-                              : undefined
-                          }
-                          className={cn(
-                            "group border-b [--table-row-bg:var(--table-row-base)] hover:[--table-row-bg:color-mix(in_oklab,var(--muted)_55%,var(--table-row-base))]",
-                            onRowClick && "cursor-pointer",
-                            rowClassName?.(item),
-                          )}
-                        >
-                          {visibleColumnOrder.map((column) => {
-                            const definition = columnsByKey[column];
-                            const motion = getColumnCellMotion(column);
-                            const pin = pinned[column];
-                            return (
-                              <td
-                                key={column}
-                                data-column={column}
-                                data-column-dragging={
-                                  draggedColumn === column || undefined
-                                }
-                                title={definition.cellTitle?.(item)}
-                                onMouseEnter={(event) => {
-                                  event.currentTarget.title =
-                                    definition.cellTitle?.(item) ??
-                                    (
-                                      event.currentTarget.innerText ??
-                                      event.currentTarget.textContent ??
-                                      ""
-                                    ).trim();
-                                }}
-                                className={cn(
-                                  CELL_BASE,
-                                  definition.cellClassName,
-                                  "transition-colors",
-                                  pin && "sticky z-10",
-                                  motion && !pin && "relative z-1",
-                                  draggedColumn === column && "z-30 shadow-lg",
-                                )}
-                                style={{
-                                  backgroundColor: "var(--table-row-bg)",
-                                  ...motion?.style,
-                                  ...getPinnedColumnStyle(column),
-                                }}
-                              >
-                                <div
-                                  className={cn(
-                                    "table-cell-content min-w-0 whitespace-normal break-words",
-                                    definition.filter !== false &&
-                                      "line-clamp-2",
-                                  )}
+                    <tbody>
+                      {loading
+                        ? Array.from({ length: 6 }, (_, index) => (
+                            <tr key={`loading-${index}`}>
+                              {visibleColumnOrder.map((column) => (
+                                <td
+                                  key={column}
+                                  className={CELL_BASE}
+                                  style={{ height: loadingRowHeight }}
                                 >
-                                  {definition.render(item)}
-                                </div>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-              {isEmpty && !loading && (
-                <div
-                  className={cn("sticky left-0 w-full", emptyStateClassName)}
-                >
-                  {typeof emptyState === "function"
-                    ? emptyState({
-                        hasFilters: Boolean(
-                          query.q ||
-                            filtering.filters.rules.length ||
-                            scope.hasActiveFilters,
-                        ),
-                        clearFilters: () => {
-                          filtering.apply(EMPTY_TABLE_FILTERS);
-                          scope.clear();
-                          query.onSearch("");
-                        },
-                      })
-                    : emptyState}
+                                  <Skeleton className="h-4 w-3/4 max-w-48" />
+                                </td>
+                              ))}
+                            </tr>
+                          ))
+                        : null}
+                      {!loading &&
+                        pageRows.map((item) => (
+                          <tr
+                            key={getRowKey(item)}
+                            data-row-key={getRowKey(item)}
+                            data-row-tone={rowTone?.(item)}
+                            style={
+                              {
+                                "--table-row-base":
+                                  rowTone?.(item) === "danger"
+                                    ? "color-mix(in oklab, var(--destructive) 2.5%, var(--background))"
+                                    : "var(--background)",
+                              } as React.CSSProperties
+                            }
+                            onClick={
+                              onRowClick
+                                ? (event) => handleRowClick(item, event)
+                                : undefined
+                            }
+                            className={cn(
+                              "group border-b [--table-row-bg:var(--table-row-base)] hover:[--table-row-bg:color-mix(in_oklab,var(--muted)_55%,var(--table-row-base))]",
+                              onRowClick && "cursor-pointer",
+                              rowClassName?.(item),
+                            )}
+                          >
+                            {visibleColumnOrder.map((column) => {
+                              const definition = columnsByKey[column];
+                              const motion = getColumnCellMotion(column);
+                              const pin = pinned[column];
+                              return (
+                                <td
+                                  key={column}
+                                  data-column={column}
+                                  data-column-dragging={
+                                    draggedColumn === column || undefined
+                                  }
+                                  title={definition.cellTitle?.(item)}
+                                  ref={(cell) => {
+                                    if (
+                                      cell?.querySelector(
+                                        '[data-slot="tooltip-trigger"], [data-slot="popover-trigger"]',
+                                      )
+                                    )
+                                      cell.title = "";
+                                  }}
+                                  onMouseEnter={(event) => {
+                                    const cell = event.currentTarget;
+                                    // Rich help already owns this hover; plain cells retain their native full text.
+                                    cell.title = cell.querySelector(
+                                      '[data-slot="tooltip-trigger"], [data-slot="popover-trigger"]',
+                                    )
+                                      ? ""
+                                      : (definition.cellTitle?.(item) ??
+                                        (
+                                          event.currentTarget.innerText ??
+                                          event.currentTarget.textContent ??
+                                          ""
+                                        ).trim());
+                                  }}
+                                  className={cn(
+                                    CELL_BASE,
+                                    definition.cellClassName,
+                                    "transition-colors",
+                                    pin && "sticky z-10",
+                                    motion && !pin && "relative z-1",
+                                    draggedColumn === column &&
+                                      "z-30 shadow-lg",
+                                  )}
+                                  style={{
+                                    backgroundColor: "var(--table-row-bg)",
+                                    ...motion?.style,
+                                    ...getPinnedColumnStyle(column),
+                                  }}
+                                >
+                                  <div
+                                    className={cn(
+                                      "table-cell-content min-w-0 whitespace-normal break-words",
+                                      definition.filter !== false &&
+                                        "line-clamp-2",
+                                    )}
+                                  >
+                                    {definition.render(item)}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </ScrollAreaPrimitive.Viewport>
-            <ScrollBar className="z-40" />
-            <ScrollBar orientation="horizontal" className="z-40" />
-            <ScrollAreaPrimitive.Corner />
-          </ScrollAreaPrimitive.Root>
+                {isEmpty && !loading && (
+                  <div
+                    className={cn("sticky left-0 w-full", emptyStateClassName)}
+                  >
+                    {typeof emptyState === "function"
+                      ? emptyState({
+                          hasFilters: Boolean(
+                            query.q ||
+                              filtering.filters.rules.length ||
+                              scope.hasActiveFilters,
+                          ),
+                          clearFilters: () => {
+                            filtering.apply(EMPTY_TABLE_FILTERS);
+                            scope.clear();
+                            query.onSearch("");
+                          },
+                        })
+                      : emptyState}
+                  </div>
+                )}
+              </ScrollAreaPrimitive.Viewport>
+              <ScrollBar className="z-40" />
+              <ScrollBar orientation="horizontal" className="z-40" />
+              <ScrollAreaPrimitive.Corner />
+            </ScrollAreaPrimitive.Root>
+          </div>
+          {pagination && (
+            <DataTablePaginationFooter
+              loading={loading}
+              pagination={
+                pagination.serverSide
+                  ? pagination
+                  : {
+                      ...pagination,
+                      totalCount: filteredData.length,
+                      cursor: Math.min(
+                        pagination.cursor,
+                        Math.max(
+                          0,
+                          Math.ceil(filteredData.length / pagination.pageSize) -
+                            1,
+                        ) * pagination.pageSize,
+                      ),
+                    }
+              }
+              onBeforeChange={() => scrollerRef.current?.scrollTo({ top: 0 })}
+            />
+          )}
         </div>
-        {pagination && (
-          <DataTablePaginationFooter
-            loading={loading}
-            pagination={
-              pagination.serverSide
-                ? pagination
-                : {
-                    ...pagination,
-                    totalCount: filteredData.length,
-                    cursor: Math.min(
-                      pagination.cursor,
-                      Math.max(
-                        0,
-                        Math.ceil(filteredData.length / pagination.pageSize) -
-                          1,
-                      ) * pagination.pageSize,
-                    ),
-                  }
-            }
-            onBeforeChange={() => scrollerRef.current?.scrollTo({ top: 0 })}
-          />
-        )}
+        <div
+          ref={setFilterContainer}
+          className={cn(
+            "h-full min-h-0 shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] max-sm:absolute max-sm:inset-y-0 max-sm:right-0 max-sm:z-30",
+            filtering.open
+              ? variant === "inline"
+                ? "w-72 max-w-full border-l"
+                : "ml-2 w-72 max-w-full"
+              : "ml-0 w-0",
+          )}
+        />
       </div>
-      <div
-        ref={setFilterContainer}
-        className={cn(
-          "h-full min-h-0 shrink-0 overflow-hidden transition-[width,margin] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] max-sm:absolute max-sm:inset-y-0 max-sm:right-0 max-sm:z-30",
-          filtering.open
-            ? variant === "inline"
-              ? "w-72 max-w-full border-l"
-              : "ml-2 w-72 max-w-full"
-            : "ml-0 w-0",
-        )}
-      />
-    </div>
+    </TableValueFilterContext.Provider>
   );
 }
 

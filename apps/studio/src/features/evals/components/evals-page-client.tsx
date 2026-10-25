@@ -13,6 +13,7 @@ import { useState } from "react";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { columnFilter } from "@/components/data-table/filter-fields";
 import { TablePageHeader } from "@/components/data-table/table-page-header";
+import { TableValueFilter } from "@/components/data-table/table-value-filter";
 import { valueColumn } from "@/components/data-table/value-column";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
@@ -415,10 +416,13 @@ export function EvalsPageClient({
         r.latest ? (
           <EvalStatus
             status={r.latest.status}
+            filterField="latest"
             termination={r.latest.termination}
           />
         ) : (
-          <span className="text-xs text-muted-foreground">Never run</span>
+          <TableValueFilter field="latest" value="never-run">
+            <span className="text-xs text-muted-foreground">Never run</span>
+          </TableValueFilter>
         ),
     },
 
