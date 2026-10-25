@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.3](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.2...telemetry-contracts-v0.20.3) (2026-10-25)
+
+
+### Bug Fixes
+
+* **studio:** refine table statuses, help, and responsive layouts ([473ad5b](https://github.com/kortyx-io/kortyx/commit/473ad5b74610763fd37d5657279211b71e4573c8))
+* **studio:** refine table statuses, help, and responsive layouts ([0e01580](https://github.com/kortyx-io/kortyx/commit/0e01580124fb35ca2627ee42c3642e515f463cb5))
+
 ## [0.20.2](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.1...telemetry-contracts-v0.20.2) (2026-10-24)
 
 

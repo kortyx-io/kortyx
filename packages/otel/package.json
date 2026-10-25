@@ -1,6 +1,6 @@
 {
   "name": "@kortyx/otel",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "private": false,
   "description": "OpenTelemetry adapter for Kortyx tracing.",
   "keywords": [

@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.26.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.0...studio-v0.26.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **studio:** limit Runs truncation to status labels ([18b3535](https://github.com/kortyx-io/kortyx/commit/18b3535a9c2a51f0fe7eaaeda3cb6af548f6708c))
+* **studio:** preserve missing-route fallback across parallel slots ([#399](https://github.com/kortyx-io/kortyx/issues/399)) ([b2c2bbd](https://github.com/kortyx-io/kortyx/commit/b2c2bbd5f85b1f7b5c56bdc329e9a9e1b0a1b633))
+* **studio:** preserve table controls and plain-cell hover help ([623c770](https://github.com/kortyx-io/kortyx/commit/623c770ed7f8e11ba26f406a26256b0812f4a006))
+* **studio:** refine table statuses, help, and responsive layouts ([473ad5b](https://github.com/kortyx-io/kortyx/commit/473ad5b74610763fd37d5657279211b71e4573c8))
+* **studio:** refine table statuses, help, and responsive layouts ([0e01580](https://github.com/kortyx-io/kortyx/commit/0e01580124fb35ca2627ee42c3642e515f463cb5))
+* **studio:** support strict evaluation adapter imports ([#396](https://github.com/kortyx-io/kortyx/issues/396)) ([453ef55](https://github.com/kortyx-io/kortyx/commit/453ef55a5bdf8f3c99fb05663f784341d32fa565))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/telemetry-contracts bumped to 0.20.3
+  * devDependencies
+    * @kortyx/agent bumped to 0.43.1
+    * @kortyx/telemetry bumped to 0.17.7
+    * kortyx bumped to 0.34.2
+
 ## [0.26.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.25.0...studio-v0.26.0) (2026-10-24)
 
 
