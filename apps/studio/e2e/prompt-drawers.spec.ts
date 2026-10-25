@@ -2302,10 +2302,24 @@ test.describe("Prompt detail drawers", () => {
         evals.getByRole("columnheader", { name: /^Progress / }),
       ).toBeVisible();
       await expectFilledTable(evals);
-      await evals
-        .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`)
-        .locator("td")
-        .nth(1)
+      const evaluationRow = evals.locator(
+        `[data-row-key="${EVAL_FIXTURE.candidate}"]`,
+      );
+      const status = evaluationRow.getByRole("button", {
+        name: "Filter Status: passed",
+        exact: true,
+      });
+      await status.click();
+      await expect(status).toHaveAttribute("aria-pressed", "true");
+      await expect(promptDrawer(page)).toHaveAttribute("data-state", "open");
+      await expect(page).not.toHaveURL(
+        new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),
+      );
+      await status.click();
+      await expect(status).toHaveAttribute("aria-pressed", "false");
+      await evaluationRow
+        .locator('td[data-column="name"]')
+        .getByRole("button")
         .click();
       await expect(page).toHaveURL(
         new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),

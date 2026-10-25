@@ -14,7 +14,7 @@ import { CompactStatus } from "@/features/telemetry/components/compact-status";
 export function EvalStatus({
   status,
   termination,
-  filterField,
+  filterField = "status",
 }: {
   status: string;
   filterField?: string;

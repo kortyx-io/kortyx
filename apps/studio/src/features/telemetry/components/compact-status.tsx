@@ -14,7 +14,7 @@ export type CompactStatusMeta = {
 export function CompactStatus({
   meta,
   filterValue,
-  filterField,
+  filterField = "status",
 }: {
   meta: CompactStatusMeta;
   filterValue?: string;

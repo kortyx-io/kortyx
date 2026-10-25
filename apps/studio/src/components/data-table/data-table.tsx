@@ -372,14 +372,20 @@ function DataTableContent<T, S extends string>({
   );
 
   const tableRoot = useRef<HTMLDivElement>(null);
-  const toolbar = useRef<HTMLDivElement>(null);
+  const tableSurface = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const root = tableRoot.current;
-    const controls = toolbar.current;
-    const footer = root?.querySelector<HTMLElement>("[data-table-footer]");
-    if (!root || !controls || !footer) return;
+    const surface = tableSurface.current;
+    const controls = surface?.querySelector<HTMLElement>(
+      "[data-table-controls]",
+    );
+    const footer = surface?.querySelector<HTMLElement>("[data-table-footer]");
+    if (!root || !surface || !controls || !footer) return;
     const align = () => {
-      const headerHeight = controls.getBoundingClientRect().height;
+      const headerHeight =
+        controls.getBoundingClientRect().bottom -
+        surface.getBoundingClientRect().top -
+        surface.clientTop;
       const footerHeight = footer.getBoundingClientRect().height;
       root.style.setProperty(
         "--table-filter-header-height",
@@ -393,6 +399,11 @@ function DataTableContent<T, S extends string>({
     const observer = new ResizeObserver(align);
     observer.observe(controls);
     observer.observe(footer);
+    observer.observe(surface);
+    for (const child of surface.children) {
+      if (child === controls) break;
+      observer.observe(child);
+    }
     align();
     return () => observer.disconnect();
   }, []);
@@ -408,6 +419,7 @@ function DataTableContent<T, S extends string>({
         className={cn("relative flex h-full min-h-0 min-w-0", className)}
       >
         <div
+          ref={tableSurface}
           data-table-ready={interactive}
           aria-busy={loading}
           inert={loading || undefined}
@@ -418,41 +430,39 @@ function DataTableContent<T, S extends string>({
             className,
           )}
         >
-          <div ref={toolbar} className="shrink-0">
-            {header}
-            <DataTableFilterControls
-              disabled={loading}
-              variant={variant}
-              help={help}
-              tableId={tableId}
-              searching={searching}
-              start={toolbarStart}
-              panelContainer={filterContainer}
-              fields={fields}
-              data={data}
-              resource={filterResource}
-              state={filtering}
-              scopeFields={scopeFilters}
-              scopeState={scope}
-              legacyViews={legacyViews}
-              clearQuery={() => {
-                void query.change({
-                  sort: null,
-                  dir: null,
-                  pageSize: null,
-                  cursor: null,
-                });
-              }}
-              pagination={pagination}
-              sort={sort}
-              direction={direction}
-              onSetSortDirection={
-                onSetSortDirection as
-                  | ((key: string, direction: "asc" | "desc") => void)
-                  | undefined
-              }
-            />
-          </div>
+          {header}
+          <DataTableFilterControls
+            disabled={loading}
+            variant={variant}
+            help={help}
+            tableId={tableId}
+            searching={searching}
+            start={toolbarStart}
+            panelContainer={filterContainer}
+            fields={fields}
+            data={data}
+            resource={filterResource}
+            state={filtering}
+            scopeFields={scopeFilters}
+            scopeState={scope}
+            legacyViews={legacyViews}
+            clearQuery={() => {
+              void query.change({
+                sort: null,
+                dir: null,
+                pageSize: null,
+                cursor: null,
+              });
+            }}
+            pagination={pagination}
+            sort={sort}
+            direction={direction}
+            onSetSortDirection={
+              onSetSortDirection as
+                | ((key: string, direction: "asc" | "desc") => void)
+                | undefined
+            }
+          />
           <div className="flex min-h-0 flex-1 flex-col">
             <div
               ref={headerScrollerRef}
@@ -580,11 +590,20 @@ function DataTableContent<T, S extends string>({
                                   data-column-dragging={
                                     draggedColumn === column || undefined
                                   }
+                                  title={definition.cellTitle?.(item)}
+                                  ref={(cell) => {
+                                    if (
+                                      cell?.querySelector(
+                                        '[data-slot="tooltip-trigger"], [data-slot="popover-trigger"]',
+                                      )
+                                    )
+                                      cell.title = "";
+                                  }}
                                   onMouseEnter={(event) => {
                                     const cell = event.currentTarget;
-                                    // Rich help and explicit child titles already own this hover.
+                                    // Rich help already owns this hover; plain cells retain their native full text.
                                     cell.title = cell.querySelector(
-                                      '[data-slot="tooltip-trigger"], [data-slot="popover-trigger"], [title]',
+                                      '[data-slot="tooltip-trigger"], [data-slot="popover-trigger"]',
                                     )
                                       ? ""
                                       : (definition.cellTitle?.(item) ??

@@ -16,11 +16,12 @@ export function toggleTableValue(
   value: string,
 ): TableFilters {
   const current = filters.rules.filter((rule) => rule.field === field);
+  const currentRule = current[0];
   const selected =
     current.length === 1 &&
-    current[0].operator === "is" &&
-    current[0].values.length === 1 &&
-    current[0].values[0] === value;
+    currentRule?.operator === "is" &&
+    currentRule.values.length === 1 &&
+    currentRule.values[0] === value;
   return {
     ...filters,
     rules: [
@@ -48,11 +49,12 @@ export function TableValueFilter({
   );
   if (!context || !definition) return children;
   const rules = context.filters.rules.filter((rule) => rule.field === field);
+  const currentRule = rules[0];
   const selected =
     rules.length === 1 &&
-    rules[0].operator === "is" &&
-    rules[0].values.length === 1 &&
-    rules[0].values[0] === value;
+    currentRule?.operator === "is" &&
+    currentRule.values.length === 1 &&
+    currentRule.values[0] === value;
   return (
     <button
       type="button"
