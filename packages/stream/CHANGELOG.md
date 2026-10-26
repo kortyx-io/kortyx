@@ -1,5 +1,12 @@
 # @chatbot-core/types
 
+## [0.15.7](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.6...stream-v0.15.7) (2026-10-26)
+
+
+### Bug Fixes
+
+* **evals:** capture direct tool results with workflow attribution ([#401](https://github.com/kortyx-io/kortyx/issues/401)) ([f7a746c](https://github.com/kortyx-io/kortyx/commit/f7a746ce3addedfc79fd57ef6f6ab1e1ee5e1f60))
+
 ## [0.15.6](https://github.com/kortyx-io/kortyx/compare/stream-v0.15.5...stream-v0.15.6) (2026-10-16)
 
 

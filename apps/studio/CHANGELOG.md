@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.26.2](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.1...studio-v0.26.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **studio:** default to rolling upgrades and preserve judge compatibility ([#404](https://github.com/kortyx-io/kortyx/issues/404)) ([4e0b691](https://github.com/kortyx-io/kortyx/commit/4e0b69132abec0aaebafb65e44db836981b325e8))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.3.2
+    * @kortyx/telemetry-contracts bumped to 0.20.4
+    * @kortyx/usage-telemetry bumped to 0.6.2
+  * devDependencies
+    * @kortyx/agent bumped to 0.44.0
+    * @kortyx/telemetry bumped to 0.17.8
+    * kortyx bumped to 0.35.0
+
 ## [0.26.1](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.0...studio-v0.26.1) (2026-10-25)
 
 

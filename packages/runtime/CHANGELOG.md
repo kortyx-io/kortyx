@@ -16,6 +16,27 @@
   child outputs, deterministic parallel joins and checkpoint resume. Surface
   callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
 
+## [0.27.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.26.5...runtime-v0.27.0) (2026-10-26)
+
+
+### Features
+
+* **runtime:** share PostgreSQL persistence with eval endpoints ([#403](https://github.com/kortyx-io/kortyx/issues/403)) ([c33dcdf](https://github.com/kortyx-io/kortyx/commit/c33dcdf8131f8c85a808ec5333d043c37838e1e1))
+
+
+### Bug Fixes
+
+* **evals:** capture direct tool results with workflow attribution ([#401](https://github.com/kortyx-io/kortyx/issues/401)) ([f7a746c](https://github.com/kortyx-io/kortyx/commit/f7a746ce3addedfc79fd57ef6f6ab1e1ee5e1f60))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/stream bumped to 0.15.7
+    * @kortyx/hooks bumped to 0.35.7
+    * @kortyx/prompts bumped to 0.3.2
+
 ## [0.26.5](https://github.com/kortyx-io/kortyx/compare/runtime-v0.26.4...runtime-v0.26.5) (2026-10-25)
 
 

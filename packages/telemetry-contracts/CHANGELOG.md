@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.20.4](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.3...telemetry-contracts-v0.20.4) (2026-10-26)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.3.2
+
 ## [0.20.3](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.2...telemetry-contracts-v0.20.3) (2026-10-25)
 
 
