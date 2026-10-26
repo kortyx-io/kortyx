@@ -307,6 +307,42 @@ describe("detached consumer evaluation jobs", () => {
 });
 
 describe("execution owner fencing and transport faults", () => {
+  it("keeps completion unknown when result persistence returns after renewal timed out", async () => {
+    vi.useFakeTimers();
+    const store = createInMemoryEvalExecutionStore({ leaseMs: 9000 });
+    const submitted = vi.spyOn(store, "submit");
+    const finish = vi.spyOn(store, "finish");
+    vi.spyOn(store, "heartbeat").mockReturnValue(new Promise(() => {}));
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const append = store.append.bind(store);
+    vi.spyOn(store, "append").mockImplementation(async (id, owner, event) => {
+      if (event.type === "result") await gate;
+      await append(id, owner, event);
+    });
+    const f = await fixture({ executionStore: store });
+    try {
+      const response = await f.post();
+      await response.body?.cancel();
+      await vi.advanceTimersByTimeAsync(5001);
+      // The database can acknowledge an earlier write after the local renewal
+      // deadline. That acknowledgement must not finalize uncertain ownership.
+      release();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(finish).not.toHaveBeenCalled();
+      await expect(f.handler.drain()).rejects.toThrow("could not be confirmed");
+      await vi.advanceTimersByTimeAsync(4000);
+      const id = submitted.mock.calls[0]?.[0].id ?? "";
+      expect((await store.status(id))?.state).toBe("unknown");
+    } finally {
+      release();
+      await f.handler.close();
+      vi.useRealTimers();
+    }
+  });
+
   it("bounds renewal for a legacy custom store without a heartbeat timeout capability", async () => {
     vi.useFakeTimers();
     const { heartbeatTimeoutMs: _timeout, ...store } =
