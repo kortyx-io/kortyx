@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.9](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.9.8...example-canvas-v0.9.9) (2026-10-26)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * kortyx bumped to 0.35.1
+  * devDependencies
+    * @kortyx/cli bumped to 0.25.3
+
 ## [0.9.8](https://github.com/kortyx-io/kortyx/compare/example-canvas-v0.9.7...example-canvas-v0.9.8) (2026-10-26)
 
 

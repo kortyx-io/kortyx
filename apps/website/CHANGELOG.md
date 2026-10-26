@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.57.1](https://github.com/kortyx-io/kortyx/compare/website-v0.57.0...website-v0.57.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **runtime:** allow migrated eval storage with restricted serving roles ([#408](https://github.com/kortyx-io/kortyx/issues/408)) ([1c30be5](https://github.com/kortyx-io/kortyx/commit/1c30be5c81927d001c40c95e8bfe4172e5fffb11))
+* **studio:** set API HTTP keep-alive to 70 seconds ([#406](https://github.com/kortyx-io/kortyx/issues/406)) ([8c65c86](https://github.com/kortyx-io/kortyx/commit/8c65c86d44f2cbe5c22b91250cd4961755432280))
+
 ## [0.57.0](https://github.com/kortyx-io/kortyx/compare/website-v0.56.1...website-v0.57.0) (2026-10-26)
 
 
