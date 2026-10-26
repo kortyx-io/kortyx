@@ -343,4 +343,14 @@ The Studio CLI accepts `kortyx studio evals runs start <suite> --grading-timeout
 
 ### Historical judge instructions
 
+Current Studio eval reads send `x-kortyx-studio-api-version: 1` to request
+judge metadata. Legacy target readers receive the base judge identity. Judge
+HTTP clients opt in to instructions, prompt-template capabilities, and grading
+request evidence with `includeInstructions=true`; current SDK clients send it
+automatically. Response readers ignore unknown additional judge fields while
+still validating known fields and the pinned identity. Malformed responses fail
+the affected read or evaluation rather than terminating the application.
+Server eval read failures use the existing maintainer usage telemetry/PostHog
+path with safe failure codes; customer payloads and raw errors are excluded.
+
 The Judge instructions view prefers the final execution's saved judge prompt or legacy instructions. If that snapshot is unavailable, it exposes exact messages from recorded grading requests, labelled **Recorded grading request**, with their case, attempt, step and criterion. Multiple grading calls remain separate. Completed step/case progress is sufficient even while a run is unfinished or after it is interrupted; final grading records supersede duplicate progress copies. An unfinished run without either source shows a pending snapshot message, while a terminal historical execution without either source shows **Instructions not recorded**. Neither the current configured judge nor queued configuration replaces missing execution evidence.

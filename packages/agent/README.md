@@ -89,6 +89,14 @@ Older/custom results without this field remain readable. Upgrade API and Studio
 together before SDK consumers that publish instruction snapshots; older strict
 readers do not support the added identity field.
 
+Updated judge response readers ignore additional fields while validating known
+fields and pinning the judge identity. The Studio API keeps legacy judge HTTP
+responses in their original shape unless the caller opts in with
+`includeInstructions=true`; current SDK clients already send that option.
+Studio eval target reads negotiate judge metadata through the existing
+`x-kortyx-studio-api-version` header. Request/configuration validation remains
+strict. This does not make arbitrary skipped-version upgrades compatible.
+
 ## Documentation
 
 - [Conversation evals: SDK runner](https://github.com/kortyx-io/kortyx/blob/main/docs/evals/sdk-runner.md)

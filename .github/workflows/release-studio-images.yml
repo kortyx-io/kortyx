@@ -34,7 +34,7 @@ on:
       deployment_strategy:
         description: Whether this release can overlap safely with the previous release
         required: true
-        default: recreate
+        default: rolling
         type: choice
         options:
           - recreate

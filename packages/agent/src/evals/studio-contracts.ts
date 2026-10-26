@@ -2,7 +2,7 @@ import { PromptSnapshotSchema } from "@kortyx/prompts/browser";
 import { z } from "zod";
 import {
   EvalIssueSchema,
-  EvalJudgeIdentitySchema,
+  EvalJudgeResponseIdentitySchema,
   EvalManifestSchema,
   EvalProgressSchema,
   EvalRunResultSchema,
@@ -16,7 +16,7 @@ import {
 export const StudioEvalTargetsResponseSchema = z.object({
   canRun: z.boolean(),
   settings: EvalSettingsResponseSchema.optional(),
-  studioJudge: EvalJudgeIdentitySchema.nullable().optional(),
+  studioJudge: EvalJudgeResponseIdentitySchema.nullable().optional(),
   targets: z.array(
     z.object({
       id: z.string(),
@@ -120,7 +120,7 @@ export const StudioEvalDetailSchema = z.object({
       .object({
         caseIds: z.array(z.string()).optional(),
         grading: z.enum(["app", "studio"]).optional(),
-        judge: EvalJudgeIdentitySchema.optional(),
+        judge: EvalJudgeResponseIdentitySchema.optional(),
         repetitions: z.number().int().positive(),
         concurrency: z.number().optional(),
         caseTimeoutMs: z.number().optional(),

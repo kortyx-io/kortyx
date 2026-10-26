@@ -19,13 +19,23 @@ export function registerEvalJudgeRoutes(
   const path = "/v1/studio/evals/judge";
   const identity = judge
     ? {
-        ...(judge.promptTemplates ? { promptTemplates: true as const } : {}),
         id: judge.id,
         version: judge.version,
         location: "studio" as const,
       }
     : undefined;
   let active = 0;
+  // Existing current clients opt in to metadata with includeInstructions. Older
+  // readers use strict schemas, so keep their original response shape stable.
+  const responseIdentity = (metadata: boolean) => ({
+    ...identity,
+    ...(metadata && judge?.promptTemplates
+      ? { promptTemplates: true as const }
+      : {}),
+    ...(metadata && judge?.instructions
+      ? { instructions: judge.instructions }
+      : {}),
+  });
   app.use(path, bodyLimit({ maxSize: 2_000_000 }));
   app.use(path, async (c, next) => {
     await requireApiAction(c, "eval:run");
@@ -48,12 +58,9 @@ export function registerEvalJudgeRoutes(
     );
     if (!identity)
       return c.json({ error: "Studio judge is not configured." }, 503);
-    return c.json({
-      ...identity,
-      ...(c.req.query("includeInstructions") === "true" && judge?.instructions
-        ? { instructions: judge.instructions }
-        : {}),
-    });
+    return c.json(
+      responseIdentity(c.req.query("includeInstructions") === "true"),
+    );
   });
   app.post(path, async (c) => {
     const input = StudioEvalJudgeRequestSchema.safeParse(
@@ -107,15 +114,11 @@ export function registerEvalJudgeRoutes(
         input.data.gradingTimeoutMs,
       );
       return c.json({
-        judge: {
-          ...identity,
-          ...(c.req.query("includeInstructions") === "true" &&
-          judge.instructions
-            ? { instructions: judge.instructions }
-            : {}),
-        },
+        judge: responseIdentity(c.req.query("includeInstructions") === "true"),
         verdict,
-        ...(request ? { request } : {}),
+        ...(request && c.req.query("includeInstructions") === "true"
+          ? { request }
+          : {}),
         ...(usage.length ? { usage } : {}),
       });
     } catch (error) {

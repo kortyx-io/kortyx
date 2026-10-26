@@ -34,5 +34,9 @@ pending CI, and skipped checks with their reasons and remaining uncertainty. -->
 ## Release considerations
 
 <!-- Compatibility, migrations, rollout/recovery, coordinated releases, and
-accepted deferrals. Write Not applicable with a reason when none are needed. -->
+accepted deferrals. For Studio, review docs/internal/definition-of-done.md#studio-rolling-upgrade-readiness:
+state rolling (default) or recreate, assessed source version, and evidence. A
+maintenance upgrade must set deployment_strategy: recreate in npm-publish.yml
+before merge and document the reason and maintenance steps in release notes.
+Write Not applicable with a reason when none are needed. -->
 

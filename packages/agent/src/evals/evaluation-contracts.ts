@@ -1,6 +1,6 @@
 import { z } from "zod";
 import {
-  EvalJudgeIdentitySchema,
+  EvalJudgeResponseIdentitySchema,
   StudioEvalStartRequestSchema,
 } from "./contracts";
 import {
@@ -95,7 +95,7 @@ export const StudioEvaluationSummarySchema = z.object({
   environment: z.string(),
   selection: z.enum(["all", "selected"]),
   metadata: EvaluationMetadataSchema,
-  judge: EvalJudgeIdentitySchema.optional(),
+  judge: EvalJudgeResponseIdentitySchema.optional(),
   status: StudioEvalRunSummarySchema.shape.status,
   createdAt: z.string(),
   startedAt: z.string().nullable(),

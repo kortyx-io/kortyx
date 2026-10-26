@@ -113,6 +113,15 @@ deployment adapters. A registered target and configured judge are still required
 
 ## Select and configure judging
 
+Judge response readers tolerate additive metadata while retaining validation of
+known fields and the pinned identity. Current Studio reads negotiate metadata
+with `x-kortyx-studio-api-version: 1`; current SDK judge HTTP calls use
+`includeInstructions=true`. Legacy callers retain the base judge response.
+Handled eval read failures use existing usage telemetry with the read kind,
+phase, safe error/cause codes and schema issue classifications, without customer
+data or raw exception text. This does not certify arbitrary skipped-version
+upgrades; follow the release manifest and the deployment's upgrade policy.
+
 Studio-triggered runs use the project judge default, or **Studio judge** when unset. A consumer `createEvalJudge`
 makes **App judge** available as an explicit alternative. Configure the selected
 location; missing configuration does not fall back silently. The API pins judge

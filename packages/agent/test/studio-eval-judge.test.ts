@@ -59,6 +59,62 @@ const verdict = {
   evidence: ["Paris: EUR 90,000"],
 };
 
+it("ignores additive judge response fields while preserving the verdict and billing allowlist", async () => {
+  const futureIdentity = { ...identity, futureCapability: "PRIVATE_ADDITION" };
+  const billing = {
+    provider: "openai",
+    model: "test",
+    occurredAt: "2026-10-26T12:00:00.000Z",
+    usage: { input: 10 },
+  };
+  const request = vi.fn(async (_url: unknown, init?: RequestInit) =>
+    Response.json(
+      init?.method === "POST"
+        ? {
+            judge: futureIdentity,
+            verdict: { ...verdict, futureExplanation: "PRIVATE_ADDITION" },
+            futureMetadata: "PRIVATE_ADDITION",
+            usage: [
+              {
+                ...billing,
+                raw: "PRIVATE_ADDITION",
+                usage: { ...billing.usage, futureTokens: 5 },
+              },
+            ],
+          }
+        : futureIdentity,
+    ),
+  );
+  vi.stubGlobal("fetch", request);
+  const judge = await createStudioEvalJudge(options);
+  const onUsage = vi.fn();
+  await expect(judge.grade({ ...input(), onUsage })).resolves.toEqual(verdict);
+  expect(judge).not.toHaveProperty("futureCapability");
+  expect(onUsage).toHaveBeenCalledExactlyOnceWith(billing);
+  expect(JSON.parse(String(request.mock.calls[1]?.[1]?.body)).judge).toEqual(
+    identity,
+  );
+});
+
+it("still rejects malformed required judge fields even with additive metadata", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: unknown, init?: RequestInit) =>
+      Response.json(
+        init?.method === "POST"
+          ? {
+              judge: identity,
+              verdict: { ...verdict, passed: "yes" },
+              futureMetadata: true,
+            }
+          : identity,
+      ),
+    ),
+  );
+  const judge = await createStudioEvalJudge(options);
+  await expect(judge.grade(input())).rejects.toThrow();
+});
+
 it("uses a pinned Studio judge through the ordinary runner and stores its actual identity", async () => {
   const request = vi.fn(async (_url: unknown, init?: RequestInit) =>
     Response.json(

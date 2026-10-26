@@ -1,7 +1,7 @@
 import { redactDiagnosticText } from "@kortyx/telemetry-contracts";
 import {
   EvalConfigurationError,
-  EvalJudgeIdentitySchema,
+  EvalJudgeResponseIdentitySchema,
   StudioEvalJudgeRequestSchema,
   StudioEvalJudgeResponseSchema,
 } from "./contracts";
@@ -85,7 +85,7 @@ export async function createStudioEvalJudge(
   const signal = options.signal
     ? AbortSignal.any([options.signal, AbortSignal.timeout(15_000)])
     : AbortSignal.timeout(15_000);
-  const identity = EvalJudgeIdentitySchema.parse(
+  const identity = EvalJudgeResponseIdentitySchema.parse(
     await readJson(
       await fetch(discovery, {
         headers: { authorization: `Bearer ${options.apiKey}` },

@@ -193,7 +193,8 @@ jobs:
       release_tag: studio-v${{ needs.prepare.outputs.studio_version }}
       api_digest: ${{ needs.studio_images.outputs.api_digest }}
       studio_digest: ${{ needs.studio_images.outputs.studio_digest }}
-      deployment_strategy: recreate
+      # Breaking upgrades must set recreate here before merge; see the Definition of Done.
+      deployment_strategy: rolling
     secrets: inherit
 
   website:
