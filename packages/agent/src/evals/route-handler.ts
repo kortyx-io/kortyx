@@ -71,7 +71,10 @@ export function createEvalRouteHandler({
     !Number.isSafeInteger(maxQueuedExecutions) ||
     maxQueuedExecutions < 1 ||
     !Number.isSafeInteger(executionStore.heartbeatIntervalMs) ||
-    executionStore.heartbeatIntervalMs < 1
+    executionStore.heartbeatIntervalMs < 1 ||
+    (executionStore.heartbeatTimeoutMs !== undefined &&
+      (!Number.isSafeInteger(executionStore.heartbeatTimeoutMs) ||
+        executionStore.heartbeatTimeoutMs < 1))
   )
     throw new EvalConfigurationError(
       "Eval endpoint limits must be positive integers.",

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { PersistenceError } from "@kortyx/core/errors";
 import type postgres from "postgres";
+import { configurePostgresLockTimeout } from "../locks";
 import { initialRuntimeMigration } from "./0001-initial-runtime";
 
 export type RuntimeMigration = {
@@ -40,7 +41,7 @@ export async function runRuntimeMigrations(
         // Bound both advisory and DDL lock waits without relaxing a stricter
         // deployment-configured timeout. Transaction-local settings do not leak
         // into the pool's application queries.
-        await sql`SELECT set_config('lock_timeout', CASE WHEN current_setting('lock_timeout')::interval = interval '0' OR current_setting('lock_timeout')::interval > interval '5 seconds' THEN '5s' ELSE current_setting('lock_timeout') END, true)`;
+        await configurePostgresLockTimeout(sql);
         await sql`SELECT pg_advisory_xact_lock(hashtextextended('kortyx:runtime:schema', 0))`;
         await sql`CREATE TABLE IF NOT EXISTS kortyx_runtime_migrations (version integer PRIMARY KEY, checksum text)`;
         const checksumColumn =

@@ -42,17 +42,17 @@ side effects still require consumer-owned idempotency/transactions.
 ## Consumer capacity and storage
 
 ```ts
-import { createEvalRouteHandler, createPostgresEvalExecutionStore } from "kortyx";
+import { createEvalRouteHandler, createPostgresFrameworkAdapter } from "kortyx";
 
-const executionStore = createPostgresEvalExecutionStore({
-  connectionString: process.env.EVAL_EXECUTION_DATABASE_URL!,
+const persistence = createPostgresFrameworkAdapter({
+  connectionString: process.env.KORTYX_POSTGRES_URL!,
   namespace: "my-application/development",
 });
-await executionStore.setup();
+await persistence.maintenance.setup();
 const handleEvals = createEvalRouteHandler({
   evals,
   serviceKey: process.env.EVAL_SERVICE_KEY!,
-  executionStore,
+  executionStore: persistence.evalExecutions,
   maxActiveRuns: 10,
   maxActiveAttempts: 20,
   maxQueuedExecutions: 1000,
@@ -62,8 +62,38 @@ const handleEvals = createEvalRouteHandler({
 await handleEvals.drain(); // Keep HTTP, cancellation and the store alive.
 // Wait for observers/Studio to persist results, then retire HTTP connections.
 await handleEvals.close();
-await executionStore.close();
+// After workflow executions also finish:
+await persistence.close();
 ```
+
+This adapter-owned capability requires a release containing `evalExecutions`;
+older SDK versions continue to use the standalone factory. Upgrade agent/runtime
+together and run adapter setup with the migration role before serving traffic.
+The existing table SQL and checksums remain unchanged.
+
+The PostgreSQL framework adapter exposes `evalExecutions`, reusing its connection
+pool, namespace, migration setup and shutdown. Pass the same `persistence` to
+`createAgent({ frameworkAdapter: persistence, ... })`. Optional Redis checkpoint
+caching preserves this capability; eval admission, leases and events always use
+PostgreSQL. Workflow checkpoint storage alone does not change the eval route's
+memory default: explicitly pass `executionStore: persistence.evalExecutions`.
+
+All replicas must connect to the same database with a stable namespace. A load
+balancer may discover one replica, submit to another, and reconnect to a third;
+they see the same generation and execution history. Separate memory stores can
+return `EVAL_EXECUTION_STORE_CHANGED` even without any restart. Do not include a
+process ID, hostname or deployment revision in the namespace. Stop or drain old
+memory-backed consumers before switching traffic to PostgreSQL-backed consumers;
+their in-flight memory records cannot be recovered from the new store.
+
+The existing `createPostgresEvalExecutionStore({ connectionString, namespace })`
+remains supported for eval-only hosts or independent database/pool ownership.
+Call its `setup()` before traffic and its `close()` after handlers and observers
+finish. Keep standalone storage when it needs a namespace different from workflow
+storage; changing an existing eval database or namespace changes its generation. To tune the adapter-owned store, use
+`createPostgresFrameworkAdapter({ ..., evalExecutions: { leaseMs, retentionMs,
+maxBytes, maxJobBytes, queueTimeoutMs } })`. Eval retention and lease settings are
+independent of workflow checkpoint retention and approval TTL.
 
 The default memory store works within one process; share a single instance between
 handlers if they share capacity. A restarted memory store has a new generation,
@@ -82,7 +112,9 @@ Service-key rotation changes the private job scope; drain before rotation.
 
 The defaults allow one active evaluation group, twenty active attempts and a
 thousand queued executions. A group is one evaluation, not one HTTP request.
-Requested concurrency is additionally enforced within the group. Separate Studio
+Requested concurrency is additionally enforced within the group. Changed group
+concurrency is rejected even while siblings are queued; older conflicting queued
+records cannot block unrelated eligible jobs. Separate Studio
 evaluations share consumer capacity and queue instead of exhausting the consumer.
 A suite-level legacy request reserves its requested concurrency immediately.
 Applications must size these limits for their providers and shared resources.
@@ -168,6 +200,16 @@ API and Studio together to understand new progress events. Old Studio clients ke
 the request-owned stream and disconnect cancellation behavior. New Studio detects
 old consumers and preserves their legacy protocol, without reconnect/replay promises.
 Do not deploy new progress producers into an older strict wire reader.
+
+Failed eval setup can be retried on the same instance after a temporary database
+or lock failure; incompatible schema history still rejects every attempt. Lock
+waits are capped at five seconds without relaxing stricter database settings.
+Built-in stores bound heartbeat waits to one third of the lease (ten seconds by
+default). A renewal failure or timeout cooperatively aborts execution and leaves
+the job fenced until its lease expires to unknown. Shutdown does not await a
+hung raw heartbeat forever; application execution and cleanup must still honor
+cancellation. Custom stores may provide `heartbeatTimeoutMs`; otherwise the
+renewal budget is twice `heartbeatIntervalMs`. Upgrade agent/runtime together.
 
 The PostgreSQL store creates three namespaced execution tables and an independent
 checksum migration ledger on setup, under an advisory lock. It does not modify

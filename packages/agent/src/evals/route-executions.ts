@@ -105,29 +105,43 @@ export function createEvalExecutionTransport({
     await store.append(job.id, owner, {
       type: "error",
       message: issue.message,
-      exception: issue.exception,
+      ...(issue.exception ? { exception: issue.exception } : {}),
       failure: issue.failure,
       ...(issue.diagnosticId ? { diagnosticId: issue.diagnosticId } : {}),
     });
   };
   const run = async (job: EvalExecutionJob, controller: AbortController) => {
     let renewing = false;
+    let finished = false;
+    let leaseLost = false;
+    const loseLease = () => {
+      if (finished) return;
+      leaseLost = true;
+      controller.abort("lease-lost");
+    };
     const timer = setInterval(() => {
-      if (renewing) return;
+      // Cancellation still owns capacity throughout cooperative teardown.
+      if (renewing || leaseLost) return;
       renewing = true;
-      const pending = Promise.resolve().then(() =>
-        store.heartbeat(job.id, owner),
-      );
+      let timeout: ReturnType<typeof setTimeout>;
+      // Bound the tracked promise too: shutdown must not wait forever on raw I/O.
+      // Legacy custom stores get a conservative two-interval renewal budget.
+      const pending = Promise.race([
+        Promise.resolve().then(() => store.heartbeat(job.id, owner)),
+        new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error("Evaluation lease renewal timed out.")),
+            store.heartbeatTimeoutMs ?? store.heartbeatIntervalMs * 2,
+          );
+        }),
+      ]).finally(() => clearTimeout(timeout));
       heartbeats.add(pending);
       void pending
-        .then(
-          (current) => {
-            if (!current) controller.abort("lease-lost");
-            else if (current.cancelRequested)
-              controller.abort("user-cancelled");
-          },
-          () => controller.abort("lease-lost"),
-        )
+        .then((current) => {
+          if (finished) return;
+          if (!current) loseLease();
+          else if (current.cancelRequested) controller.abort("user-cancelled");
+        }, loseLease)
         .finally(() => {
           heartbeats.delete(pending);
           renewing = false;
@@ -171,12 +185,22 @@ export function createEvalExecutionTransport({
         onProgress: (event) =>
           store.append(job.id, owner, { type: "progress", event }),
       });
+      if (leaseLost)
+        throw new Error("Evaluation execution ownership is uncertain.");
       await store.append(job.id, owner, { type: "result", result });
+      if (leaseLost)
+        throw new Error("Evaluation execution ownership is uncertain.");
       await finish(
         job.id,
         result.status === "cancelled" ? "cancelled" : "completed",
       );
     } catch (error) {
+      // Do not turn uncertain ownership into a completed job or replayable failure.
+      // The durable lease expires to unknown, retaining its capacity reservation.
+      if (leaseLost) {
+        failedRetirement();
+        return;
+      }
       try {
         if (
           controller.signal.reason === "user-cancelled" &&
@@ -204,6 +228,7 @@ export function createEvalExecutionTransport({
         /* A lost lease remains unknown; another owner must never replay this job. */
       }
     } finally {
+      finished = true;
       clearInterval(timer);
       clearTimeout(deadline);
       active.delete(job.id);

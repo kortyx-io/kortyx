@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createInMemoryEvalExecutionStore } from "@kortyx/runtime";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -307,6 +307,167 @@ describe("detached consumer evaluation jobs", () => {
 });
 
 describe("execution owner fencing and transport faults", () => {
+  it("bounds renewal for a legacy custom store without a heartbeat timeout capability", async () => {
+    vi.useFakeTimers();
+    const { heartbeatTimeoutMs: _timeout, ...store } =
+      createInMemoryEvalExecutionStore();
+    vi.spyOn(store, "heartbeat").mockReturnValue(new Promise(() => {}));
+    let signal: AbortSignal | undefined;
+    const f = await fixture({
+      executionStore: store,
+      evals: {
+        describe: () => ({ schemaVersion: 1, suites: [suite] }),
+        run: async (args) => {
+          signal = args.signal;
+          await new Promise<void>((resolve) =>
+            args.signal?.addEventListener("abort", () => resolve(), {
+              once: true,
+            }),
+          );
+          throw new DOMException("Aborted", "AbortError");
+        },
+      },
+    });
+    try {
+      const response = await f.post();
+      await response.body?.cancel();
+      await vi.advanceTimersByTimeAsync(6001);
+      expect(signal?.reason).toBe("lease-lost");
+      await f.handler.close();
+    } finally {
+      await f.handler.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    "resolve",
+    "reject",
+  ])("ignores a late heartbeat %s after successful completion", async (mode) => {
+    vi.useFakeTimers();
+    const store = createInMemoryEvalExecutionStore();
+    let resolveHeartbeat!: (value: undefined) => void;
+    let rejectHeartbeat!: (error: Error) => void;
+    vi.spyOn(store, "heartbeat").mockReturnValue(
+      new Promise((resolve, reject) => {
+        resolveHeartbeat = resolve;
+        rejectHeartbeat = reject;
+      }),
+    );
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let signal: AbortSignal | undefined;
+    const f = await fixture({
+      executionStore: store,
+      evals: {
+        describe: () => ({ schemaVersion: 1, suites: [suite] }),
+        run: async (args) => {
+          signal = args.signal;
+          await gate;
+          return createEvals({
+            agent: { streamChat: vi.fn() },
+            suites: [suite],
+            execute: () => ({
+              observation: { type: "answer", text: "hello", structured: [] },
+            }),
+          }).run({ suiteId: suite.id });
+        },
+      },
+    });
+    try {
+      const response = await f.post();
+      await response.body?.cancel();
+      await vi.advanceTimersByTimeAsync(2001);
+      release();
+      await vi.advanceTimersByTimeAsync(1);
+      if (mode === "resolve") resolveHeartbeat(undefined);
+      else rejectHeartbeat(new Error("Late renewal failure"));
+      await vi.advanceTimersByTimeAsync(1);
+      expect(signal?.aborted).toBe(false);
+      await f.handler.drain();
+    } finally {
+      release();
+      resolveHeartbeat(undefined);
+      await f.handler.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it("omits absent exception fields so failure evidence remains valid PostgreSQL JSON", async () => {
+    const store = createInMemoryEvalExecutionStore();
+    const append = vi.spyOn(store, "append");
+    const f = await fixture({
+      executionStore: store,
+      evals: {
+        describe: () => ({ schemaVersion: 1, suites: [suite] }),
+        run: async () => {
+          throw undefined;
+        },
+      },
+    });
+    try {
+      const response = await f.post();
+      expect(await response.text()).toContain('"type":"error"');
+      const error = append.mock.calls.find(
+        ([, , event]) => event.type === "error",
+      )?.[2];
+      expect(error).toBeDefined();
+      expect(error).not.toHaveProperty("exception");
+    } finally {
+      await f.handler.close();
+    }
+  });
+
+  it.each([
+    "throws",
+    "returns",
+  ])("fences a runner that %s after a hung renewal and closes without raw I/O", async (mode) => {
+    vi.useFakeTimers();
+    const store = createInMemoryEvalExecutionStore({ leaseMs: 9000 });
+    vi.spyOn(store, "heartbeat").mockReturnValue(new Promise(() => {}));
+    let signal: AbortSignal | undefined;
+    const f = await fixture({
+      executionStore: store,
+      evals: {
+        describe: () => ({ schemaVersion: 1, suites: [suite] }),
+        run: vi.fn(async (args) => {
+          signal = args.signal;
+          await new Promise<void>((resolve) =>
+            args.signal?.addEventListener("abort", () => resolve(), {
+              once: true,
+            }),
+          );
+          if (mode === "throws")
+            throw new DOMException("Aborted", "AbortError");
+          return createEvals({
+            agent: { streamChat: vi.fn() },
+            suites: [suite],
+            execute: () => ({
+              observation: { type: "answer", text: "hello", structured: [] },
+            }),
+          }).run({ suiteId: suite.id });
+        }),
+      },
+    });
+    try {
+      const response = await f.post();
+      await response.body?.cancel();
+      await vi.advanceTimersByTimeAsync(5001);
+      expect(signal?.reason).toBe("lease-lost");
+      await f.handler.close();
+      await vi.advanceTimersByTimeAsync(4000);
+      const scope = createHash("sha256").update(`Bearer ${key}`).digest("hex");
+      const backend = createHash("sha256")
+        .update(`${scope}\0${f.headers["idempotency-key"]}`)
+        .digest("hex");
+      expect((await store.status(backend))?.state).toBe("unknown");
+    } finally {
+      await f.handler.close();
+      vi.useRealTimers();
+    }
+  });
   it.each([
     "missing",
     "rejected",
@@ -664,6 +825,21 @@ it.each([
       executionStore: {
         ...createInMemoryEvalExecutionStore(),
         heartbeatIntervalMs,
+      },
+    }),
+  ).rejects.toThrow("limits");
+});
+
+it.each([
+  0,
+  Number.NaN,
+  1.5,
+])("rejects an invalid heartbeat deadline (%s)", async (heartbeatTimeoutMs) => {
+  await expect(
+    fixture({
+      executionStore: {
+        ...createInMemoryEvalExecutionStore(),
+        heartbeatTimeoutMs,
       },
     }),
   ).rejects.toThrow("limits");

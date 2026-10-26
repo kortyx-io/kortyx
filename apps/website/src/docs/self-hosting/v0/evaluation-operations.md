@@ -97,8 +97,18 @@ capacity remains occupied through cleanup. Retrying, Reconnecting and Status unk
 are visible in case inspection. Inspect an unknown attempt before running it again.
 
 `createEvalRouteHandler` uses a memory execution store by default. For replicas and
-restart recovery, pass `createPostgresEvalExecutionStore({connectionString,namespace})`
-from `kortyx`, sharing the namespace, service key, suites and capacity settings.
+restart recovery, reuse `createPostgresFrameworkAdapter({ connectionString, namespace })`
+from `kortyx`: call `persistence.maintenance.setup()` before traffic and pass
+`executionStore: persistence.evalExecutions` to the handler. This shares the
+adapter's PostgreSQL pool, namespace and shutdown with workflow persistence;
+optional Redis checkpoint caching preserves it and is not required for evals.
+Explicitly wire the store even if the agent already uses PostgreSQL. Every replica
+must use the same database, stable namespace, service key, suites and capacity
+settings; otherwise discovery and submission can disagree on store generation
+without a restart. Drain handlers and workflows before `persistence.close()`.
+`createPostgresEvalExecutionStore({ connectionString, namespace })` remains
+supported for hosts needing an independent eval database/pool. Install a release
+containing `evalExecutions` before using the adapter-owned capability.
 Defaults allow one evaluation group, twenty attempts and a thousand queued jobs.
 Forward GET, POST and DELETE with all headers and query parameters. Keep the host
 alive while accepted execution runs. For planned retirement, use the handler's

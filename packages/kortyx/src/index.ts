@@ -201,9 +201,11 @@ export {
 export * from "@kortyx/providers";
 export type {
   CreateCachingFrameworkAdapterOptions,
+  CreatePostgresEvalExecutionStoreOptions,
   CreatePostgresFrameworkAdapterOptions,
   FrameworkAdapter,
   ManagedFrameworkAdapter,
+  PostgresEvalExecutionStoreOptions,
   PostgresFrameworkAdapter,
   PruneRuntimeOptions,
   PruneRuntimeResult,

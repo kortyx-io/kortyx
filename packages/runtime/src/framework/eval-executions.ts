@@ -50,6 +50,8 @@ export type EvalExecutionSubmission = Pick<
 export interface EvalExecutionStore {
   /** Renewal cadence; configure leases comfortably above scheduling/network delays. */
   readonly heartbeatIntervalMs: number;
+  /** Maximum renewal wait. Built-ins abort well before their ownership lease expires. */
+  readonly heartbeatTimeoutMs?: number;
   /** Changes whenever deduplication history is lost; stable across durable replicas. */
   generation(): Promise<string>;
   submit(
@@ -159,6 +161,26 @@ export function validateEvalExecutionLimits(limits: EvalExecutionLimits) {
     if (!Number.isSafeInteger(value) || value < 1)
       throw new TypeError("Execution limits must be positive safe integers.");
 }
+/** Reject changed concurrency even when all siblings are still queued. */
+export function validateEvalExecutionConcurrency(
+  jobs: EvalExecutionJob[],
+  candidate: EvalExecutionSubmission,
+) {
+  if (
+    jobs.some(
+      (job) =>
+        job.group === candidate.group &&
+        job.state !== "completed" &&
+        job.state !== "cancelled" &&
+        job.concurrency !== candidate.concurrency,
+    )
+  )
+    throw evalExecutionError(
+      "EVAL_CONCURRENCY_CHANGED",
+      "Evaluation concurrency changed after admission.",
+    );
+}
+
 /** Unknown jobs retain their capacity reservation until explicitly cancelled. */
 export function evalExecutionFits(
   jobs: EvalExecutionJob[],
@@ -175,10 +197,7 @@ export function evalExecutionFits(
   const groups = new Set(occupied.map((job) => job.group));
   const siblings = occupied.filter((job) => job.group === candidate.group);
   if (siblings.some((job) => job.concurrency !== candidate.concurrency))
-    throw evalExecutionError(
-      "EVAL_CONCURRENCY_CHANGED",
-      "Evaluation concurrency changed after admission.",
-    );
+    return false;
   return (
     (groups.has(candidate.group) || groups.size < limits.maxActiveRuns) &&
     occupied.reduce((sum, job) => sum + job.weight, 0) + candidate.weight <=
@@ -299,6 +318,7 @@ export function createInMemoryEvalExecutionStore({
   };
   return {
     heartbeatIntervalMs: Math.max(1, Math.min(2000, Math.floor(leaseMs / 3))),
+    heartbeatTimeoutMs: Math.max(1, Math.floor(leaseMs / 3)),
     async generation() {
       return generation;
     },
@@ -327,6 +347,7 @@ export function createInMemoryEvalExecutionStore({
           "Evaluation request exceeded its configured storage limit.",
           413,
         );
+      validateEvalExecutionConcurrency([...jobs.values()], input);
       const fits = evalExecutionFits([...jobs.values()], input, limits);
       if (
         [...jobs.values()].filter((job) => job.state === "queued").length >=

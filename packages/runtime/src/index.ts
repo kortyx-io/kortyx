@@ -14,7 +14,11 @@ export type {
 } from "./framework/maintenance";
 export * from "./framework/pending-requests";
 export * from "./framework/postgres/adapter";
-export * from "./framework/postgres/eval-executions";
+export {
+  type CreatePostgresEvalExecutionStoreOptions,
+  createPostgresEvalExecutionStore,
+  type PostgresEvalExecutionStoreOptions,
+} from "./framework/postgres/eval-executions";
 export type { RuntimeRetentionPolicy } from "./framework/postgres/store";
 export * from "./framework/session-checkpoints";
 export * from "./graph/create-execution-graph";

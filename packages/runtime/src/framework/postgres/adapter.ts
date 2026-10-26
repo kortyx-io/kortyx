@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { PersistenceError } from "@kortyx/core/errors";
 import type { ManagedFrameworkAdapter } from "../adapter";
 import { registerFrameworkCacheStorage } from "../caching";
+import type { EvalExecutionStore } from "../eval-executions";
 import { PostgresCheckpointSaver } from "./checkpointer";
+import {
+  createPostgresEvalExecutionStoreWithClient,
+  type PostgresEvalExecutionStoreOptions,
+} from "./eval-executions";
 import { createRuntimeMaintenance } from "./maintenance";
 import { createPostgresPendingRequestStore } from "./pending-request-store";
 import { createPostgresSessionCheckpointStore } from "./session-checkpoint-store";
@@ -19,11 +24,15 @@ export type CreatePostgresFrameworkAdapterOptions = {
   /** Interrupt lifetime, independent of checkpoint retention. Default: 15 minutes. */
   ttlMs?: number;
   retention?: RuntimeRetentionPolicy;
+  /** Eval queue settings; shares this adapter's PostgreSQL pool and namespace. */
+  evalExecutions?: PostgresEvalExecutionStoreOptions;
 };
 
 export type PostgresFrameworkAdapter = ManagedFrameworkAdapter & {
   kind: "postgres";
   checkpointer: PostgresCheckpointSaver;
+  /** Pass to createEvalRouteHandler({ executionStore: adapter.evalExecutions }). */
+  evalExecutions: EvalExecutionStore;
   /** Closes owned connections. Call after in-flight executions have completed. */
   close: () => Promise<void>;
 };
@@ -38,13 +47,25 @@ export function createPostgresFrameworkAdapter(
     options.retention ?? {},
   );
   const saver = new PostgresCheckpointSaver(store);
+  const evalExecutions = createPostgresEvalExecutionStoreWithClient(store.sql, {
+    ...options.evalExecutions,
+    namespace: store.scope,
+  });
+  const maintenance = createRuntimeMaintenance(store);
   const adapter: PostgresFrameworkAdapter = {
     kind: "postgres",
     ttlMs,
     checkpointer: saver,
+    evalExecutions,
     pendingRequests: createPostgresPendingRequestStore(store),
     sessionCheckpoints: createPostgresSessionCheckpointStore(store, saver),
-    maintenance: createRuntimeMaintenance(store),
+    maintenance: {
+      ...maintenance,
+      setup: async () => {
+        await maintenance.setup();
+        await evalExecutions.setup();
+      },
+    },
     // Completed runs remain available until maintenance applies retention.
     cleanupRun: async (runId) =>
       store.transaction((sql) => store.touchRun(sql, runId)),

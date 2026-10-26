@@ -189,6 +189,9 @@ Go back to [Runtime Persistence](./01-persistence.md) if you want the high-level
 
 For month-long runtime history, use the PostgreSQL adapter. PostgreSQL is the source of truth; Redis optionally caches checkpoint payloads. The runtime schema is separate from your business tables and Studio telemetry.
 
+For a replicated eval endpoint, reuse the PostgreSQL adapter's `evalExecutions`
+capability as described in [Evaluation execution across replicas](#evaluation-execution-across-replicas).
+
 ```ts
 import {
   createAgent,
@@ -269,3 +272,46 @@ Session listing returns summaries without accumulating full historical states. R
 Redis journal writes and TTL use an isolated transaction, requiring `MULTI`, `EXEC`, `DISCARD`, `HSET`, `HSETNX`, and `PEXPIRE` in addition to the adapter's existing commands. Lua permissions are unnecessary. The built-in client supports a single Redis endpoint, including named ACL authentication; it does not implement Redis Cluster routing.
 
 Older journal hashes can have no TTL. The upgrade does not delete these automatically: audit the configured namespace and use the matching checkpoint lifetime to expire live journals, or remove only confirmed expired/orphaned state. Upgrade workers together for the versioned budget-suspension envelope; restart ambiguous legacy budget checkpoints safely.
+
+## Evaluation execution across replicas
+
+The PostgreSQL adapter also supplies an eval execution store. Share the adapter
+between your agent and eval route to reuse its connection pool and namespace:
+
+```ts
+import { createEvalRouteHandler, createPostgresFrameworkAdapter } from "kortyx";
+
+const persistence = createPostgresFrameworkAdapter({
+  connectionString: process.env.KORTYX_POSTGRES_URL!,
+  namespace: "my-app/production",
+  evalExecutions: { leaseMs: 30_000 }, // Optional eval-specific settings.
+});
+await persistence.maintenance.setup();
+// Also use frameworkAdapter: persistence when creating your agent.
+const handleEvals = createEvalRouteHandler({
+  evals,
+  serviceKey: process.env.EVAL_SERVICE_KEY!,
+  executionStore: persistence.evalExecutions,
+});
+```
+
+Every replica must use the same database, stable namespace, service key, suite
+definitions and capacity limits. Discovery on one replica and submission or event
+replay on another then use the same generation and records. Configuring workflow
+persistence alone leaves the eval route on its default process-local memory store.
+Redis is optional checkpoint caching and does not coordinate eval execution.
+`createCachingFrameworkAdapter` preserves `evalExecutions` on the returned adapter.
+
+`maintenance.setup()` initializes both the runtime schema and independent eval
+schema. Apply it with the migration role before traffic, including during upgrade.
+Drain eval handlers and workflow executions, let result observers finish, then call
+`persistence.close()` once. Eval retention and leases are configured separately
+from workflow history retention and interrupt TTL.
+
+The existing `createPostgresEvalExecutionStore` factory remains supported for an
+eval-only host or an independent eval database/pool. Keep it when eval storage
+needs a different namespace from workflow storage. Existing stored records are
+compatible; changing the database or namespace creates a different generation.
+Install a release containing the adapter's `evalExecutions` capability before
+using this integration. See [conversation evals](/docs/guides/conversation-evals#concurrent-execution-recovery)
+for capacity, cancellation and recovery behavior.
