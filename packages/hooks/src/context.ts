@@ -31,6 +31,12 @@ type HookStatePatchedError = {
 };
 
 export type HookNodeRuntimeContext = {
+  toolExecutionOwner?:
+    | Pick<
+        import("@kortyx/providers").ToolObservation,
+        "runId" | "branchId" | "invocationId" | "parentInvocationId"
+      >
+    | undefined;
   prompts?: import("@kortyx/prompts").PromptExecution | undefined;
   completeResponse?:
     | ((

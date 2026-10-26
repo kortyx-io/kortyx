@@ -30,6 +30,7 @@ import {
 import {
   createFinalizedChatMessageAccumulator,
   type StreamChunk,
+  StreamChunkSchema,
 } from "@kortyx/stream";
 import { Command } from "@langchain/langgraph";
 import { z } from "zod";
@@ -967,66 +968,15 @@ export async function orchestrateGraphStream({
       });
       return;
     }
-    if (event === "tool-call-start") {
-      const payloadObj = payload as {
-        tool?: unknown;
-        toolCallId?: unknown;
-        node?: string;
-        id?: string;
-        opId?: string;
-        input?: unknown;
-      };
-      if (
-        typeof payloadObj.tool !== "string" ||
-        typeof payloadObj.toolCallId !== "string"
-      ) {
-        return;
-      }
-      write({
-        type: "tool-call-start",
-        tool: payloadObj.tool,
-        toolCallId: payloadObj.toolCallId,
-        ...(payloadObj.node ? { node: payloadObj.node } : {}),
-        ...(payloadObj.id ? { id: payloadObj.id } : {}),
-        ...(payloadObj.opId ? { opId: payloadObj.opId } : {}),
-        ...(payloadObj.input !== undefined ? { input: payloadObj.input } : {}),
+    if (event === "tool-call-start" || event === "tool-call-result") {
+      const parsed = StreamChunkSchema.safeParse({
+        ...(payload as object),
+        type: event,
       });
-      if (payloadObj.node) touchedNodes.add(payloadObj.node);
-      return;
-    }
-    if (event === "tool-call-result") {
-      const payloadObj = payload as {
-        tool?: unknown;
-        toolCallId?: unknown;
-        node?: string;
-        id?: string;
-        opId?: string;
-        content?: unknown;
-        structuredContent?: unknown;
-        isError?: unknown;
-      };
-      if (
-        typeof payloadObj.tool !== "string" ||
-        typeof payloadObj.toolCallId !== "string"
-      ) {
-        return;
-      }
-      write({
-        type: "tool-call-result",
-        tool: payloadObj.tool,
-        toolCallId: payloadObj.toolCallId,
-        ...(payloadObj.node ? { node: payloadObj.node } : {}),
-        ...(payloadObj.id ? { id: payloadObj.id } : {}),
-        ...(payloadObj.opId ? { opId: payloadObj.opId } : {}),
-        content: payloadObj.content,
-        ...(payloadObj.structuredContent !== undefined
-          ? { structuredContent: payloadObj.structuredContent }
-          : {}),
-        ...(typeof payloadObj.isError === "boolean"
-          ? { isError: payloadObj.isError }
-          : {}),
-      });
-      if (payloadObj.node) touchedNodes.add(payloadObj.node);
+      if (!parsed.success) return;
+      write(parsed.data);
+      if ("node" in parsed.data && parsed.data.node)
+        touchedNodes.add(parsed.data.node);
       return;
     }
     if (event === "tool-call-error") {

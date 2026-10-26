@@ -112,6 +112,8 @@ export function createWorkflowCallService(
       let childConfig: ExecutionRuntimeConfig = {
         resume: Boolean(snapshot),
         executionBranchId: config.executionBranchId,
+        workflowInvocationId: args.invocationId,
+        parentWorkflowInvocationId: config.workflowInvocationId,
         prepareChildTelemetry: config.prepareChildTelemetry,
         context: config.context,
         session: config.session,
@@ -323,6 +325,20 @@ export function createWorkflowCallService(
       return {
         status: "completed" as const,
         data,
+        directToolEvidence:
+          (
+            (result.runtime as unknown as Record<string, unknown>).__kortyx as
+              | {
+                  workflowState?: {
+                    __kortyxDirectToolEvidence?: import("@kortyx/hooks/internal").DirectToolEvidence[];
+                  };
+                }
+              | undefined
+          )?.workflowState?.__kortyxDirectToolEvidence?.map((evidence) => ({
+            ...evidence,
+            // Match the same source scope used by live child event forwarding.
+            node: `${config.executionRunId ?? "run"}/${args.invocationId}/${evidence.node}`,
+          })) ?? [],
         toolObservations:
           (
             (result.runtime as unknown as Record<string, unknown>).__kortyx as

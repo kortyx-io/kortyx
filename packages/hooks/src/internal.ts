@@ -12,6 +12,7 @@ export type {
 export { runReasonEngine } from "./reason-engine";
 export { safeSpan, safeStartSpan, withSafeTraceSpan } from "./safe-tracing";
 export { safeTelemetryMetadata } from "./telemetry-privacy";
+export type { DirectToolEvidence } from "./tool-evidence";
 export type {
   KortyxTelemetryConfig,
   KortyxTraceAdapter,

@@ -1,5 +1,5 @@
 import { serializeFailure } from "@kortyx/core/errors";
-import type { StreamChunk } from "@kortyx/stream";
+import { type StreamChunk, StreamChunkSchema } from "@kortyx/stream";
 import type { EvalJson } from "./types";
 
 export function toEvalJson(value: unknown): EvalJson {
@@ -8,6 +8,16 @@ export function toEvalJson(value: unknown): EvalJson {
 
 /** Select public stream fields explicitly: transport chunks can carry private state. */
 export function captureEvalEvent(chunk: StreamChunk): EvalJson | undefined {
+  // Validate the attribution envelope too: custom executors may add private fields.
+  const execution =
+    "execution" in chunk && chunk.execution
+      ? (() => {
+          const parsed = StreamChunkSchema.safeParse(chunk);
+          return parsed.success && "execution" in parsed.data
+            ? { execution: parsed.data.execution }
+            : {};
+        })()
+      : {};
   const source = {
     ...("node" in chunk ? { node: chunk.node } : {}),
     ...("id" in chunk ? { id: chunk.id } : {}),
@@ -16,6 +26,7 @@ export function captureEvalEvent(chunk: StreamChunk): EvalJson | undefined {
   switch (chunk.type) {
     case "tool-call-start":
       return toEvalJson({
+        ...execution,
         type: chunk.type,
         ...source,
         tool: chunk.tool,
@@ -24,6 +35,7 @@ export function captureEvalEvent(chunk: StreamChunk): EvalJson | undefined {
       });
     case "tool-call-result":
       return toEvalJson({
+        ...execution,
         type: chunk.type,
         ...source,
         tool: chunk.tool,

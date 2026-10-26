@@ -6,6 +6,32 @@ import {
 import { z } from "zod";
 import { StructuredDataChunkSchema } from "./structured-data";
 
+/** Attribution and capture diagnostics; arbitrary runtime/transport fields are stripped. */
+const toolExecution = z.object({
+  callingMode: z.enum(["direct", "model"]),
+  attemptId: z.string(),
+  executed: z.boolean(),
+  outcome: z.enum(["success", "denied", "fault", "cancelled"]).optional(),
+  workflowId: z.string().optional(),
+  nodeId: z.string().optional(),
+  workflowRevisionId: z.string().optional(),
+  runId: z.string().optional(),
+  invocationId: z.string().optional(),
+  parentInvocationId: z.string().optional(),
+  branchId: z.string().optional(),
+  inputOmitted: z.string().optional(),
+  resultOmitted: z.string().optional(),
+  source: z
+    .object({
+      runId: z.string().optional(),
+      invocationId: z.string().optional(),
+      branchId: z.string().optional(),
+      toolCallId: z.string(),
+      attemptId: z.string(),
+    })
+    .optional(),
+});
+
 export const StreamChunkSchema = z.union([
   z.object({
     type: z.literal("session"),
@@ -70,6 +96,7 @@ export const StreamChunkSchema = z.union([
   }),
   z.object({
     type: z.literal("tool-call-start"),
+    execution: toolExecution.optional(),
     tool: z.string(),
     toolCallId: z.string(),
     node: z.string().optional(),
@@ -79,6 +106,7 @@ export const StreamChunkSchema = z.union([
   }),
   z.object({
     type: z.literal("tool-call-result"),
+    execution: toolExecution.optional(),
     tool: z.string(),
     toolCallId: z.string(),
     node: z.string().optional(),

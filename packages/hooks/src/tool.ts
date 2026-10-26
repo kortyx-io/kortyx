@@ -10,6 +10,15 @@ import type {
 import { getHookContext } from "./context";
 import { errorDiagnostics } from "./error-diagnostics";
 import { withSafeTraceSpan } from "./safe-tracing";
+import {
+  captureToolResult,
+  captureToolValue,
+  type DirectToolEvidence,
+  directToolIdentity,
+  emitDirectToolEvidence,
+  rememberDirectToolEvidence,
+  type ToolContentCapture,
+} from "./tool-evidence";
 import type { ReasonTraceAdapter } from "./tracing";
 import { usage } from "./usage";
 import { emitWorkflowCall } from "./workflow-telemetry";
@@ -27,6 +36,8 @@ type ToolScope = {
 const tools = new AsyncLocalStorage<ToolScope>();
 
 export type UseToolArgs<T extends KortyxExecutableTool> = {
+  /** Opt in to public input/result capture. Each side is bounded to 16 KiB. */
+  emit?: ToolContentCapture | undefined;
   tool: T;
   input: Parameters<T["execute"]> extends []
     ? unknown
@@ -183,6 +194,7 @@ function ownership() {
       ? { invocationId: correlation.invocationId }
       : {}),
     ...(correlation?.branchId ? { branchId: correlation.branchId } : {}),
+    ...ctx.node.toolExecutionOwner,
   };
 }
 
@@ -264,6 +276,7 @@ export async function executeObservedTool(args: {
   callingMode: "direct" | "model";
   abortSignal?: AbortSignal | undefined;
   onObservation?: (observation: ToolObservation) => void;
+  onStart?: (observation: ToolObservation) => void;
 }): Promise<unknown> {
   const ctx = getHookContext();
   const observation: ToolObservation = {
@@ -294,6 +307,7 @@ export async function executeObservedTool(args: {
   }
   ctx.node.consumeExecution?.("maxToolCalls");
   observation.executed = true;
+  args.onStart?.({ ...observation });
   const operationUsage = usage.start("sdk.tool", {
     calling_mode: args.callingMode,
     source: args.tool.source === "mcp" ? "mcp" : "native",
@@ -433,15 +447,50 @@ export async function useTool<T extends KortyxExecutableTool>(
     ctx.currentNodeState.byKey[key] = id;
     ctx.stateDirty = true;
   }
+  const enabled = (side: "input" | "output") =>
+    args.emit === true ||
+    (typeof args.emit === "object" && args.emit[side] === true);
+  const input = captureToolValue(args.input, enabled("input"));
+  let observation: ToolObservation | undefined;
+  let started = false;
+  const withInput = (entry: ToolObservation): DirectToolEvidence => {
+    const evidence = directToolIdentity(entry);
+    if (input.omitted) evidence.execution.inputOmitted = input.omitted;
+    else evidence.input = input.value;
+    return evidence;
+  };
+  let returned = false;
+  let value: unknown;
   try {
-    return (await executeObservedTool({
+    value = await executeObservedTool({
       tool: args.tool,
       input: args.input,
       toolCallId: String(id),
       callingMode: "direct",
       abortSignal: combineAbortSignals(ctx.node.abortSignal, args.abortSignal),
-    })) as Awaited<ReturnType<T["execute"]>>;
+      onObservation: (entry) => {
+        observation = entry;
+      },
+      onStart: (entry) => {
+        started = true;
+        emitDirectToolEvidence(withInput(entry), "start");
+      },
+    });
+    returned = true;
+    return value as Awaited<ReturnType<T["execute"]>>;
   } finally {
+    if (observation) {
+      const evidence = withInput(observation);
+      const { resultOmitted, ...output } = returned
+        ? captureToolResult(value, enabled("output"))
+        : { resultOmitted: "tool did not return a result" };
+      if (resultOmitted) evidence.execution.resultOmitted = resultOmitted;
+      Object.assign(evidence, output);
+      if (observation.outcome && observation.outcome !== "success")
+        evidence.isError = true;
+      rememberDirectToolEvidence(evidence);
+      emitDirectToolEvidence(evidence, started ? "result" : "both");
+    }
     await closeOwnedTools([args.tool]);
   }
 }
