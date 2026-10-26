@@ -322,6 +322,34 @@ it("strips injected private attribution fields when collecting public evidence",
   });
 });
 
+it("drops malformed attribution without discarding the public tool result", () => {
+  const chunk = {
+    type: "tool-call-result",
+    tool: "read",
+    toolCallId: "call",
+    content: "public result",
+    execution: { callingMode: "PRIVATE_INVALID_MODE", executed: true },
+  } as unknown as StreamChunk;
+  expect(captureEvalEvent(chunk)).toEqual({
+    type: "tool-call-result",
+    tool: "read",
+    toolCallId: "call",
+    content: "public result",
+  });
+});
+
+it("ignores attribution injected into an unrelated public event", () => {
+  const chunk = {
+    type: "status",
+    message: "Reading brief",
+    execution: { callingMode: "direct", attemptId: "PRIVATE", executed: true },
+  } as unknown as StreamChunk;
+  expect(captureEvalEvent(chunk)).toEqual({
+    type: "status",
+    message: "Reading brief",
+  });
+});
+
 it("keeps both parallel node reads in a completed child's replay evidence", async () => {
   const execute = vi.fn(async () => brief);
   const read = async (name: string) =>
