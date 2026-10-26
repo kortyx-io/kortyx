@@ -1,7 +1,10 @@
 import { sampleRequestResponse } from "@/features/sample-project/server";
 import "server-only";
 import { EVAL_COMPARISON_LIMITS } from "@kortyx/agent/evals";
-import { redactDiagnosticText } from "@kortyx/telemetry-contracts";
+import {
+  redactDiagnosticText,
+  STUDIO_API_PROTOCOL_VERSION,
+} from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
 import { readBoundedJson } from "@/lib/read-bounded-json";
 
@@ -52,6 +55,7 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
         method: request.method,
         headers: {
           authorization: credential.authorization,
+          "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
           ...(credential.environment
             ? { "x-kortyx-environment": credential.environment }
             : {}),

@@ -42,6 +42,7 @@ import {
 } from "../middleware/security";
 import type { ApiEnv } from "../types";
 import { registerEvaluationRoutes } from "./evaluations";
+import { currentStudioReadContract } from "./studio-compatibility";
 
 export function registerEvalRoutes(
   app: OpenAPIHono<ApiEnv>,
@@ -88,6 +89,9 @@ export function registerEvalRoutes(
     c.json({ canRun: await canApiAction(c, "eval:run") }),
   );
   app.get("/v1/studio/evals/targets", async (c) => {
+    const current = currentStudioReadContract(
+      c.req.header("x-kortyx-studio-api-version"),
+    );
     const auth = c.get("principal");
     const available = (adapter ? await adapter.list(auth) : targets).filter(
       (target) =>
@@ -157,13 +161,15 @@ export function registerEvalRoutes(
       canRun: await canApiAction(c, "eval:run"),
       studioJudge: studioJudge
         ? {
-            ...(studioJudge.instructions
+            ...(current && studioJudge.instructions
               ? { instructions: studioJudge.instructions }
               : {}),
-            ...(studioJudge.promptTemplates
+            ...(current && studioJudge.promptTemplates
               ? { promptTemplates: true as const }
               : {}),
-            ...(studioJudge.prompt ? { prompt: studioJudge.prompt } : {}),
+            ...(current && studioJudge.prompt
+              ? { prompt: studioJudge.prompt }
+              : {}),
             id: studioJudge.id,
             version: studioJudge.version,
             location: "studio",

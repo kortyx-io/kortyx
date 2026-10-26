@@ -96,6 +96,21 @@ SDK boundaries include initialization, registry resolution, direct execution/res
 
 Studio boundaries include CLI setup, API requests/ingest, server reads and parse failures, first-use guidance and observed data, navigation, tab/trace inspection, render failures/retries, prompt actions, eval launch/read/cancel and live refresh/reconnect. Prompt and eval browser actions measure request acceptance. The built-in eval worker separately measures persisted terminal results; its attempt and legacy run units are described below. SDK eval configuration rejection is included with phase `configuration`.
 
+Server-side eval reads emit `studio.read` with `resource: evals` and
+`origin: server`. Successes and failures share one completed-read denominator.
+`eval_read` distinguishes target discovery, history, detail, case, live,
+capability, evaluation, table and comparison reads without record IDs or URLs.
+HTTP, network, configuration, and response-validation failures carry a bounded
+`phase`, classified error/cause codes, HTTP status/class and retryability where
+known. Invalid responses use `STUDIO_RESPONSE_INVALID`, `response_failure`
+(JSON, schema or body), and the first schema issue's approved `validation_issue`
+and top-level `validation_field`. Unknown fields become `other`. Combine these
+dimensions with the existing component, release and environment context to
+understand a failure; raw messages, stacks and payloads remain excluded. Aborted reads are
+cancelled, and sample-project reads are excluded. Additional judge response
+fields that can be safely stripped remain successful reads. These records use
+the existing PostHog transport and controls, without raw errors or payloads.
+
 The [opportunity inventory](../../docs/audits/sdk-studio-usage-telemetry.md) covers remaining node/parallel/child execution, prompt cache/refresh, persistence internals, exporter queue loss, deeper filters/saved views, deeper worker phases, reviews and upgrade phases. Reserved catalog operations are not evidence that these boundaries already emit. Feature-flag evaluation and exposure are a future addition.
 
 Use `sum(properties.count)`, rather than raw PostHog event count, to measure attempts. For a comparable component/operation cohort, failure rate is `sum(count where outcome = failed) / sum(count for completed operation outcomes)`. Decide explicitly whether cancellations, denial and suspension belong in the denominator. Compare installation reach, repeated use and failure rate by release; do not rank features solely by workload volume. PostHog funnels over aggregates give coarse observed ordering (flush windows can obscure exact ordering), not exact user-session sequences or time since npm installation.

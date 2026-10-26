@@ -57,6 +57,9 @@ product README on the repository homepage.
   checks, and wait for required CI on the final PR head before merge. For
   documentation-only changes, check content and links rather than adding runtime
   tests.
+- Review [Studio rolling upgrade readiness](docs/internal/definition-of-done.md#studio-rolling-upgrade-readiness)
+  for API, Studio, SDK contract, or migration changes. Releases default to
+  `rolling`; authors must explicitly declare maintenance upgrades as `recreate`.
 - Assess and complete affected Studio page help and guided tours, including new
   surfaces introduced by a rebase; record the coverage and visual verification in
   the PR checklist. Follow the Definition of Done for applicability and evidence.

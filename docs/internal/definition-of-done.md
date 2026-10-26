@@ -203,6 +203,34 @@ replace a correct applicability assessment or necessary manual verification.
 - Wire new packages and checks into CI. Keep environment examples, container
   builds, installation paths, and deployment instructions aligned.
 
+#### Studio rolling upgrade readiness
+
+Studio releases default to `rolling`. The PR author and reviewer own the
+compatibility assessment against the preceding stable release. Existing release
+smoke tests verify installation and upgrade; they do not certify mixed-version
+overlap or automatically detect breaking changes.
+
+- Assess whether the old API can serve during and after candidate migrations,
+  and whether old/new API, Studio, and SDK versions can overlap. Prefer additive
+  database changes and compatible response shapes. Additional response fields
+  can break strict readers.
+- Record applicable tests or manual evidence and any limitations in the PR's
+  Release considerations. Handled feature errors can be reported through usage
+  telemetry for follow-up; distinguish them from app crashes, widespread service
+  failures, and data-integrity risks. Reporting does not replace fixing these
+  deployment-blocking failures.
+- For an intentional breaking upgrade that requires maintenance, set
+  `deployment_strategy: recreate` in the Studio job in
+  `.github/workflows/npm-publish.yml` in the breaking-change PR. Document the
+  reason, affected source versions, and maintenance/backup steps in the release
+  notes. Keep it set until that release is published, then restore `rolling` for
+  the next compatible release. Manual publication must select the reviewed
+  strategy; recovery must preserve the original declaration.
+- The manifest publishes only `deployment.strategy`; there is no `rollingFrom`
+  source-version list. Its declaration covers the preceding stable release.
+  Skipped-version upgrades need explicit source-to-target assessment in consumer
+  infrastructure. Missing or unknown strategy metadata remains `recreate`.
+
 Evidence: applicable package/build checks, release configuration, and migration
 or operational verification. Opening a PR does not itself authorize publishing
 or deployment.

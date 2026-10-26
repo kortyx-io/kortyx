@@ -5,6 +5,7 @@ import {
   TelemetryForbiddenError,
 } from "@kortyx/telemetry-db";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { createApiApp } from "../src/app";
 import { loadStudioEvalJudge } from "../src/evals/judge";
 
@@ -128,6 +129,14 @@ it("does not invoke a judge for malformed, oversized or stale requests", async (
   expect((await request(api, { ...body, unexpected: "field" })).status).toBe(
     400,
   );
+  expect(
+    (
+      await request(api, {
+        ...body,
+        judge: { ...identity, futureCapability: true },
+      })
+    ).status,
+  ).toBe(400);
   expect(
     (await request(api, { ...body, judge: { ...identity, version: "old" } }))
       .status,
@@ -458,6 +467,102 @@ it("keeps instruction metadata out of legacy discovery and grading responses", a
   expect(await (await request(api)).json()).toEqual({
     judge: identity,
     verdict,
+  });
+});
+
+it("keeps new judge capabilities and grading evidence compatible with strict legacy readers", async () => {
+  // Frozen pre-metadata reader: sharing the current response schema would hide
+  // precisely the cross-version failure this regression is intended to catch.
+  const legacyIdentity = z
+    .object({
+      id: z.string(),
+      version: z.string(),
+      location: z.literal("studio"),
+    })
+    .strict();
+  const legacyResponse = z
+    .object({
+      judge: legacyIdentity,
+      verdict: z
+        .object({
+          passed: z.boolean(),
+          reason: z.string(),
+          evidence: z.array(z.string()),
+        })
+        .strict(),
+    })
+    .strict();
+  const gradingRequest = {
+    protocol: "eval-verdict-v1" as const,
+    messages: [{ role: "user" as const, content: "Evidence" }],
+  };
+  const api = app({
+    ...judge,
+    promptTemplates: true,
+    instructions: "Use evidence.",
+    grade: async (input) => {
+      input.onRequest?.(gradingRequest);
+      return verdict;
+    },
+  });
+  const discovery = await api.request(
+    "/v1/studio/evals/judge?environment=development",
+    { headers: { authorization: "Bearer execute" } },
+  );
+  expect(legacyIdentity.parse(await discovery.json())).toEqual(identity);
+  const targets = await api.request("/v1/studio/evals/targets", {
+    headers: { authorization: "Bearer execute" },
+  });
+  expect(
+    z.object({ studioJudge: legacyIdentity }).parse(await targets.json())
+      .studioJudge,
+  ).toEqual(identity);
+  const currentTargets = await api.request("/v1/studio/evals/targets", {
+    headers: {
+      authorization: "Bearer execute",
+      "x-kortyx-studio-api-version": "1",
+    },
+  });
+  expect(await currentTargets.json()).toMatchObject({
+    studioJudge: {
+      ...identity,
+      instructions: "Use evidence.",
+      promptTemplates: true,
+    },
+  });
+  expect(legacyResponse.parse(await (await request(api)).json())).toEqual({
+    judge: identity,
+    verdict,
+  });
+  const modernDiscovery = await api.request(
+    "/v1/studio/evals/judge?environment=development&includeInstructions=true",
+    { headers: { authorization: "Bearer execute" } },
+  );
+  expect(await modernDiscovery.json()).toEqual({
+    ...identity,
+    promptTemplates: true,
+    instructions: "Use evidence.",
+  });
+  const modernGrade = await api.request(
+    "/v1/studio/evals/judge?includeInstructions=true",
+    {
+      method: "POST",
+      headers: {
+        authorization: "Bearer execute",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  expect(modernGrade.status).toBe(200);
+  expect(await modernGrade.json()).toEqual({
+    judge: {
+      ...identity,
+      promptTemplates: true,
+      instructions: "Use evidence.",
+    },
+    verdict,
+    request: gradingRequest,
   });
 });
 

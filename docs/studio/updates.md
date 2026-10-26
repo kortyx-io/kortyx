@@ -104,8 +104,15 @@ one public HTTPS request to the CDN; they do not query GitHub's Releases API.
 The manifest contains the stable version, both official image digests, the
 update format and installer protocol version, and a deployment strategy. A
 `rolling` strategy means the reviewed release can overlap its predecessor;
-`recreate` requires a maintenance deployment. Missing strategy metadata from a
-legacy release is treated as `recreate`. Unknown protocols, prereleases, and
+new releases default to this developer-reviewed declaration. Authors and
+reviewers assess compatibility using the repository's Studio rolling upgrade
+readiness policy; CI does not automatically certify mixed-version overlap.
+Breaking upgrades explicitly declare `recreate`, which requires maintenance.
+The manifest publishes only `deployment.strategy`, without a `rollingFrom`
+source-version list. The declaration covers the preceding stable release;
+consumer infrastructure must separately assess skipped-version upgrades.
+Missing strategy metadata from a legacy release is treated as `recreate`.
+Unknown protocols, prereleases, and
 arbitrary image repositories are rejected. The release pipeline is the only
 intended writer; never store credentials or private files in the public bucket.
 

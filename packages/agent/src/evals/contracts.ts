@@ -77,6 +77,13 @@ export const EvalJudgeIdentitySchema = z
   })
   .strict();
 
+// Responses can gain fields during a rolling upgrade. Strip additions at read
+// boundaries; keep the request/configuration schema above strict.
+export const EvalJudgeResponseIdentitySchema =
+  EvalJudgeIdentitySchema.strip().extend({
+    model: EvalJudgeIdentitySchema.shape.model.unwrap().strip().optional(),
+  });
+
 export const EvalSuiteSchema = z
   .object({
     judge: EvalJudgeIdentitySchema.optional(),
@@ -300,7 +307,7 @@ export const EvalCaseResultSchema = z
     errors: z.array(issue),
   })
   .strict();
-const judge = EvalJudgeIdentitySchema;
+const judge = EvalJudgeResponseIdentitySchema;
 export const StudioEvalJudgeRequestSchema = z
   .object({
     gradingTimeoutMs: EvalSettingsSchema.shape.gradingTimeoutMs,
@@ -319,11 +326,25 @@ export const StudioEvalJudgeRequestSchema = z
 export const StudioEvalJudgeResponseSchema = z
   .object({
     request: EvalGradingRequestSchema.optional(),
-    judge: EvalJudgeIdentitySchema,
-    verdict: EvalVerdictSchema,
-    usage: z.array(EvalJudgeUsageSchema).optional(),
+    judge: EvalJudgeResponseIdentitySchema,
+    verdict: EvalVerdictSchema.strip(),
+    usage: z
+      .array(
+        EvalJudgeUsageSchema.strip().extend({
+          usage: EvalJudgeUsageSchema.shape.usage.unwrap().strip().optional(),
+          pricingContext: EvalJudgeUsageSchema.shape.pricingContext
+            .unwrap()
+            .strip()
+            .optional(),
+          pricing: EvalJudgeUsageSchema.shape.pricing
+            .unwrap()
+            .strip()
+            .optional(),
+        }),
+      )
+      .optional(),
   })
-  .strict();
+  .strip();
 export const EvalRunResultSchema = z
   .object({
     id: z.uuid(),

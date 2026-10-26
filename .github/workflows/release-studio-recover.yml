@@ -16,9 +16,9 @@ on:
         required: true
         type: string
       deployment_strategy:
-        description: Compatibility recorded for this release
+        description: Compatibility recorded for this release (preserve the original strategy)
         required: true
-        default: recreate
+        default: rolling
         type: choice
         options:
           - recreate

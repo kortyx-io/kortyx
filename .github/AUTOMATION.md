@@ -120,6 +120,11 @@ image build contexts even for older release candidates.
 
 ## Publication safeguards
 
+- Studio releases default to `rolling`. Authors and reviewers assess the upgrade
+  from the preceding stable release using [Studio rolling upgrade readiness](../docs/internal/definition-of-done.md#studio-rolling-upgrade-readiness).
+  Maintenance upgrades explicitly set the orchestrator's `deployment_strategy` to
+  `recreate`; existing smoke tests do not certify mixed-version overlap. Manual
+  publication selects the reviewed strategy; recovery preserves the original one.
 - Release Please retains GitHub App authentication and its prepare/tags modes.
 - npm publishes only changed, managed public packages from a release commit, skips
   existing versions, and retains provenance and the npm environment gate. The
