@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.6.1...usage-telemetry-v0.6.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **studio:** default to rolling upgrades and preserve judge compatibility ([#404](https://github.com/kortyx-io/kortyx/issues/404)) ([4e0b691](https://github.com/kortyx-io/kortyx/commit/4e0b69132abec0aaebafb65e44db836981b325e8))
+
 ## [0.6.1](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.6.0...usage-telemetry-v0.6.1) (2026-10-24)
 
 

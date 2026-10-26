@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.35.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.34.2...kortyx-v0.35.0) (2026-10-26)
+
+
+### Features
+
+* **runtime:** share PostgreSQL persistence with eval endpoints ([#403](https://github.com/kortyx-io/kortyx/issues/403)) ([c33dcdf](https://github.com/kortyx-io/kortyx/commit/c33dcdf8131f8c85a808ec5333d043c37838e1e1))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.44.0
+    * @kortyx/cli bumped to 0.25.2
+    * @kortyx/hooks bumped to 0.35.7
+    * @kortyx/mcp bumped to 0.3.6
+    * @kortyx/runtime bumped to 0.27.0
+    * @kortyx/stream bumped to 0.15.7
+    * @kortyx/prompts bumped to 0.3.2
+
 ## [0.34.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.34.1...kortyx-v0.34.2) (2026-10-25)
 
 

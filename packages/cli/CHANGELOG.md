@@ -5,6 +5,18 @@
 - Render queued, retrying and reconnecting eval dispatch updates without treating
   them as terminal case results.
 
+## [0.25.2](https://github.com/kortyx-io/kortyx/compare/cli-v0.25.1...cli-v0.25.2) (2026-10-26)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.44.0
+    * @kortyx/prompts bumped to 0.3.2
+    * @kortyx/telemetry-contracts bumped to 0.20.4
+    * @kortyx/usage-telemetry bumped to 0.6.2
+
 ## [0.25.1](https://github.com/kortyx-io/kortyx/compare/cli-v0.25.0...cli-v0.25.1) (2026-10-25)
 
 
