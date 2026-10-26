@@ -18,6 +18,13 @@
   child outputs, deterministic parallel joins and checkpoint resume. Surface
   callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
 
+## [0.27.1](https://github.com/kortyx-io/kortyx/compare/runtime-v0.27.0...runtime-v0.27.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **runtime:** allow migrated eval storage with restricted serving roles ([#408](https://github.com/kortyx-io/kortyx/issues/408)) ([1c30be5](https://github.com/kortyx-io/kortyx/commit/1c30be5c81927d001c40c95e8bfe4172e5fffb11))
+
 ## [0.27.0](https://github.com/kortyx-io/kortyx/compare/runtime-v0.26.5...runtime-v0.27.0) (2026-10-26)
 
 

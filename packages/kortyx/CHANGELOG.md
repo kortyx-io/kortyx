@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.35.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.35.0...kortyx-v0.35.1) (2026-10-26)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.44.1
+    * @kortyx/cli bumped to 0.25.3
+    * @kortyx/runtime bumped to 0.27.1
+
 ## [0.35.0](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.34.2...kortyx-v0.35.0) (2026-10-26)
 
 

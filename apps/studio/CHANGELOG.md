@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.26.3](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.2...studio-v0.26.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **studio:** set API HTTP keep-alive to 70 seconds ([#406](https://github.com/kortyx-io/kortyx/issues/406)) ([8c65c86](https://github.com/kortyx-io/kortyx/commit/8c65c86d44f2cbe5c22b91250cd4961755432280))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @kortyx/agent bumped to 0.44.1
+    * kortyx bumped to 0.35.1
+
 ## [0.26.2](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.1...studio-v0.26.2) (2026-10-26)
 
 
