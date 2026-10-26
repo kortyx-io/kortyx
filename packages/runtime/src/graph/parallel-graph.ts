@@ -191,7 +191,8 @@ export function addParallelGraphCoordinator(
         const previous = Object.hasOwn(merged, key) ? merged[key] : undefined;
         if (
           property === "workflowFields" &&
-          key === "__kortyxToolObservations" &&
+          (key === "__kortyxToolObservations" ||
+            key === "__kortyxDirectToolEvidence") &&
           previous &&
           Array.isArray(previous.value) &&
           Array.isArray(field.value)
@@ -199,11 +200,15 @@ export function addParallelGraphCoordinator(
           // Runtime-owned observation history is append-only across branches.
           const observations = new Map<string, unknown>();
           for (const observation of [...previous.value, ...field.value]) {
-            if (
-              record(observation) &&
+            if (!record(observation)) continue;
+            const attemptId =
               typeof observation.attemptId === "string"
-            )
-              observations.set(observation.attemptId, observation);
+                ? observation.attemptId
+                : record(observation.execution) &&
+                    typeof observation.execution.attemptId === "string"
+                  ? observation.execution.attemptId
+                  : undefined;
+            if (attemptId) observations.set(attemptId, observation);
           }
           Object.defineProperty(merged, key, {
             value: { writer: field.writer, value: [...observations.values()] },

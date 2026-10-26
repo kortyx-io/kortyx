@@ -242,6 +242,37 @@ const result = await useReason({
 });
 ```
 
+For deterministic reads, enable capture on the direct call itself, including
+calls inside child workflows:
+
+```ts
+const brief = await useTool({
+  tool: readJobBrief,
+  input: { jobId },
+  emit: true,
+});
+```
+
+Direct calls emit the same `tool-call-start` and `tool-call-result` evidence as
+model-selected tools. Their `execution` envelope records calling mode, call and
+attempt identity, workflow, node, run, branch and child invocation IDs. The
+default captures metadata only: `execution.resultOmitted` explains that
+`useTool({ emit: true })` is required. `emit: { input: true, output: false }`
+can select each content side independently. Each side is limited to 16 KiB of
+UTF-8 JSON; oversized or non-serializable values are omitted in full with a
+diagnostic. Tool-result envelopes export public content, structured content and
+error status, excluding provider raw data. These public-stream controls are
+independent of telemetry `captureContent`.
+
+Completed child checkpoints retain these public snapshots. Native resume and
+saved-evidence grading reuse captured results without executing tools to
+reconstruct evidence. Reused events keep the original tool/workflow ownership,
+set `execution.executed: false`, and identify their original source. This does
+not cache direct calls in a node that itself restarts after an interrupt.
+Existing eval event selection and registered evidence filters apply equally to
+direct results and their diagnostics. Historical runs without captured results
+cannot be repaired from success metadata alone; upgrade and rerun the case.
+
 The runner captures the existing public stream directly. Each step records ordered
 `observation.events`: tool names, call IDs, arguments, results and errors, alongside
 text, structured output, interrupt requests and workflow transitions. Adjacent
@@ -259,7 +290,7 @@ the criterion. It cannot establish whether the external service itself is correc
 use fixed reference facts when you also need to check against an independent
 expected result.
 
-Tool emission defaults to off. Evals of answers or interrupts can still run without
+Tool content emission defaults to off. Evals of answers or interrupts can still run without
 tool evidence, but criteria that require retrieved facts need emitted results or
 references. The eval runner cannot switch emission on for application workflows.
 Silent calls and private runtime state are outside the captured boundary. A custom

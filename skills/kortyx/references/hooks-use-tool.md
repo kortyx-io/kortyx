@@ -187,7 +187,7 @@ Denial codes are explicit allowlisted identifiers: uppercase letters, digits and
 underscores, beginning with a letter, up to 64 characters. Unsafe or unapproved
 codes become `DENIED`. Do not encode user data in tool names, descriptions or codes.
 
-`useTool({tool, input, id?, abortSignal?})` inherits the workflow signal and tool-call
+`useTool({tool, input, id?, abortSignal?, emit?})` inherits the workflow signal and tool-call
 budget. IDs are generated; a stable optional `id` is useful when conditional hook
 order changes. Tools receive `{toolCallId, abortSignal?}` as their second argument.
 Separate executions receive separate attempt IDs. A native adapter that delegates
@@ -200,6 +200,18 @@ idempotency application-owned. Completed native `useReason` results and complete
 child workflow calls are cached by their existing checkpoints. Studio marks these
 as cached reuse, links the original scope, and does not count them as executions.
 Old checkpoints predating tool observations cannot reconstruct historical facts.
+
+For conversation-eval grounding, opt in with `useTool({ tool, input, emit: true })`.
+`useReason.toolExecution.emit` does not configure separate deterministic calls.
+Direct calls emit public `tool-call-start`/`tool-call-result` events with an
+`execution` attribution envelope; metadata-only capture is the default and
+`execution.inputOmitted`/`resultOmitted` diagnose missing content. Select content
+per side with `emit: { input: true, output: false }`. Each side has a 16 KiB UTF-8
+JSON bound; values beyond it, or values that cannot serialize, are omitted in
+full. Captured data must be suitable for clients and stored eval records. This
+public-stream control is separate from telemetry content capture. Completed
+child checkpoints preserve public snapshots and replay their ownership and
+source without invoking the tool again. Eval evidence filters still apply.
 
 `close` defaults to request ownership; `closeAfterUse: false` preserves shared
 resources. Direct calls close their owned resource after the call. `useReason`

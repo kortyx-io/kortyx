@@ -2,12 +2,12 @@
 import type { KortyxExecutableTool } from "@kortyx/providers";
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { runWithHookContext } from "../src/context";
-import { useTool } from "../src/tool";
+import { executeObservedTool, useTool } from "../src/tool";
 import type { KortyxTelemetryEvent, ReasonTraceAdapter } from "../src/tracing";
 import { createNode, createState } from "./helpers";
 
 function setup(trace?: ReasonTraceAdapter) {
-  const { node } = createNode();
+  const { node, emitted } = createNode();
   const events: KortyxTelemetryEvent[] = [];
   node.workflowCallTelemetry = {
     environment: "test",
@@ -27,6 +27,7 @@ function setup(trace?: ReasonTraceAdapter) {
   };
   return {
     node,
+    emitted,
     events,
     run: <T>(fn: () => Promise<T>) =>
       runWithHookContext(
@@ -37,6 +38,112 @@ function setup(trace?: ReasonTraceAdapter) {
 }
 
 describe("useTool", () => {
+  it("keeps an adopted model-selected invocation on its existing evidence path", async () => {
+    const { run, emitted } = setup();
+    const input = { jobId: "1" };
+    const execute = vi.fn(() => "OK");
+    const native = { name: "lookup", inputSchema: {}, execute };
+    await run(() =>
+      executeObservedTool({
+        tool: {
+          ...native,
+          execute: (value) =>
+            useTool({ tool: native, input: value, emit: true }),
+        },
+        input,
+        toolCallId: "model-call",
+        callingMode: "model",
+      }),
+    );
+    expect(execute).toHaveBeenCalledOnce();
+    expect(emitted).toEqual([]);
+  });
+  it.each([
+    "disabled",
+    "oversized",
+    "unserializable",
+  ])("keeps %s content out of public evidence without changing results", async (mode) => {
+    const { run, emitted, events } = setup();
+    const value =
+      mode === "oversized"
+        ? { secret: "界".repeat(6000) }
+        : mode === "unserializable"
+          ? { secret: BigInt(1) }
+          : { secret: "PRIVATE_RESULT" };
+    const actual = await run(() =>
+      useTool({
+        emit: mode !== "disabled",
+        input: { secret: "界".repeat(6000) },
+        tool: { name: "lookup", inputSchema: {}, execute: () => value },
+      }),
+    );
+    expect(actual.result).toBe(value);
+    const payload = emitted.find(
+      (event) => event.event === "tool-call-result",
+    )?.payload;
+    expect(payload).toMatchObject({
+      execution: {
+        outcome: "success",
+        resultOmitted:
+          mode === "disabled"
+            ? "disabled: enable useTool({ emit: true })"
+            : mode === "oversized"
+              ? "content exceeds 16 KiB"
+              : "not JSON serializable",
+      },
+    });
+    expect(JSON.stringify(emitted)).not.toMatch(/PRIVATE_RESULT|界/);
+    expect(JSON.stringify(events)).not.toMatch(/secret|界/);
+  });
+
+  it("captures only public tool-result envelope fields and snapshots content before caller mutation", async () => {
+    const { run, emitted, events } = setup();
+    const result = {
+      toolCallId: "provider",
+      name: "lookup",
+      content: "salary: 100",
+      structuredContent: { salary: 100 },
+      raw: { token: "PRIVATE_RAW" },
+    };
+    await run(async () => {
+      const actual = await useTool({
+        emit: true,
+        input: { jobId: "1" },
+        tool: { name: "lookup", inputSchema: {}, execute: () => result },
+      });
+      actual.structuredContent.salary = 999;
+    });
+    expect(
+      emitted.find((event) => event.event === "tool-call-result")?.payload,
+    ).toMatchObject({
+      content: "salary: 100",
+      structuredContent: { salary: 100 },
+    });
+    expect(JSON.stringify(emitted)).not.toContain("PRIVATE_RAW");
+    expect(JSON.stringify(events)).not.toMatch(/salary|PRIVATE_RAW/);
+  });
+
+  it("does not retry or skip cleanup when public evidence delivery fails", async () => {
+    const { node, run } = setup();
+    node.emit = () => {
+      throw new Error("emitter unavailable");
+    };
+    const execute = vi.fn(() => "OK");
+    const close = vi.fn();
+    expect(
+      (
+        await run(() =>
+          useTool({
+            emit: true,
+            input: {},
+            tool: { name: "lookup", inputSchema: {}, execute, close },
+          }),
+        )
+      ).result,
+    ).toBe("OK");
+    expect(execute).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+  });
   it("infers input and result, preserves result identity, and exports only safe facts without a trace adapter", async () => {
     const result = { status: "DENIED", secret: "PRIVATE_RESULT" };
     const tool: KortyxExecutableTool<{ jobId: string }, typeof result> = {

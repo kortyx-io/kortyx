@@ -25,6 +25,11 @@ import {
   type WorkflowTask,
 } from "./parallel";
 import { rememberToolObservation, replayToolObservations } from "./tool";
+import {
+  type DirectToolEvidence,
+  rememberDirectToolEvidence,
+  replayDirectToolEvidence,
+} from "./tool-evidence";
 import { emitWorkflowCall, workflowCallContent } from "./workflow-telemetry";
 
 export type WorkflowCallOutcome =
@@ -32,6 +37,7 @@ export type WorkflowCallOutcome =
       status: "completed";
       data: Record<string, unknown>;
       toolObservations?: ToolObservation[];
+      directToolEvidence?: DirectToolEvidence[];
       usage?: TokenUsage | undefined;
     }
   | {
@@ -53,6 +59,7 @@ export type WorkflowCallService = (args: {
 }) => Promise<WorkflowCallOutcome>;
 
 export type CallRecord = {
+  directToolEvidence?: DirectToolEvidence[];
   restoredToolBranch?: string;
   toolObservations?: ToolObservation[];
   parallelKey?: string;
@@ -380,6 +387,9 @@ async function runWorkflowCall(
         workflowCallFingerprint(record.data);
         record.status = "completed";
         record.toolObservations = outcome.toolObservations ?? [];
+        record.directToolEvidence = outcome.directToolEvidence ?? [];
+        for (const evidence of record.directToolEvidence)
+          rememberDirectToolEvidence(evidence);
         for (const observation of record.toolObservations)
           rememberToolObservation(observation);
         delete record.snapshot;
@@ -407,6 +417,7 @@ async function runWorkflowCall(
       }
     }
     if (cached) {
+      replayDirectToolEvidence(record.directToolEvidence ?? []);
       report("reused", workflowCallContent(telemetry, "output", record.data));
       if (record.restoredToolBranch !== telemetry?.correlation?.branchId)
         await replayToolObservations(record.toolObservations ?? [], true);

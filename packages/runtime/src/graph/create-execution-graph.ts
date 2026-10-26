@@ -85,6 +85,8 @@ export interface ExecutionRuntimeConfig {
   prompts?: import("@kortyx/prompts").PromptExecution | undefined;
   executionRunId?: string | undefined;
   executionBranchId?: string | undefined;
+  workflowInvocationId?: string | undefined;
+  parentWorkflowInvocationId?: string | undefined;
   prepareChildTelemetry?:
     | ((
         workflow: WorkflowDefinition,
@@ -263,6 +265,13 @@ export async function createExecutionGraph(
             deniedAdmission = error;
             throw error;
           }
+        },
+        toolExecutionOwner: {
+          runId: runtimeConfig.executionRunId,
+          branchId:
+            runtimeConfig.executionBranchId ?? runtimeConfig.executionRunId,
+          invocationId: runtimeConfig.workflowInvocationId,
+          parentInvocationId: runtimeConfig.parentWorkflowInvocationId,
         },
         workflowCallTelemetry: runtimeConfig.telemetry
           ? {
