@@ -11,9 +11,11 @@ import {
   evalExecutionExpired,
   evalExecutionFits,
   evalExecutionUnknown,
+  validateEvalExecutionConcurrency,
   validateEvalExecutionLimits,
   validateEvalExecutionSubmission,
 } from "../eval-executions";
+import { configurePostgresLockTimeout } from "./locks";
 
 const schema = `
 CREATE TABLE IF NOT EXISTS kortyx_eval_execution_namespaces (namespace text PRIMARY KEY, generation text NOT NULL);
@@ -30,32 +32,63 @@ CREATE TABLE IF NOT EXISTS kortyx_eval_execution_events (
 );
 `;
 
-/** Durable admission, capacity and event replay, scoped independently from session checkpoints. */
-export function createPostgresEvalExecutionStore({
-  connectionString,
-  namespace,
-  retentionMs = 86_400_000,
-  leaseMs = 30_000,
-  maxBytes = 128_000_000,
-  maxJobBytes = 32_000_000,
-  queueTimeoutMs = 30 * 60_000,
-}: {
-  connectionString: string;
-  namespace: string;
+export type PostgresEvalExecutionStoreOptions = {
   retentionMs?: number;
   leaseMs?: number;
   maxBytes?: number;
   maxJobBytes?: number;
   queueTimeoutMs?: number;
-}): EvalExecutionStore & { setup(): Promise<void>; close(): Promise<void> } {
-  if (!namespace || namespace.length > 256)
+};
+
+export type CreatePostgresEvalExecutionStoreOptions =
+  PostgresEvalExecutionStoreOptions & {
+    connectionString: string;
+    namespace: string;
+  };
+
+/** Standalone eval persistence. Prefer an existing PostgreSQL adapter's evalExecutions. */
+export function createPostgresEvalExecutionStore(
+  options: CreatePostgresEvalExecutionStoreOptions,
+): EvalExecutionStore & { setup(): Promise<void>; close(): Promise<void> } {
+  if (!options.namespace || options.namespace.length > 256)
     throw new TypeError(
       "A nonempty execution store namespace of at most 256 characters is required.",
     );
   if (
-    !["postgres:", "postgresql:"].includes(new URL(connectionString).protocol)
+    !["postgres:", "postgresql:"].includes(
+      new URL(options.connectionString).protocol,
+    )
   )
     throw new TypeError("connectionString must be a PostgreSQL URL.");
+  const sql = postgres(options.connectionString, {
+    max: 10,
+    connect_timeout: 5,
+    onnotice: () => {},
+  });
+  const store = createPostgresEvalExecutionStoreWithClient(sql, options);
+  return {
+    ...store,
+    close: async () => {
+      // Force-close stalled I/O after the same budget as the runtime adapter.
+      await sql.end({ timeout: 5 });
+    },
+  };
+}
+
+/** Internal composition: the adapter owns the pool and closes it after all consumers stop. */
+export function createPostgresEvalExecutionStoreWithClient(
+  sql: postgres.Sql,
+  {
+    namespace,
+    retentionMs = 86_400_000,
+    leaseMs = 30_000,
+    maxBytes = 128_000_000,
+    maxJobBytes = 32_000_000,
+    queueTimeoutMs = 30 * 60_000,
+  }: PostgresEvalExecutionStoreOptions & { namespace: string },
+): EvalExecutionStore & { setup(): Promise<void> } {
+  // A borrowed pool preserves the runtime adapter's existing namespace contract.
+  if (!namespace) throw new TypeError("namespace must not be empty.");
   for (const value of [
     retentionMs,
     leaseMs,
@@ -65,16 +98,11 @@ export function createPostgresEvalExecutionStore({
   ])
     if (!Number.isSafeInteger(value) || value < 1)
       throw new TypeError("Execution store limits must be positive integers.");
-  const sql = postgres(connectionString, {
-    max: 10,
-    connect_timeout: 5,
-    onnotice: () => {},
-  });
   let ready: Promise<void> | undefined;
   const setup = () => {
     ready ??= sql
       .begin(async (tx) => {
-        await tx`SELECT set_config('lock_timeout','5s',true)`;
+        await configurePostgresLockTimeout(tx);
         await tx`SELECT pg_advisory_xact_lock(hashtextextended('kortyx:eval:execution:schema',0))`;
         await tx`CREATE TABLE IF NOT EXISTS kortyx_eval_execution_migrations (version integer PRIMARY KEY, checksum text NOT NULL)`;
         const checksum = createHash("sha256").update(schema).digest("hex");
@@ -96,7 +124,12 @@ export function createPostgresEvalExecutionStore({
         }
         await tx`INSERT INTO kortyx_eval_execution_namespaces (namespace,generation) VALUES (${namespace},${randomUUID()}) ON CONFLICT (namespace) DO NOTHING`;
       })
-      .then(() => {});
+      .then(() => {})
+      .catch((error: unknown) => {
+        // Share in-flight setup, but allow recovery after a transient failure.
+        ready = undefined;
+        throw error;
+      });
     return ready;
   };
   const load = async (tx: postgres.TransactionSql, id: string) =>
@@ -143,7 +176,7 @@ export function createPostgresEvalExecutionStore({
   ): Promise<T> => {
     await setup();
     return (await sql.begin(async (tx) => {
-      await tx`SELECT set_config('lock_timeout','5s',true)`;
+      await configurePostgresLockTimeout(tx);
       await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`kortyx:eval:executions:${namespace}`},0))`;
       const now = Number(
         (
@@ -219,6 +252,7 @@ export function createPostgresEvalExecutionStore({
     });
   return {
     heartbeatIntervalMs: Math.max(1, Math.min(2000, Math.floor(leaseMs / 3))),
+    heartbeatTimeoutMs: Math.max(1, Math.floor(leaseMs / 3)),
     generation: async () => {
       await setup();
       return (
@@ -226,10 +260,6 @@ export function createPostgresEvalExecutionStore({
       )[0]?.generation as string;
     },
     setup,
-    close: async () => {
-      await ready?.catch(() => {});
-      await sql.end();
-    },
     submit: (input, limits) =>
       transact(async (tx, now) => {
         validateEvalExecutionLimits(limits);
@@ -249,6 +279,7 @@ export function createPostgresEvalExecutionStore({
             "Requested concurrency exceeds the consumer attempt capacity.",
           );
         const candidates = await jobs(tx);
+        validateEvalExecutionConcurrency(candidates, input);
         const size = Buffer.byteLength(JSON.stringify(input.payload));
         if (size > maxJobBytes)
           throw evalExecutionError(

@@ -121,9 +121,14 @@ before upgrading a mixed SDK/API/Studio deployment.
 ## Evaluation execution recovery
 
 `createEvalRouteHandler` supports queued, idempotent execution with cursor-based
-observation and explicit cancellation. Use `createPostgresEvalExecutionStore` from
-`@kortyx/runtime` (or `kortyx`) for shared capacity and recovery across replicas.
-The default memory store only survives within its process. See
+observation and explicit cancellation. Reuse a PostgreSQL framework adapter with
+`executionStore: persistence.evalExecutions`; it shares the workflow adapter's
+connection pool, namespace, `maintenance.setup()` and `close()`. Optional Redis
+checkpoint caching preserves this capability and is not required for evals.
+Explicitly pass it to the route even when the agent already uses PostgreSQL.
+All replicas need the same database, stable namespace, service key and limits.
+Standalone `createPostgresEvalExecutionStore` remains supported for an independent
+eval pool. The default memory store only survives within its process. See
 [execution resilience](../../docs/evals/execution-resilience.md) for configuration,
 retention, legacy compatibility and upgrade order.
 

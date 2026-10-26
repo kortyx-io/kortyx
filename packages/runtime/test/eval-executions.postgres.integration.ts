@@ -44,6 +44,57 @@ afterAll(async () => {
   await sql.end();
 });
 describe("durable evaluation execution admission", () => {
+  it("retries failed setup on the same store after a schema lock becomes available", async () => {
+    const scoped = new URL(url);
+    scoped.searchParams.set("options", "-c lock_timeout=50ms");
+    const store = make(randomUUID(), { connectionString: scoped.toString() });
+    let release!: () => void;
+    let acquired!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const locked = new Promise<void>((resolve) => {
+      acquired = resolve;
+    });
+    const blocker = sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended('kortyx:eval:execution:schema',0))`;
+      acquired();
+      await gate;
+    });
+    try {
+      await locked;
+      await expect(store.setup()).rejects.toMatchObject({ code: "55P03" });
+    } finally {
+      release();
+      await blocker;
+    }
+    await store.setup();
+    await store.submit(job(), limits);
+    expect((await store.get("a"))?.state).toBe("queued");
+  });
+
+  it("rejects queued concurrency changes and skips incompatible jobs from older SDKs", async () => {
+    const namespace = randomUUID();
+    const a = make(namespace),
+      b = make(namespace);
+    const capacity = {
+      ...limits,
+      maxActiveRuns: 3,
+      maxActiveAttempts: 3,
+      maxQueuedExecutions: 10,
+    };
+    await a.submit(job("a"), capacity);
+    await expect(
+      b.submit(job("b", { concurrency: 1 }), capacity),
+    ).rejects.toMatchObject({ code: "EVAL_CONCURRENCY_CHANGED" });
+    await b.submit(job("b"), capacity);
+    await a.submit(job("c", { group: "unrelated" }), capacity);
+    // Simulate a conflicting queued record accepted by the previous SDK.
+    await sql`UPDATE kortyx_eval_execution_jobs SET record=jsonb_set(record,'{concurrency}','1'::jsonb) WHERE namespace=${namespace} AND id='b'`;
+    expect((await a.claim("one", "scope", capacity))?.id).toBe("a");
+    expect((await b.claim("two", "scope", capacity))?.id).toBe("c");
+    expect((await a.status("b"))?.state).toBe("queued");
+  });
   it("shares a queue snapshot across replicas without claiming later or foreign work", async () => {
     const namespace = randomUUID();
     const a = make(namespace),

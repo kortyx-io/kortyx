@@ -550,10 +550,20 @@ Keep long-running execution alive independently of the observer connection.
 Explicit cancellation is cooperative and capacity remains occupied through cleanup.
 
 The default `createInMemoryEvalExecutionStore()` handles one process. For replicas,
-pass `createPostgresEvalExecutionStore({connectionString,namespace})` as
-`executionStore`, with identical service keys, suite definitions and capacity
-settings. Configure `maxActiveRuns` (1), `maxActiveAttempts` (20) and
-`maxQueuedExecutions` (1000). Call store.setup() before traffic. For planned
+reuse `createPostgresFrameworkAdapter({ connectionString, namespace })`: call
+`persistence.maintenance.setup()` and pass `executionStore: persistence.evalExecutions`
+to the route, while the agent uses `frameworkAdapter: persistence`. The adapter
+owns a single pool and shutdown for both; optional Redis checkpoint caching does
+not change eval coordination. Explicit eval wiring is still required. Use the
+same database, stable namespace, service keys, suite definitions and capacity
+settings on every replica. Memory stores behind a load balancer can disagree on
+generation without a restart. Configure `maxActiveRuns` (1),
+`maxActiveAttempts` (20) and `maxQueuedExecutions` (1000).
+`createPostgresEvalExecutionStore({ connectionString, namespace })` remains supported
+for standalone eval storage with its own setup/close. Install a coordinated release
+containing the adapter's `evalExecutions` capability; older releases require the
+standalone factory. When sharing the adapter, drain workflow and eval execution
+before `persistence.close()`. For planned
 retirement call handler.drain(), keep HTTP/store available for authenticated
 observation and cancellation, then close HTTP, handler and store after observers
 finish. handler.close() remains explicit abort. Drain rejects ambiguous admission,

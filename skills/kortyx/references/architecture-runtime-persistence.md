@@ -103,6 +103,18 @@ In-memory persistence has no cross-process sharing and no restart safety. It cap
 
 Use `createPostgresFrameworkAdapter({ connectionString, namespace, ttlMs, retention })` for durable runtime history. PostgreSQL is authoritative. Optionally combine it with `createRedisFrameworkAdapter({ url, ttlMs })` using `createCachingFrameworkAdapter({ storage, cache, timeoutMs: 25 })`; Redis then caches checkpoint payloads. This is runtime execution persistence, separate from the app's business data and semantic memory.
 
+The same adapter exposes `persistence.evalExecutions` for
+`createEvalRouteHandler({ evals, serviceKey, executionStore: persistence.evalExecutions })`.
+It shares the pool and namespace with workflow persistence, including when wrapped
+by `createCachingFrameworkAdapter`. Redis caching applies only to checkpoint
+payloads. Run adapter setup once before traffic; it initializes both independent
+schemas. Drain eval handlers and workflow executions before closing the adapter.
+Configure eval-only retention/leases via the adapter's `evalExecutions` options.
+All replicas need the same database and stable namespace. Workflow persistence
+alone does not replace the eval route's default memory store; explicitly pass the
+capability. Existing standalone `createPostgresEvalExecutionStore` calls remain
+compatible. Install a release containing this capability before using it.
+
 Run `await persistence.maintenance.setup()` explicitly in a deployment/migration command before serving requests. The app schedules `await persistence.maintenance.prune({ batchSize: 500 })`; the adapter owns safe deletion and dependency checks. No automatic retention timer or maintenance HTTP endpoint is installed. `result.deleted`, `result.skipped`, and `result.hasMore` support job monitoring and repeated batches. Call `await persistence.close()` after executions finish on shutdown.
 
 PostgreSQL setup applies bundled, ordered SQL migrations under a schema advisory lock, committing each migration's changes and version together. Reruns skip applied versions; a failed migration rolls back and retries resume at its unapplied version. Earlier successful migrations remain committed. Setup rejects newer schemas and gaps in recorded history; deployment must stop on failure. Future schema changes add immutable numbered migrations without another library. Applied SQL is verified against a stored SHA-256 checksum; editing it causes setup to reject. Migration advisory and DDL lock waits are capped at five seconds, preserving stricter database settings; a timeout rolls back that migration and requires retry. This bounds lock acquisition, not migration execution time. The original version-only v1 ledger adopts the current v1 checksum once, without rerunning schema SQL; its prior contents cannot be verified retroactively. Use compatible additive changes during rolling deployments. Schema migrations do not automatically convert workflow-state JSON or transfer data between backends.

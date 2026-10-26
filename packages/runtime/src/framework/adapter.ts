@@ -3,6 +3,7 @@ import {
   createCachingFrameworkAdapter,
   registerFrameworkCache,
 } from "./caching";
+import type { EvalExecutionStore } from "./eval-executions";
 import { createInMemoryCheckpointSaver } from "./in-memory-checkpointer";
 import {
   emptyPruneResult,
@@ -32,6 +33,8 @@ export type FrameworkAdapter = {
   sessionCheckpoints: SessionCheckpointStore;
   checkpointer: BaseCheckpointSaver;
   ttlMs: number;
+  /** Optional shared eval persistence; pass explicitly to createEvalRouteHandler. */
+  evalExecutions?: EvalExecutionStore;
   /** Optional for legacy custom adapters; required on every built-in adapter. */
   maintenance?: RuntimeMaintenance;
   /** Optional for legacy custom adapters; closes owned connections. */

@@ -57,5 +57,10 @@ small agent/evals/app/server files, installing `kortyx`, `@kortyx/openrouter`,
 
 The endpoint forwards GET, POST and DELETE for execution observation and explicit
 cancellation. Its default store is in memory; for multiple replicas, configure a
-shared PostgreSQL execution store and a long-running consumer host as described in
+shared PostgreSQL execution store and a long-running consumer host. When reusing a
+PostgreSQL framework adapter, call `persistence.maintenance.setup()` before traffic
+and pass `executionStore: persistence.evalExecutions` to `createEvalRouteHandler`.
+Use the same database, stable namespace, service key and capacity settings on each
+replica. Drain the handler and workflow executions before `persistence.close()`.
+The adapter owns the shared pool; Redis is optional. See
 [execution resilience](../../docs/evals/execution-resilience.md).

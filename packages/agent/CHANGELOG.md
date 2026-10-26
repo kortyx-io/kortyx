@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Bound eval heartbeat waits and stop execution on uncertain ownership without waiting indefinitely for raw renewal I/O during shutdown. Preserve PostgreSQL-safe error envelopes.
+
 - Preserve completed tool results and addressed human answers across root and child execution-budget continuations. Continue renews only the saved allowance and does not answer a later review.
 
 - Add bounded, idempotent queued eval execution with shared consumer capacity,

@@ -11,9 +11,113 @@ import postgres from "postgres";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createAgent } from "../src/chat/create-agent";
+import {
+  createEvalRouteHandler,
+  createEvals,
+  type EvalSuite,
+  getEvalSuiteRevision,
+} from "../src/evals/index";
 
 const url = process.env.KORTYX_TEST_POSTGRES_URL;
 describe.skipIf(!url)("PostgreSQL-backed agent recovery", () => {
+  it("discovers, submits and replays one eval across three PostgreSQL adapters and a restart", async () => {
+    const namespace = `eval-replicas-${randomUUID()}`;
+    const adapters = Array.from({ length: 3 }, () =>
+      createPostgresFrameworkAdapter({
+        connectionString: url!,
+        namespace,
+      }),
+    );
+    const serviceKey = "shared-eval-key-for-three-replicas";
+    const suite: EvalSuite = {
+      id: "replicas",
+      cases: [
+        {
+          id: "one",
+          steps: [{ message: "hello", expect: { type: "answer" } }],
+        },
+      ],
+    };
+    const evals = createEvals({
+      agent: { streamChat: vi.fn() },
+      suites: [suite],
+      execute: () => ({
+        observation: { type: "answer", text: "hello", structured: [] },
+      }),
+    });
+    const run = vi.spyOn(evals, "run");
+    const handlers: ReturnType<typeof createEvalRouteHandler>[] = [];
+    const auth = { authorization: `Bearer ${serviceKey}` };
+    try {
+      await Promise.all(adapters.map((adapter) => adapter.maintenance.setup()));
+      handlers.push(
+        ...adapters.map((adapter) =>
+          createEvalRouteHandler({
+            evals,
+            serviceKey,
+            executionStore: adapter.evalExecutions,
+          }),
+        ),
+      );
+      const manifest = await handlers[0]!(
+        new Request("http://app/evals", { headers: auth }),
+      );
+      const generation = manifest.headers.get("x-kortyx-eval-generation")!;
+      const headers = {
+        ...auth,
+        "content-type": "application/json",
+        "x-kortyx-eval-protocol": "jobs-v1",
+        "x-kortyx-eval-generation": generation,
+        "idempotency-key": randomUUID(),
+        "x-kortyx-eval-submitted-at": new Date().toISOString(),
+      };
+      const body = JSON.stringify({
+        suiteId: suite.id,
+        suiteRevision: getEvalSuiteRevision(suite),
+        repetitions: 1,
+        concurrency: 1,
+      });
+      const request = () =>
+        new Request("http://app/evals", { method: "POST", headers, body });
+      const response = await handlers[1]!(request());
+      expect(response.status).toBe(200);
+      const evidence = await response.text();
+      expect(evidence).toContain('"type":"result"');
+      const replay = await handlers[2]!(request());
+      expect(replay.status).toBe(200);
+      expect(await replay.text()).toContain('"type":"result"');
+      const observed = await handlers[2]!(
+        new Request(
+          `http://app/evals?executionId=${headers["idempotency-key"]}&after=0`,
+          { headers },
+        ),
+      );
+      expect(observed.status).toBe(200);
+      expect(await observed.text()).toContain('"type":"result"');
+      expect(run).toHaveBeenCalledOnce();
+      await handlers[0]!.close();
+      await adapters[0]!.close();
+      const replacement = createPostgresFrameworkAdapter({
+        connectionString: url!,
+        namespace,
+      });
+      adapters[0] = replacement;
+      await replacement.maintenance.setup();
+      expect(await replacement.evalExecutions.generation()).toBe(generation);
+      handlers[0] = createEvalRouteHandler({
+        evals,
+        serviceKey,
+        executionStore: replacement.evalExecutions,
+      });
+      const recovered = await handlers[0]!(request());
+      expect(recovered.status).toBe(200);
+      expect(await recovered.text()).toContain('"type":"result"');
+      expect(run).toHaveBeenCalledOnce();
+    } finally {
+      await Promise.all(handlers.map((handler) => handler.close()));
+      await Promise.all(adapters.map((adapter) => adapter.close()));
+    }
+  });
   it("streams the first model token while PostgreSQL checkpoint saves are still pending", async () => {
     const namespace = `agent-stream-${randomUUID()}`;
     const database = postgres(url!);

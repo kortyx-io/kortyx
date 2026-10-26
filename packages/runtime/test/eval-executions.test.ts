@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createInMemoryEvalExecutionStore,
   type EvalExecutionSubmission,
+  evalExecutionFits,
   validateEvalExecutionLimits,
 } from "../src/framework/eval-executions";
 
@@ -25,6 +26,34 @@ const job = (
   ...extra,
 });
 describe("evaluation execution admission and recovery", () => {
+  it("rejects changed group concurrency before any queued job starts", async () => {
+    const store = createInMemoryEvalExecutionStore();
+    const first = await store.submit(job("a"), limits);
+    await expect(
+      store.submit(job("b", { concurrency: 1 }), limits),
+    ).rejects.toMatchObject({ code: "EVAL_CONCURRENCY_CHANGED" });
+    const unrelated = await store.submit(job("c", { group: "other" }), limits);
+    // Persisted queues from older SDKs may already contain conflicting jobs.
+    // They must be skipped rather than throwing out of the whole claim scan.
+    expect(
+      evalExecutionFits(
+        [{ ...first, state: "running" }],
+        job("legacy", { concurrency: 1 }),
+        limits,
+      ),
+    ).toBe(false);
+    expect(
+      evalExecutionFits([{ ...first, state: "running" }], unrelated, limits),
+    ).toBe(true);
+    await store.claim("owner", "scope", limits);
+    await store.finish("a", "owner", "completed");
+    await store.cancel("c");
+    await store.submit(job("cancelled"), limits);
+    await store.cancel("cancelled");
+    expect(
+      (await store.submit(job("d", { concurrency: 1 }), limits)).state,
+    ).toBe("queued");
+  });
   it("restricts retirement to a scoped queue snapshot while retaining atomic capacity", async () => {
     const s = createInMemoryEvalExecutionStore();
     const capacity = {

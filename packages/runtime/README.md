@@ -108,7 +108,7 @@ History and inactive sessions default to 30 days, without a 50-checkpoint cap. I
 
 `KORTYX_POSTGRES_URL` takes precedence over Redis during env-based selection, with Redis used as a cache when configured. `DATABASE_URL` is not used implicitly. Call `maintenance.setup()` before traffic for every built-in adapter; PostgreSQL creates its schema, while Redis and memory need no schema. `maintenance.prune()` and `close()` are also available on every built-in adapter.
 
-PostgreSQL setup applies the SDK's numbered SQL migrations in order, using the existing PostgreSQL client. Each migration commits its changes and version together under a schema lock; reruns skip applied versions. Failed migrations roll back and stop setup, while earlier successful migrations remain committed. Retries resume at the first unapplied version. Newer schemas and gaps in recorded history are rejected. Migrations run only through explicit setup, never in request handlers. Released migrations are immutable; future schema changes add a consecutive migration. Applied SQL is verified against a stored SHA-256 checksum; editing it causes setup to reject. Migration advisory and DDL lock waits are capped at five seconds, preserving stricter database settings; a timeout rolls back that migration and requires retry. This bounds lock acquisition, not migration execution time. The original version-only v1 ledger adopts the current v1 checksum once, without rerunning schema SQL; its prior contents cannot be verified retroactively. Use compatible additive changes during rolling deployments; no automatic down migrations or workflow-state conversions are provided.
+PostgreSQL adapter setup initializes the runtime and independent eval execution schemas on the shared client. The eval schema retains its own immutable SQL/checksum ledger; existing standalone eval records remain compatible. The runtime schema applies the SDK's numbered SQL migrations in order, using the existing PostgreSQL client. Each migration commits its changes and version together under a schema lock; reruns skip applied versions. Failed migrations roll back and stop setup, while earlier successful migrations remain committed. Retries resume at the first unapplied version. Newer schemas and gaps in recorded history are rejected. Migrations run only through explicit setup, never in request handlers. Released migrations are immutable; future schema changes add a consecutive migration. Applied SQL is verified against a stored SHA-256 checksum; editing it causes setup to reject. Migration advisory and DDL lock waits are capped at five seconds, preserving stricter database settings; a timeout rolls back that migration and requires retry. This bounds lock acquisition, not migration execution time. The original version-only v1 ledger adopts the current v1 checksum once, without rerunning schema SQL; its prior contents cannot be verified retroactively. Use compatible additive changes during rolling deployments; no automatic down migrations or workflow-state conversions are provided.
 
 Existing factories remain supported. Their shared `ManagedFrameworkAdapter` lifecycle contract requires implementations for every built-in backend; existing custom `FrameworkAdapter` implementations remain compatible. Redis prune reports zero explicit deletions because native TTL owns expiry. Memory prune removes expired approvals in bounded batches; its session history remains count-limited.
 
@@ -121,9 +121,14 @@ Graph checkpoints are saved asynchronously while tokens stream; cache fills do n
 ## Evaluation execution recovery
 
 `createEvalRouteHandler` supports queued, idempotent execution with cursor-based
-observation and explicit cancellation. Use `createPostgresEvalExecutionStore` from
-`@kortyx/runtime` (or `kortyx`) for shared capacity and recovery across replicas.
-The default memory store only survives within its process. See
+observation and explicit cancellation. Reuse a PostgreSQL framework adapter with
+`executionStore: persistence.evalExecutions`; it shares the workflow adapter's
+connection pool, namespace, `maintenance.setup()` and `close()`. Optional Redis
+checkpoint caching preserves this capability and is not required for evals.
+Explicitly pass it to the route even when the agent already uses PostgreSQL.
+All replicas need the same database, stable namespace, service key and limits.
+Standalone `createPostgresEvalExecutionStore` remains supported for an independent
+eval pool. The default memory store only survives within its process. See
 [execution resilience](../../docs/evals/execution-resilience.md) for configuration,
 retention, legacy compatibility and upgrade order.
 
