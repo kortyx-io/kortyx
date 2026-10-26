@@ -48,6 +48,20 @@ migration runners against real PostgreSQL in CI.
 
 ## Health and termination contract
 
+The API uses a fixed 70-second HTTP keep-alive timeout so proxies with a
+60-second idle timeout can close idle connections first. Configure the proxy
+below 70 seconds. This setting governs idle connection reuse after a completed
+response, independently of request duration, SSE heartbeats and HTTP draining.
+A silent multi-minute request can still exceed the proxy idle timeout. There is
+no keep-alive environment variable.
+
+After a timeout change, deploy the candidate image digests to staging and compare
+ALB-generated 502 counts, target 5xx counts and timestamped readiness samples
+over comparable observation windows. Correlate failures with ALB access logs and
+task changes. Startup logging and a passing connection-reuse test establish the
+configuration, not the cause or resolution of an individual observed 502. An
+ALB-generated response may never reach the API's usage telemetry.
+
 | Endpoint | Meaning | Orchestrator use |
 | --- | --- | --- |
 | `GET /live` | The API process is alive | Container liveness/restart probe |

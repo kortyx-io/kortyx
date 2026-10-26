@@ -1,4 +1,3 @@
-import { serve } from "@hono/node-server";
 import { createTelemetryDbClient } from "@kortyx/telemetry-db";
 import { flushUsageTelemetry } from "@kortyx/usage-telemetry/node";
 import { createApiApp } from "./app";
@@ -7,6 +6,7 @@ import { loadStudioEvalJudge } from "./evals/judge";
 import { loadEvalTargets } from "./evals/targets";
 import { createEvalWorker } from "./evals/worker";
 import { reportWorkerRetirementFailure } from "./evals/worker-retirement";
+import { API_KEEP_ALIVE_TIMEOUT_MS, startApiHttpServer } from "./http-server";
 import { createApiLifecycle, registerApiSignals } from "./lifecycle";
 import { createPostgresStudioChangeBus } from "./realtime/studio-change-bus";
 import { closeApiResources, drainServer } from "./shutdown";
@@ -46,13 +46,15 @@ const evalWorker =
 await studioChangeBus.start();
 evalWorker?.start();
 
-const server = serve({
+const server = startApiHttpServer({
   fetch: app.fetch,
   hostname: config.host,
   port: config.port,
 });
 
-console.log(`Kortyx API listening on http://${config.host}:${config.port}`);
+console.log(
+  `Kortyx API listening on http://${config.host}:${config.port}; HTTP keep-alive timeout ${API_KEEP_ALIVE_TIMEOUT_MS}ms`,
+);
 
 let retirementFailed = false;
 const lifecycle = createApiLifecycle({

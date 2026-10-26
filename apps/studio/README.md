@@ -249,6 +249,12 @@ For a deployment with managed PostgreSQL, use the
 [server deployment guide](../../docs/studio/deploy-on-server.md) and its
 [portable deployment contract](../../docs/studio/deployment-contract.md).
 
+The paired API image uses a fixed **70-second HTTP keep-alive timeout**, with no
+environment override. Keep its upstream proxy idle timeout below 70 seconds;
+60 seconds is the baseline. This controls idle connection reuse after a response,
+not workflow duration. Active streams need regular data or heartbeats, and long
+silent requests remain subject to the proxy's separate idle timeout.
+
 From the repository root for local development:
 
 ```bash

@@ -46,6 +46,13 @@ The API has no durable local state. PostgreSQL stores application state and dist
 
 ## Health and termination contract
 
+The API's HTTP keep-alive timeout is fixed at **70 seconds**, with no environment
+override. Configure the upstream proxy idle timeout below that value; **60 seconds**
+is the supported baseline. This lets the proxy close idle connections first.
+The timeout begins after a response finishes and does not change workflow
+deadlines, SSE lifetime or shutdown draining. A long request sending no data may
+still hit the proxy's idle timeout. Active streams need regular data or heartbeats.
+
 | Endpoint | Meaning | Orchestrator use |
 | --- | --- | --- |
 | `GET /live` | The API process is alive | Container liveness/restart probe |
