@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Validate adapter-owned PostgreSQL eval schemas without DDL on serving instances. Keep migrations in explicit adapter setup, allowing separate migration and restricted runtime credentials without changing migration SQL, checksums or execution generations.
+
 - Expose PostgreSQL eval execution storage through `adapter.evalExecutions`, sharing its pool, namespace, setup and shutdown. Retry failed eval setup, preserve stricter lock timeouts, and reject inconsistent queued concurrency without blocking unrelated work.
 
 - Replace complete runtime-owned hook records and parallel journals without changing application data deep merge or reducers.

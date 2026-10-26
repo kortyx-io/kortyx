@@ -71,6 +71,21 @@ older SDK versions continue to use the standalone factory. Upgrade agent/runtime
 together and run adapter setup with the migration role before serving traffic.
 The existing table SQL and checksums remain unchanged.
 
+Use migration credentials only in the deployment command that calls
+`maintenance.setup()`. Serving processes create a fresh adapter using restricted
+runtime credentials and pass its `evalExecutions` to the route without calling
+setup. On first use, adapter-owned eval storage validates the recorded version,
+checksum and required table columns without running DDL. Missing or incompatible
+schemas reject with guidance to run setup using a compatible SDK and migration
+credentials; do not edit applied history to bypass a mismatch.
+
+The serving role needs schema `USAGE`, `SELECT`, `INSERT`, `UPDATE` and `DELETE`
+on `kortyx_eval_execution_namespaces`, `kortyx_eval_execution_jobs` and
+`kortyx_eval_execution_events`, plus `SELECT` on
+`kortyx_eval_execution_migrations`. It needs neither schema `CREATE` nor write
+access to the ledger. The adapter can create a new namespace row through DML,
+and preserves the generation of an existing namespace.
+
 The PostgreSQL framework adapter exposes `evalExecutions`, reusing its connection
 pool, namespace, migration setup and shutdown. Pass the same `persistence` to
 `createAgent({ frameworkAdapter: persistence, ... })`. Optional Redis checkpoint
@@ -89,7 +104,10 @@ their in-flight memory records cannot be recovered from the new store.
 The existing `createPostgresEvalExecutionStore({ connectionString, namespace })`
 remains supported for eval-only hosts or independent database/pool ownership.
 Call its `setup()` before traffic and its `close()` after handlers and observers
-finish. Keep standalone storage when it needs a namespace different from workflow
+finish. The standalone factory retains automatic setup on first use for backwards
+compatibility, which requires migration privileges on a fresh process. Use the
+adapter-owned capability when migration and serving roles are separate.
+Keep standalone storage when it needs a namespace different from workflow
 storage; changing an existing eval database or namespace changes its generation. To tune the adapter-owned store, use
 `createPostgresFrameworkAdapter({ ..., evalExecutions: { leaseMs, retentionMs,
 maxBytes, maxJobBytes, queueTimeoutMs } })`. Eval retention and lease settings are
@@ -214,7 +232,7 @@ renewal budget is twice `heartbeatIntervalMs`. Upgrade agent/runtime together.
 The PostgreSQL store creates three namespaced execution tables and an independent
 checksum migration ledger on setup, under an advisory lock. It does not modify
 session checkpoint migrations or Studio telemetry tables. Run setup with a migration
-role before traffic if the runtime role cannot create tables. Schema history is
+role before traffic. Adapter-owned serving initialization performs no DDL. Schema history is
 verified on startup; incompatible history fails closed. Back up the namespace and
 its generation together: losing deduplication history must also reset generation.
 On an unknown execution, inspect consumer activity and side effects, stop a stale

@@ -108,12 +108,21 @@ The same adapter exposes `persistence.evalExecutions` for
 It shares the pool and namespace with workflow persistence, including when wrapped
 by `createCachingFrameworkAdapter`. Redis caching applies only to checkpoint
 payloads. Run adapter setup once before traffic; it initializes both independent
-schemas. Drain eval handlers and workflow executions before closing the adapter.
+schemas. Use migration credentials in that deployment command, then create fresh
+serving adapters with runtime credentials without calling setup. Adapter-owned
+eval initialization only validates the ledger and required columns; it performs
+no DDL. Grant schema `USAGE`, eval-table `SELECT`/`INSERT`/`UPDATE`/`DELETE`, and
+eval migration-ledger `SELECT`. Schema `CREATE` and ledger writes are unnecessary
+for serving. Missing or incompatible schemas fail with setup guidance.
+Drain eval handlers and workflow executions before closing the adapter.
 Configure eval-only retention/leases via the adapter's `evalExecutions` options.
 All replicas need the same database and stable namespace. Workflow persistence
 alone does not replace the eval route's default memory store; explicitly pass the
 capability. Existing standalone `createPostgresEvalExecutionStore` calls remain
 compatible. Install a release containing this capability before using it.
+The standalone factory retains lazy migration setup for compatibility and needs
+migration privileges on each fresh process; prefer adapter-owned eval storage
+when migration and serving credentials are separate.
 
 Run `await persistence.maintenance.setup()` explicitly in a deployment/migration command before serving requests. The app schedules `await persistence.maintenance.prune({ batchSize: 500 })`; the adapter owns safe deletion and dependency checks. No automatic retention timer or maintenance HTTP endpoint is installed. `result.deleted`, `result.skipped`, and `result.hasMore` support job monitoring and repeated batches. Call `await persistence.close()` after executions finish on shutdown.
 

@@ -126,9 +126,17 @@ observation and explicit cancellation. Reuse a PostgreSQL framework adapter with
 connection pool, namespace, `maintenance.setup()` and `close()`. Optional Redis
 checkpoint caching preserves this capability and is not required for evals.
 Explicitly pass it to the route even when the agent already uses PostgreSQL.
+Run `maintenance.setup()` in a deployment command with migration credentials.
+Fresh serving adapters validate the eval migration ledger and required columns
+without DDL. Serving roles need schema `USAGE`, eval-table
+`SELECT`/`INSERT`/`UPDATE`/`DELETE`, and eval migration-ledger `SELECT`; they do not
+need schema `CREATE` or ledger write permissions. Missing, incomplete or
+incompatible schemas fail with setup guidance rather than attempting migration.
 All replicas need the same database, stable namespace, service key and limits.
 Standalone `createPostgresEvalExecutionStore` remains supported for an independent
-eval pool. The default memory store only survives within its process. See
+eval pool and retains automatic setup on first use for compatibility; use the
+adapter-owned capability for separate migration and serving roles.
+The default memory store only survives within its process. See
 [execution resilience](../../docs/evals/execution-resilience.md) for configuration,
 retention, legacy compatibility and upgrade order.
 

@@ -86,6 +86,7 @@ export function createPostgresEvalExecutionStoreWithClient(
     maxJobBytes = 32_000_000,
     queueTimeoutMs = 30 * 60_000,
   }: PostgresEvalExecutionStoreOptions & { namespace: string },
+  initialization: "migrate" | "validate" = "migrate",
 ): EvalExecutionStore & { setup(): Promise<void> } {
   // A borrowed pool preserves the runtime adapter's existing namespace contract.
   if (!namespace) throw new TypeError("namespace must not be empty.");
@@ -98,26 +99,34 @@ export function createPostgresEvalExecutionStoreWithClient(
   ])
     if (!Number.isSafeInteger(value) || value < 1)
       throw new TypeError("Execution store limits must be positive integers.");
-  let ready: Promise<void> | undefined;
+  const checksum = createHash("sha256").update(schema).digest("hex");
+  const validateHistory = (
+    history: { version: number; checksum: string }[],
+  ) => {
+    if (!history.length)
+      throw new PersistenceError(
+        "Evaluation execution schema is not initialized. Run persistence.maintenance.setup() with migration credentials before serving traffic.",
+      );
+    if (
+      history.length !== 1 ||
+      history[0]?.version !== 1 ||
+      history[0]?.checksum !== checksum
+    )
+      throw new PersistenceError(
+        "Evaluation execution schema history is incompatible with this SDK. Use a compatible SDK and run persistence.maintenance.setup() with migration credentials before serving traffic; do not edit applied migration history.",
+      );
+  };
+  let migrated: Promise<void> | undefined;
   const setup = () => {
-    ready ??= sql
+    migrated ??= sql
       .begin(async (tx) => {
         await configurePostgresLockTimeout(tx);
         await tx`SELECT pg_advisory_xact_lock(hashtextextended('kortyx:eval:execution:schema',0))`;
         await tx`CREATE TABLE IF NOT EXISTS kortyx_eval_execution_migrations (version integer PRIMARY KEY, checksum text NOT NULL)`;
-        const checksum = createHash("sha256").update(schema).digest("hex");
         const history = await tx<
           { version: number; checksum: string }[]
         >`SELECT version,checksum FROM kortyx_eval_execution_migrations ORDER BY version`;
-        if (
-          history.length &&
-          (history.length !== 1 ||
-            history[0]?.version !== 1 ||
-            history[0]?.checksum !== checksum)
-        )
-          throw new PersistenceError(
-            "Evaluation execution schema history is incompatible with this SDK.",
-          );
+        if (history.length) validateHistory(history);
         if (!history.length) {
           await tx.unsafe(schema);
           await tx`INSERT INTO kortyx_eval_execution_migrations VALUES (1,${checksum})`;
@@ -127,8 +136,42 @@ export function createPostgresEvalExecutionStoreWithClient(
       .then(() => {})
       .catch((error: unknown) => {
         // Share in-flight setup, but allow recovery after a transient failure.
-        ready = undefined;
+        migrated = undefined;
         throw error;
+      });
+    return migrated;
+  };
+  let ready: Promise<void> | undefined;
+  const ensureReady = () => {
+    ready ??= (
+      initialization === "migrate"
+        ? setup()
+        : sql.begin(async (tx) => {
+            await configurePostgresLockTimeout(tx);
+            // Serving roles validate the immutable ledger and required columns.
+            // Only explicit setup may create or upgrade an adapter-owned schema.
+            const history = await tx<
+              { version: number; checksum: string }[]
+            >`SELECT version,checksum FROM kortyx_eval_execution_migrations ORDER BY version`;
+            validateHistory(history);
+            await tx`SELECT namespace,generation FROM kortyx_eval_execution_namespaces LIMIT 0`;
+            await tx`SELECT namespace,id,record FROM kortyx_eval_execution_jobs LIMIT 0`;
+            await tx`SELECT namespace,job_id,sequence,event FROM kortyx_eval_execution_events LIMIT 0`;
+            await tx`INSERT INTO kortyx_eval_execution_namespaces (namespace,generation) VALUES (${namespace},${randomUUID()}) ON CONFLICT (namespace) DO NOTHING`;
+          })
+    )
+      .then(() => {})
+      .catch((cause: unknown) => {
+        ready = undefined;
+        if (
+          cause instanceof postgres.PostgresError &&
+          (cause.code === "42P01" || cause.code === "42703")
+        )
+          throw new PersistenceError(
+            "Evaluation execution schema is missing or incomplete. Run persistence.maintenance.setup() with migration credentials before serving traffic.",
+            cause,
+          );
+        throw cause;
       });
     return ready;
   };
@@ -174,7 +217,7 @@ export function createPostgresEvalExecutionStoreWithClient(
   const transact = async <T>(
     operation: (tx: postgres.TransactionSql, now: number) => Promise<T>,
   ): Promise<T> => {
-    await setup();
+    await ensureReady();
     return (await sql.begin(async (tx) => {
       await configurePostgresLockTimeout(tx);
       await tx`SELECT pg_advisory_xact_lock(hashtextextended(${`kortyx:eval:executions:${namespace}`},0))`;
@@ -254,7 +297,7 @@ export function createPostgresEvalExecutionStoreWithClient(
     heartbeatIntervalMs: Math.max(1, Math.min(2000, Math.floor(leaseMs / 3))),
     heartbeatTimeoutMs: Math.max(1, Math.floor(leaseMs / 3)),
     generation: async () => {
-      await setup();
+      await ensureReady();
       return (
         await sql`SELECT generation FROM kortyx_eval_execution_namespaces WHERE namespace=${namespace}`
       )[0]?.generation as string;
