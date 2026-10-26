@@ -124,6 +124,15 @@ key.
 
 ## Health and lifecycle
 
+- The API's HTTP/1.1 keep-alive timeout is fixed at **70 seconds**, leaving headroom
+  above a proxy idle timeout of **60 seconds**. There is no environment override.
+  Keep the proxy idle timeout below 70 seconds; longer proxy settings require a
+  corresponding server change. Recent Node 22 versions add their native socket
+  timeout buffer; do not rely on that buffer for proxy timeout ordering.
+- Keep-alive applies **after a response finishes**, while waiting for the next
+  request. It does not cap or extend workflow execution, request/header timeouts,
+  or an active SSE response. A long request that sends no data can still hit the
+  proxy's idle timeout; streamed data or heartbeats keep that connection active.
 - API liveness: `GET /live` on port `6400` (`/health` remains a compatibility
   alias).
 - API traffic readiness: `GET /ready` on port `6400`; it returns `503` while

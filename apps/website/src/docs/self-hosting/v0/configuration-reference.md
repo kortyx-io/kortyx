@@ -46,6 +46,12 @@ Do not start newer application images against an older schema. Database downgrad
 
 ## Telemetry API and database job variables
 
+The API uses a fixed **70-second HTTP keep-alive timeout**; there is no environment
+variable for it. Keep the proxy's idle timeout below 70 seconds (for example,
+the AWS ALB default of 60 seconds). This governs reuse after completed responses,
+not the duration of an active request or workflow. Changing it does not allow a
+silent multi-minute request through a proxy with a shorter idle timeout.
+
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection URL with provider-required TLS settings |
