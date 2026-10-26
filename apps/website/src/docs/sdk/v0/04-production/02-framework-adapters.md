@@ -304,13 +304,21 @@ Redis is optional checkpoint caching and does not coordinate eval execution.
 
 `maintenance.setup()` initializes both the runtime schema and independent eval
 schema. Apply it with the migration role before traffic, including during upgrade.
+Create serving adapters with runtime credentials and do not call setup there.
+Their first eval operation validates the migration version, checksum and required
+columns without DDL. Grant schema `USAGE`, eval-table
+`SELECT`/`INSERT`/`UPDATE`/`DELETE`, and `SELECT` on
+`kortyx_eval_execution_migrations`; schema `CREATE` and ledger writes are not
+required. Missing or incompatible schemas fail with explicit setup guidance.
 Drain eval handlers and workflow executions, let result observers finish, then call
 `persistence.close()` once. Eval retention and leases are configured separately
 from workflow history retention and interrupt TTL.
 
 The existing `createPostgresEvalExecutionStore` factory remains supported for an
 eval-only host or an independent eval database/pool. Keep it when eval storage
-needs a different namespace from workflow storage. Existing stored records are
+needs a different namespace from workflow storage. It retains automatic setup on
+first use for compatibility; use adapter-owned storage with separate migration
+and serving credentials. Existing stored records are
 compatible; changing the database or namespace creates a different generation.
 Install a release containing the adapter's `evalExecutions` capability before
 using this integration. See [conversation evals](/docs/guides/conversation-evals#concurrent-execution-recovery)

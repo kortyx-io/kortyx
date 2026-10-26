@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 import type { EvalExecutionSubmission } from "../src/framework/eval-executions";
+import { createPostgresFrameworkAdapter } from "../src/framework/postgres/adapter";
 import { createPostgresEvalExecutionStore } from "../src/framework/postgres/eval-executions";
 
 const url = process.env.KORTYX_TEST_POSTGRES_URL;
@@ -39,11 +40,176 @@ const job = (
   queued: true,
   ...extra,
 });
+
+// Real login roles enforce the same boundary as a deployment migration command
+// and independent serving instances. Neither role is a superuser.
+const withServingRole = async (
+  run: (fixture: {
+    migration: ReturnType<typeof createPostgresFrameworkAdapter>;
+    serve: (
+      namespace?: string,
+    ) => ReturnType<typeof createPostgresFrameworkAdapter>;
+    database: postgres.Sql;
+    servingDatabase: postgres.Sql;
+    schema: string;
+    servingRole: string;
+  }) => Promise<void>,
+) => {
+  const suffix = randomUUID().replaceAll("-", "");
+  const schema = `eval_roles_${suffix}`;
+  const migrationRole = `eval_migrate_${suffix}`;
+  const servingRole = `eval_serve_${suffix}`;
+  const password = randomUUID();
+  await sql`CREATE ROLE ${sql(migrationRole)} LOGIN PASSWORD '${sql.unsafe(password)}'`;
+  await sql`CREATE ROLE ${sql(servingRole)} LOGIN PASSWORD '${sql.unsafe(password)}'`;
+  await sql`CREATE SCHEMA ${sql(schema)} AUTHORIZATION ${sql(migrationRole)}`;
+  await sql`GRANT USAGE ON SCHEMA ${sql(schema)} TO ${sql(servingRole)}`;
+  const connectionString = (role: string) => {
+    const scoped = new URL(url);
+    scoped.username = role;
+    scoped.password = password;
+    scoped.searchParams.set("options", `-c search_path=${schema}`);
+    return scoped.toString();
+  };
+  const migration = createPostgresFrameworkAdapter({
+    connectionString: connectionString(migrationRole),
+    namespace: suffix,
+  });
+  const adapters: ReturnType<typeof createPostgresFrameworkAdapter>[] = [];
+  const serve = (namespace = suffix) => {
+    const adapter = createPostgresFrameworkAdapter({
+      connectionString: connectionString(servingRole),
+      namespace,
+    });
+    adapters.push(adapter);
+    return adapter;
+  };
+  const database = postgres(connectionString(migrationRole));
+  const servingDatabase = postgres(connectionString(servingRole));
+  try {
+    await run({
+      migration,
+      serve,
+      database,
+      servingDatabase,
+      schema,
+      servingRole,
+    });
+  } finally {
+    await Promise.all([
+      migration.close(),
+      ...adapters.map((adapter) => adapter.close()),
+      database.end(),
+      servingDatabase.end(),
+    ]);
+    await sql`DROP SCHEMA ${sql(schema)} CASCADE`;
+    await sql`DROP ROLE ${sql(servingRole)}`;
+    await sql`DROP ROLE ${sql(migrationRole)}`;
+  }
+};
+
+const grantServingAccess = async (database: postgres.Sql, role: string) => {
+  await database`GRANT SELECT ON kortyx_eval_execution_migrations, kortyx_runtime_migrations TO ${database(role)}`;
+  await database`GRANT SELECT, INSERT, UPDATE, DELETE ON kortyx_eval_execution_namespaces, kortyx_eval_execution_jobs, kortyx_eval_execution_events TO ${database(role)}`;
+};
 afterAll(async () => {
   await Promise.all(stores.map((s) => s.close()));
   await sql.end();
 });
 describe("durable evaluation execution admission", () => {
+  it("serves migrated eval storage with DML and ledger SELECT privileges only", async () => {
+    await withServingRole(
+      async ({
+        migration,
+        serve,
+        database,
+        servingDatabase,
+        schema,
+        servingRole,
+      }) => {
+        await migration.maintenance.setup();
+        await grantServingAccess(database, servingRole);
+        expect(
+          (
+            await servingDatabase`SELECT has_schema_privilege(current_user, ${schema}, 'CREATE') AS allowed`
+          )[0]?.allowed,
+        ).toBe(false);
+        await expect(
+          servingDatabase`CREATE TABLE IF NOT EXISTS kortyx_eval_execution_migrations(version integer PRIMARY KEY,checksum text NOT NULL)`,
+        ).rejects.toMatchObject({ code: "42501" });
+        const history =
+          await database`SELECT * FROM kortyx_eval_execution_migrations`;
+        const generation = await migration.evalExecutions.generation();
+        const serving = serve().evalExecutions;
+        expect(await serving.generation()).toBe(generation);
+        await serving.submit(job(), limits);
+        expect((await serving.claim("owner", "scope", limits))?.id).toBe("a");
+        await serving.append("a", "owner", { type: "result", value: "stored" });
+        await serving.heartbeat("a", "owner");
+        await serving.finish("a", "owner", "completed");
+        const replacement = serve().evalExecutions;
+        expect(await replacement.generation()).toBe(generation);
+        expect(await replacement.events("a", 0)).toEqual([
+          { sequence: 1, event: { type: "result", value: "stored" } },
+        ]);
+        expect((await replacement.submit(job(), limits)).state).toBe(
+          "completed",
+        );
+        const newNamespace = serve("new-namespace").evalExecutions;
+        const newGeneration = await newNamespace.generation();
+        expect(newGeneration).not.toBe(generation);
+        expect(await serve("new-namespace").evalExecutions.generation()).toBe(
+          newGeneration,
+        );
+        expect(
+          await database`SELECT * FROM kortyx_eval_execution_migrations`,
+        ).toEqual(history);
+      },
+    );
+  });
+
+  it("fails closed without runtime DDL and retries after explicit schema repair", async () => {
+    await withServingRole(
+      async ({ migration, serve, database, servingRole }) => {
+        const adapter = serve();
+        await expect(adapter.evalExecutions.generation()).rejects.toThrow(
+          "maintenance.setup()",
+        );
+        expect(
+          (
+            await database`SELECT to_regclass('kortyx_eval_execution_migrations') AS ledger`
+          )[0]?.ledger,
+        ).toBeNull();
+        await migration.maintenance.setup();
+        await grantServingAccess(database, servingRole);
+        const history =
+          await database`SELECT * FROM kortyx_eval_execution_migrations`;
+        await database`UPDATE kortyx_eval_execution_migrations SET checksum='changed'`;
+        await expect(adapter.evalExecutions.generation()).rejects.toThrow(
+          "incompatible",
+        );
+        await database`UPDATE kortyx_eval_execution_migrations SET checksum=${history[0]!.checksum}`;
+        await database`UPDATE kortyx_eval_execution_migrations SET version=2`;
+        await expect(adapter.evalExecutions.generation()).rejects.toThrow(
+          "incompatible",
+        );
+        await database`UPDATE kortyx_eval_execution_migrations SET version=1`;
+        await database`ALTER TABLE kortyx_eval_execution_events RENAME COLUMN event TO missing_event`;
+        await expect(adapter.evalExecutions.generation()).rejects.toThrow(
+          "missing or incomplete",
+        );
+        await database`ALTER TABLE kortyx_eval_execution_events RENAME COLUMN missing_event TO event`;
+        expect(await adapter.evalExecutions.generation()).toBe(
+          await migration.evalExecutions.generation(),
+        );
+        await database`DELETE FROM kortyx_eval_execution_migrations`;
+        await expect(serve().evalExecutions.generation()).rejects.toThrow(
+          "not initialized",
+        );
+      },
+    );
+  });
+
   it("retries failed setup on the same store after a schema lock becomes available", async () => {
     const scoped = new URL(url);
     scoped.searchParams.set("options", "-c lock_timeout=50ms");

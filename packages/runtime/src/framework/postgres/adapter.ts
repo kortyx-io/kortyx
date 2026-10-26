@@ -31,7 +31,7 @@ export type CreatePostgresFrameworkAdapterOptions = {
 export type PostgresFrameworkAdapter = ManagedFrameworkAdapter & {
   kind: "postgres";
   checkpointer: PostgresCheckpointSaver;
-  /** Pass to createEvalRouteHandler({ executionStore: adapter.evalExecutions }). */
+  /** Pass to createEvalRouteHandler({ executionStore: adapter.evalExecutions }). Requires explicit maintenance.setup() before traffic; serving initialization performs no DDL. */
   evalExecutions: EvalExecutionStore;
   /** Closes owned connections. Call after in-flight executions have completed. */
   close: () => Promise<void>;
@@ -47,10 +47,11 @@ export function createPostgresFrameworkAdapter(
     options.retention ?? {},
   );
   const saver = new PostgresCheckpointSaver(store);
-  const evalExecutions = createPostgresEvalExecutionStoreWithClient(store.sql, {
-    ...options.evalExecutions,
-    namespace: store.scope,
-  });
+  const evalExecutions = createPostgresEvalExecutionStoreWithClient(
+    store.sql,
+    { ...options.evalExecutions, namespace: store.scope },
+    "validate",
+  );
   const maintenance = createRuntimeMaintenance(store);
   const adapter: PostgresFrameworkAdapter = {
     kind: "postgres",
