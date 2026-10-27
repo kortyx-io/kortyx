@@ -186,7 +186,7 @@ export const studioHelp = {
   ),
   evalCost: help(
     "Evaluation cost",
-    "The cost of running test conversations and using an AI model to check their answers. A partial amount includes only calls with known prices.",
+    "The cost of running test conversations and using an AI model to check their answers, including recorded calls from failed or interrupted attempts. A + marks a known subtotal. Open the amount for workflow and judge billing coverage; missing usage or model rates leave the remaining amount unknown.",
     "evals#timing-and-cost",
   ),
   evalSettings: help(

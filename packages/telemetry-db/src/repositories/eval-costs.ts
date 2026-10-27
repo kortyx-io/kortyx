@@ -19,6 +19,11 @@ import {
   type TelemetryEventRecord,
   telemetryEvents,
 } from "../schema";
+import {
+  mergeEvalBillingSteps,
+  mergeEvalRuntimeExecutions,
+  sameEvalBillingAttempt,
+} from "./eval-billing-evidence";
 import { listApplicableModelRateCards } from "./model-rate-cards";
 
 type Scope = { organizationId: string; projectId: string };
@@ -95,6 +100,22 @@ export function sumEvalCosts(parts: EvalCostAmount[]): EvalCostAmount {
     unpricedCalls: parts.reduce((sum, p) => sum + p.unpricedCalls, 0),
     estimated: parts.some((p) => p.estimated),
   };
+}
+
+/** Missing billing evidence is unknown, including on terminal error records. */
+export function unavailableEvalCosts(): EvalCosts {
+  const amount = (): EvalCostAmount => ({
+    amount: null,
+    currency: "USD",
+    status: "unavailable",
+    calls: 0,
+    unpricedCalls: 1,
+    estimated: false,
+    costSummary: { amounts: [], complete: false },
+  });
+  const workflow = amount();
+  const judge = amount();
+  return { workflow, judge, total: sumEvalCosts([workflow, judge]) };
 }
 function summarize(
   prices: CalculatedCost[],
@@ -203,14 +224,22 @@ export function calculateEvalAttemptCosts(
 }
 function attempts(source: Source): Map<string, EvalBillingAttempt> {
   const rows = new Map<string, EvalBillingAttempt>();
-  const put = (item: EvalCaseResult) =>
-    rows.set(`${item.caseId}:${item.repetition}`, {
+  const put = (item: EvalCaseResult) => {
+    const key = `${item.caseId}:${item.repetition}`;
+    const previous = rows.get(key);
+    rows.set(key, {
       sessionId: item.sessionId,
       attemptId: item.attemptId,
-      runtimeExecutions: item.runtimeExecutions,
-      steps: item.steps,
+      runtimeExecutions: mergeEvalRuntimeExecutions(rows.get(key) ?? {}, item),
+      steps: mergeEvalBillingSteps(
+        previous && sameEvalBillingAttempt(previous, item)
+          ? previous.steps
+          : [],
+        item.steps,
+      ),
       finished: item.status !== "ungraded",
     });
+  };
   for (const { event } of source.events ?? []) {
     if (event.type === "case-started")
       rows.set(`${event.caseId}:${event.repetition}`, {
@@ -271,7 +300,7 @@ export async function loadEvalCosts(
   scope: Scope,
   sources: Source[],
 ) {
-  const missingEvents = sources.filter((s) => !s.result && !s.events);
+  const missingEvents = sources.filter((s) => !s.events);
   const progress = missingEvents.length
     ? await db
         .select({ runId: evalRunEvents.runId, event: evalRunEvents.event })

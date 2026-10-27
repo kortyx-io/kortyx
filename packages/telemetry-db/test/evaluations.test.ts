@@ -1,5 +1,6 @@
 import type { EvalCaseResult, EvalProgress } from "@kortyx/agent/evals";
 import { describe, expect, it } from "vitest";
+import { calculateEvalAttemptCosts } from "../src/repositories/eval-costs";
 import {
   evaluationRequestHash,
   summarizeEvaluation,
@@ -84,6 +85,43 @@ function completed(status: EvalCaseResult["status"]): EvalProgress {
   };
 }
 describe("evaluation aggregation", () => {
+  it("marks the group subtotal incomplete when an interrupted suite has no priced projection", () => {
+    const costs = calculateEvalAttemptCosts(
+      { sessionId: "session", steps: [], finished: true },
+      [
+        {
+          eventId: "charge",
+          type: "generation.completed",
+          occurredAt: now,
+          environment: "staging",
+          sessionId: "session",
+          runId: "runtime",
+          payload: {
+            pricing: {
+              source: "provider",
+              currency: "USD",
+              actualCostMicros: 1000,
+            },
+          },
+        },
+      ],
+      [],
+    );
+    const run = summarizeEvaluation(
+      parent,
+      [
+        child("priced", "passed"),
+        { ...child("interrupted", "error"), error: "Interrupted" },
+      ],
+      new Map(),
+      new Map([["priced", { costs }]]),
+    );
+    expect(run.costs?.total).toMatchObject({
+      amount: 0.001,
+      status: "partial",
+      costSummary: { complete: false },
+    });
+  });
   it("keeps execution running through ungraded evidence and deduplicates grading updates", () => {
     const children = [child("first", "running"), child("second", "queued")];
     const events = new Map([["first", [completed("ungraded")]]]);

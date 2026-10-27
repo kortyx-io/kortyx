@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { expect, test } from "@playwright/test";
+import postgres from "postgres";
 import { EVAL_FIXTURE } from "./support/eval-plan";
 
 const evaluationPath = `/sample/evals/evaluations/${sample.evaluationId}`;
@@ -552,24 +554,70 @@ test("inline conversation tables keep a flush filter panel and native full-text 
   ).toHaveCount(0);
 });
 
-test("evaluation metrics remain visible without horizontal scrolling on narrow screens", async ({
+test("evaluation metrics stay on one scrollable row with and without interrupted suites", async ({
   page,
-}) => {
-  await page.setViewportSize({ width: 1000, height: 900 });
+}, testInfo) => {
+  test.setTimeout(60_000);
   await page.goto(evaluationPath);
-  const metrics = page.locator('[data-tour-surface="evaluation-metrics"]');
-  await expect(metrics).toContainText("Execution settings");
-  expect(
-    await metrics.evaluate(
-      (element) => element.scrollWidth - element.clientWidth,
-    ),
-  ).toBeLessThanOrEqual(1);
-  const bounds = await metrics.boundingBox();
-  if (!bounds) throw new Error("Missing evaluation metrics");
-  for (const metric of await metrics.locator(":scope > div").all()) {
-    const box = await metric.boundingBox();
-    if (!box) throw new Error("Missing metric");
-    expect(box.x).toBeGreaterThanOrEqual(bounds.x);
-    expect(box.x + box.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
+  await expect(
+    page.locator('[data-tour-surface="evaluation-metrics"]'),
+  ).toContainText("Execution settings");
+  const sql = postgres(
+    process.env.DATABASE_URL ??
+      "postgres://kortyx:kortyx@127.0.0.1:6543/kortyx",
+    { max: 1 },
+  );
+  const id = randomUUID();
+  try {
+    await sql`insert into evaluation_runs (id,organization_id,project_id,environment,target_id,target_name,name,request,request_hash,requested_by)
+      select ${id},organization_id,project_id,environment,'e2e-ktx25-eval',target_name,'Interrupted metrics',jsonb_build_object('targetId','e2e-ktx25-eval','selection','selected','suites',jsonb_build_array(jsonb_build_object('suiteId',suite_id,'suiteRevision',suite_revision))),'hash','e2e' from eval_runs where id=${EVAL_FIXTURE.candidate}`;
+    await sql`insert into eval_runs (organization_id,project_id,evaluation_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,requested_by,status,error,started_at,ended_at)
+      select organization_id,project_id,${id},environment,'e2e-ktx25-eval',target_name,suite_id,suite_revision,suite,request,'e2e','error','Evaluation interrupted',now(),now() from eval_runs where id=${EVAL_FIXTURE.candidate}`;
+    for (const interrupted of [false, true]) {
+      await page.goto(
+        interrupted ? `/evals/evaluations/${id}` : evaluationPath,
+      );
+      const metrics = page.locator('[data-tour-surface="evaluation-metrics"]');
+      await expect(metrics).toContainText("Execution settings");
+      await expect(
+        metrics.getByText("Suites interrupted", { exact: true }),
+      ).toHaveCount(interrupted ? 1 : 0);
+      for (const width of [1440, 1000, 480]) {
+        await page.setViewportSize({ width, height: 900 });
+        const layout = await metrics.evaluate((element) => ({
+          tops: Array.from(element.children).map(
+            (child) => child.getBoundingClientRect().top,
+          ),
+          overflow: getComputedStyle(element).overflowX,
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        }));
+        expect(new Set(layout.tops).size).toBe(1);
+        expect(layout.overflow).toBe("auto");
+        if (width === 480)
+          expect(layout.scrollWidth).toBeGreaterThan(layout.clientWidth);
+        await page.screenshot({
+          path: testInfo.outputPath(
+            `metrics-${interrupted ? "interrupted" : "finished"}-${width}.png`,
+          ),
+        });
+        const settings = metrics.getByRole("button", {
+          name: "Recorded execution settings",
+          exact: true,
+        });
+        await settings.focus();
+        await page.keyboard.press("Enter");
+        await expect(
+          page.getByRole("dialog", {
+            name: "Execution settings and run metadata",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await page.keyboard.press("Escape");
+      }
+    }
+  } finally {
+    await sql`delete from evaluation_runs where id=${id}`;
+    await sql.end();
   }
 });

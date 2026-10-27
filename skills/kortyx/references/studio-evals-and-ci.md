@@ -417,8 +417,11 @@ No extra cost-related environment variable is required. Custom judges may report
 usage through `EvalGradeInput.onUsage`; without it their cost remains unknown.
 
 A `+` after a displayed amount means a known subtotal, with more cost possible.
-A dash means unavailable, including absent telemetry or prices. Running or
-unfinished attempts stay partial; currencies are combined only when compatible.
+A zero subtotal with `+` is unknown rather than free. Open the amount to inspect
+workflow and judge call coverage; missing usage or prices leave the remaining
+amount unknown. Recorded charges from errored and interrupted attempts remain
+included. Running or unfinished attempts stay partial; currencies are combined
+only when compatible.
 Historical workflow costs can be recovered from existing telemetry, but historical
 judge charges without recorded usage cannot be recovered. Costs cover recorded
 model calls, excluding infrastructure and external tool fees. They are not an

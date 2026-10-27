@@ -224,7 +224,11 @@ it("loads the optional server judge without leaking its provider credentials", (
   ).toThrow("responses or chat-completions");
 });
 
-it("uses an OpenRouter-compatible chat endpoint and validates its structured verdict", async () => {
+it.each([
+  false,
+  true,
+])("captures Studio OpenRouter billing with a portable judge prompt: %s", async (portablePrompt) => {
+  const { defineJudgePrompt, promptText } = await import("@kortyx/agent");
   const fetch = vi.fn(async () =>
     Response.json({
       id: "synthetic-openrouter-response",
@@ -255,15 +259,38 @@ it("uses an OpenRouter-compatible chat endpoint and validates its structured ver
     KORTYX_EVAL_JUDGE_API: "chat-completions",
     KORTYX_EVAL_JUDGE_ID: "studio/openrouter/openai/gpt-4o",
   });
+  const onUsage = vi.fn();
   expect(
     await loaded?.grade({
+      ...(portablePrompt
+        ? {
+            prompt: defineJudgePrompt({
+              id: "billing-test",
+              messages: ({ criterion, observation }) => [
+                {
+                  role: "user",
+                  content: promptText`${criterion.text}\n${observation}`,
+                },
+              ],
+            }),
+          }
+        : {}),
       criterion: body.criterion,
       input: body.input,
       observation: { ...body.observation, type: "answer" },
       conversation: [],
       signal: new AbortController().signal,
+      onUsage,
     }),
   ).toEqual(verdict);
+  expect(onUsage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      provider: "openrouter",
+      model: "openai/gpt-4o",
+      usage: expect.objectContaining({ input: 20, output: 10 }),
+      pricing: { source: "provider", currency: "USD", actualCostMicros: 1000 },
+    }),
+  );
   expect(fetch).toHaveBeenCalledOnce();
   const [input, init] = fetch.mock.calls[0] as unknown as [
     Request | string,
