@@ -8,7 +8,7 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryNotFoundError, TelemetryValidationError } from "../errors";
 import { evalRuns, evaluationRuns } from "../schema";
-import { sumEvalCosts } from "./eval-costs";
+import { sumEvalCosts, unavailableEvalCosts } from "./eval-costs";
 import { type EvalLiveSummary, getEvalLiveSummaries } from "./eval-live";
 import {
   emptyEvalLiveProjection,
@@ -211,7 +211,7 @@ export function summarizeLiveEvaluation(
           : children.length
             ? "passed"
             : "error";
-  const parts = children.flatMap((c) => (c.costs ? [c.costs] : []));
+  const parts = children.map((c) => c.costs ?? unavailableEvalCosts());
   const failure = (
     issue: Pick<
       import("@kortyx/agent/evals").EvalIssue,

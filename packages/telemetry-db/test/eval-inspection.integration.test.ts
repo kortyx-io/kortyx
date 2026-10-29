@@ -8,9 +8,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTelemetryDbClient } from "../src/client";
 import { inspectEvaluation } from "../src/repositories/eval-inspection";
 import { getEvalLiveState } from "../src/repositories/eval-live";
+import { getEvalRun } from "../src/repositories/evals";
 import { getEvaluation } from "../src/repositories/evaluations";
 import { ensureLocalDevelopmentProject } from "../src/repositories/projects";
-import { evalRuns, evaluationRuns } from "../src/schema";
+import {
+  evalRunEvents,
+  evalRuns,
+  evaluationRuns,
+  telemetryEvents,
+} from "../src/schema";
 
 const url = process.env.TEST_EVAL_DATABASE_URL;
 describe.skipIf(!url)("bounded evaluation inspection on PostgreSQL", () => {
@@ -162,6 +168,155 @@ describe.skipIf(!url)("bounded evaluation inspection on PostgreSQL", () => {
       .from(evalRuns)
       .where(eq(evalRuns.evaluationId, id));
     expect(cache?.projection).toBeNull();
+  });
+
+  it("recovers workflow and judge charges from interrupted progress and incomplete error results, including read-only and old caches", async () => {
+    const { id, childId } = await fixture();
+    const attemptId = randomUUID();
+    const execution = { sessionId: randomUUID(), runId: randomUUID() };
+    const judgeUsage = [
+      {
+        provider: "test",
+        model: "judge",
+        occurredAt: new Date().toISOString(),
+        pricing: {
+          source: "provider" as const,
+          currency: "USD",
+          actualCostMicros: 350,
+        },
+      },
+    ];
+    await client.db
+      .update(evalRuns)
+      .set({
+        status: "error",
+        result: sql`jsonb_set(jsonb_set(jsonb_set(${evalRuns.result}, '{cases,0,attemptId}', to_jsonb(${attemptId}::text)), '{cases,0,status}', '"error"'::jsonb), '{cases,0,steps,0,judgeCalls}', '1'::jsonb)`,
+      })
+      .where(eq(evalRuns.id, childId));
+    await client.db.insert(evalRunEvents).values([
+      {
+        ...scope,
+        runId: childId,
+        event: {
+          type: "case-started",
+          caseId: "answer",
+          repetition: 1,
+          sessionId: "session",
+          attemptId,
+        },
+      },
+      {
+        ...scope,
+        runId: childId,
+        event: {
+          type: "case-runtime-associated",
+          caseId: "answer",
+          repetition: 1,
+          attemptId,
+          execution,
+        },
+      },
+      {
+        ...scope,
+        runId: childId,
+        event: {
+          type: "step-completed",
+          caseId: "answer",
+          repetition: 1,
+          step: {
+            index: 0,
+            input: { message: "question" },
+            expectation: { type: "answer", criteria: ["Correct"] },
+            observation: { type: "answer", text: "Answer", structured: [] },
+            status: "passed",
+            criteria: [],
+            judgeCalls: 1,
+            judgeUsage,
+          },
+        },
+      },
+      // This attempt never made it into the terminal result.
+      {
+        ...scope,
+        runId: childId,
+        event: {
+          type: "case-started",
+          caseId: "interrupted",
+          repetition: 1,
+          sessionId: execution.sessionId,
+        },
+      },
+    ]);
+    const eventId = randomUUID();
+    await client.db.insert(telemetryEvents).values([
+      {
+        ...scope,
+        eventId,
+        schemaVersion: 1,
+        type: "generation.completed",
+        occurredAt: new Date(),
+        environment: "development",
+        serviceName: "billing-test",
+        sessionId: execution.sessionId,
+        runId: execution.runId,
+        workflowId: "test",
+        payload: {
+          evalAttemptId: attemptId,
+          pricing: {
+            source: "provider",
+            currency: "USD",
+            actualCostMicros: 1000,
+          },
+        },
+      },
+      {
+        ...scope,
+        eventId: randomUUID(),
+        schemaVersion: 1,
+        type: "generation.completed",
+        occurredAt: new Date(),
+        environment: "development",
+        serviceName: "billing-test",
+        sessionId: execution.sessionId,
+        runId: execution.runId,
+        workflowId: "test",
+        payload: {
+          pricing: {
+            source: "provider",
+            currency: "USD",
+            actualCostMicros: 2000,
+          },
+        },
+      },
+    ]);
+    try {
+      const readOnly = await client.db.transaction(async (tx) => {
+        await tx.execute(sql`SET TRANSACTION READ ONLY`);
+        return getEvalLiveState(tx as typeof client.db, scope, childId);
+      });
+      expect(readOnly.costs).toMatchObject({
+        workflow: { amount: 0.003 },
+        judge: { amount: 0.00035 },
+        total: { amount: 0.00335 },
+      });
+      expect(readOnly.cases).toHaveLength(2);
+      const full = await getEvalRun(client.db, scope, childId);
+      expect(full.costs?.total.amount).toBe(0.00335);
+      const warm = await getEvalLiveState(client.db, scope, childId);
+      expect(warm.costs).toEqual(readOnly.costs);
+      // Simulate an existing cache produced before associations were recovered.
+      await client.sql`UPDATE eval_runs SET live_projection=jsonb_set(jsonb_set(live_projection, '{pricingVersion}', '"old"'), ARRAY['attempts', '["answer",1]', 'runtimeExecutions'], '[]') WHERE id=${childId}::uuid`;
+      expect(
+        (await getEvaluation(client.db, scope, id)).costs?.total.amount,
+      ).toBe(0.00335);
+    } finally {
+      await client.db
+        .delete(telemetryEvents)
+        .where(eq(telemetryEvents.eventId, eventId));
+      await client.db
+        .delete(telemetryEvents)
+        .where(eq(telemetryEvents.sessionId, execution.sessionId));
+    }
   });
 
   it("reads cold and stale evaluation summaries with SELECT-only privileges", async () => {

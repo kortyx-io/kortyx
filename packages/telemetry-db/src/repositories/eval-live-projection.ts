@@ -6,6 +6,11 @@ import type {
   StudioEvalCaseSummary,
   StudioEvalDetail,
 } from "@kortyx/agent/evals";
+import {
+  mergeEvalBillingSteps,
+  mergeEvalRuntimeExecutions,
+  sameEvalBillingAttempt,
+} from "./eval-billing-evidence";
 
 type RecordedCase = NonNullable<StudioEvalDetail["result"]>["cases"][number];
 type RecordedProgress = StudioEvalDetail["events"][number]["event"];
@@ -191,6 +196,19 @@ export function projectEvalProgress(
   }
   if (event.type === "case-completed") {
     const result = event.result;
+    const runtimeExecutions = mergeEvalRuntimeExecutions(
+      { ...attempt, sessionId: attempt.summary.sessionId },
+      result,
+    );
+    const steps = mergeEvalBillingSteps(
+      sameEvalBillingAttempt(
+        { ...attempt, sessionId: attempt.summary.sessionId },
+        result,
+      )
+        ? attempt.steps
+        : [],
+      result.steps.map(compactStep),
+    );
     attempt.summary = {
       caseId: result.caseId,
       repetition: result.repetition,
@@ -207,8 +225,8 @@ export function projectEvalProgress(
       errors: result.errors.map(compactIssue),
     };
     attempt.attemptId = result.attemptId;
-    attempt.runtimeExecutions = result.runtimeExecutions ?? [];
-    attempt.steps = result.steps.map(compactStep);
+    attempt.runtimeExecutions = runtimeExecutions;
+    attempt.steps = steps;
     summarizeSteps(attempt);
   }
   rememberIdentities(projection);

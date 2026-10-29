@@ -93,6 +93,16 @@ export async function gradeEvalExecution(
           ? "failed"
           : "passed";
       } catch (error) {
+        if (signal.aborted) {
+          // Earlier criteria may already have incurred charges. Persist that
+          // evidence before cancellation leaves the grading loop.
+          await onProgress({
+            type: "step-completed",
+            caseId: item.caseId,
+            repetition: item.repetition,
+            step: structuredClone(step),
+          });
+        }
         signal.throwIfAborted();
         step.status = "error";
         const diagnosticId = await reportError?.(error).catch(() => undefined);

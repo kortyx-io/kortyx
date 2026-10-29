@@ -47,6 +47,49 @@ const judge: EvalJudge = {
     evidence: ["90000 versus 99000"],
   }),
 };
+it("persists charges from completed criteria when Studio grading is interrupted during the next call", async () => {
+  const execution = await capture();
+  const step = execution.cases[0]?.steps[0];
+  if (!step) throw new Error("Expected the captured step");
+  step.expectation.criteria = ["First", "Second"];
+  const controller = new AbortController();
+  const progress = vi.fn();
+  let calls = 0;
+  const usage = {
+    provider: "openrouter",
+    model: "test",
+    occurredAt: new Date().toISOString(),
+    pricing: {
+      source: "provider" as const,
+      currency: "USD" as const,
+      actualCostMicros: 1000,
+    },
+  };
+  await expect(
+    gradeEvalExecution(
+      execution,
+      {
+        ...judge,
+        grade: ({ onUsage }) => {
+          if (++calls === 2) {
+            controller.abort(new Error("Interrupted"));
+            controller.signal.throwIfAborted();
+          }
+          onUsage?.(usage);
+          return { passed: true, reason: "Assessed", evidence: [] };
+        },
+      },
+      controller.signal,
+      progress,
+    ),
+  ).rejects.toThrow("Interrupted");
+  expect(progress).toHaveBeenCalledWith(
+    expect.objectContaining({
+      type: "step-completed",
+      step: expect.objectContaining({ judgeCalls: 2, judgeUsage: [usage] }),
+    }),
+  );
+});
 it("preserves deterministic verdicts and never sends failed checks to a Studio model", async () => {
   const execution = await createEvals({
     agent: { streamChat: vi.fn() },
@@ -391,7 +434,16 @@ it("does not publish a late judge result after cancellation", async () => {
   await expect(pending).rejects.toThrow();
   resolve({ passed: true, reason: "Late answer", evidence: [] });
   await Promise.resolve();
-  expect(progress).not.toHaveBeenCalled();
+  expect(progress).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({
+      type: "step-completed",
+      step: expect.objectContaining({
+        status: "ungraded",
+        criteria: [],
+        judgeCalls: 1,
+      }),
+    }),
+  );
   expect(execution.cases[0]?.steps[0]?.criteria).toEqual([]);
 });
 

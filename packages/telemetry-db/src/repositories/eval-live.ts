@@ -16,6 +16,7 @@ import {
   evalBillingGenerationSelection,
   matchesEvalAttempt,
   sumEvalCosts,
+  unavailableEvalCosts,
 } from "./eval-costs";
 import {
   type Attempt,
@@ -51,6 +52,8 @@ type Scope = {
   projectId: string;
   environment?: string | undefined;
 };
+// Rebuild older caches once so error results recover associations from progress.
+const billingVersion = "2:";
 // Historical warming must also stay small: project inside PostgreSQL, before
 // any observations, prompt inputs or criterion evidence reach the API process.
 const compactIssueSql = (
@@ -116,14 +119,15 @@ export async function priceEvalProjection(
   projection: EvalLiveProjection,
   keys = Object.keys(projection.attempts),
 ) {
-  const pricingVersion = await getModelRateCardVersion(db, run);
+  const pricingVersion =
+    billingVersion + (await getModelRateCardVersion(db, run));
   const selected = (
     projection.pricingVersion === pricingVersion
       ? keys
       : Object.keys(projection.attempts)
   )
     .map((key) => projection.attempts[key])
-    .filter((a): a is Attempt => Boolean(a?.summary.sessionId));
+    .filter((a): a is Attempt => Boolean(a));
   projection.pricingVersion = pricingVersion;
   if (!selected.length) return;
   const filters = selected.flatMap((a) =>
@@ -182,7 +186,7 @@ export async function initializeEvalProjection(
   pricingVersion?: string,
   persist = true,
 ): Promise<EvalLiveProjection> {
-  if (run.liveProjection) {
+  if (run.liveProjection?.pricingVersion?.startsWith(billingVersion)) {
     const projection = run.liveProjection;
     const dirty = Object.entries(projection.attempts)
       .filter(
@@ -209,7 +213,8 @@ export async function initializeEvalProjection(
   }
   const projection = emptyEvalLiveProjection();
   projection.errors = (run.result?.errors ?? []).map(compactIssue);
-  if (!run.result) {
+  // Progress may contain paid executions absent from a terminal error result.
+  {
     let after = 0;
     for (;;) {
       const events = await db
@@ -301,6 +306,7 @@ export async function refreshEvalBilling(
       projectId: evalRuns.projectId,
       environment: evalRuns.environment,
       liveProjection: evalRuns.liveProjection,
+      result: compactResultSql,
     })
     .from(evalRuns)
     .where(and(scopeWhere(scope), or(...matches)))
@@ -321,13 +327,9 @@ export async function refreshEvalBilling(
       )
       .map(([key]) => key);
     if (!keys.length) continue;
-    await maintainEvalProjection(
-      db,
-      { ...run, result: null },
-      async (projectionDb, current) => {
-        await priceEvalProjection(projectionDb, run, current, keys);
-      },
-    );
+    await maintainEvalProjection(db, run, async (projectionDb, current) => {
+      await priceEvalProjection(projectionDb, run, current, keys);
+    });
   }
 }
 
@@ -335,7 +337,7 @@ export function evalProjectionCosts(
   projection: { cases: StudioEvalCaseSummary[] },
   status: string,
 ): EvalCosts | undefined {
-  const parts = projection.cases.flatMap((a) => (a.costs ? [a.costs] : []));
+  const parts = projection.cases.map((a) => a.costs ?? unavailableEvalCosts());
   if (!parts.length) return;
   const workflow = sumEvalCosts(parts.map((c) => c.workflow));
   const judge = sumEvalCosts(parts.map((c) => c.judge));
@@ -374,7 +376,8 @@ async function readEvalLiveRuns(
   })[]
 > {
   if (!ids.length) return [];
-  const pricingVersion = await getModelRateCardVersion(db, scope);
+  const pricingVersion =
+    billingVersion + (await getModelRateCardVersion(db, scope));
   const rows = await db
     .select({
       id: evalRuns.id,
@@ -461,32 +464,14 @@ async function readEvalLiveRuns(
             projectId: evalRuns.projectId,
             environment: evalRuns.environment,
             liveProjection: evalRuns.liveProjection,
+            result: compactResultSql,
           })
           .from(evalRuns)
           .where(and(scopeWhere(scope), eq(evalRuns.id, row.id)))
           .for("update")
           .limit(1);
         if (!run) throw new TelemetryNotFoundError("Eval run not found.");
-        if (run.liveProjection)
-          await initializeEvalProjection(
-            tx as TelemetryDb,
-            {
-              ...run,
-              result: null,
-            },
-            pricingVersion,
-          );
-        else {
-          const [saved] = await tx
-            .select({ result: compactResultSql })
-            .from(evalRuns)
-            .where(eq(evalRuns.id, run.id))
-            .limit(1);
-          await initializeEvalProjection(tx as TelemetryDb, {
-            ...run,
-            result: saved?.result ?? null,
-          });
-        }
+        await initializeEvalProjection(tx as TelemetryDb, run, pricingVersion);
       });
     } catch (error) {
       if (

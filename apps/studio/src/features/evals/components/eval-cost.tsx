@@ -22,6 +22,16 @@ function evalCostValue(value?: EvalCostAmount) {
   };
 }
 
+export function evalCostCoverage(value?: EvalCostAmount) {
+  if (!value) return "Billing evidence is missing.";
+  const recorded = `${value.calls} recorded model call${value.calls === 1 ? "" : "s"}`;
+  return value.unpricedCalls
+    ? `${recorded}; ${value.unpricedCalls} unpriced call${value.unpricedCalls === 1 ? "" : "s"} or missing billing record${value.unpricedCalls === 1 ? "" : "s"}. Usage or model rates are missing; the missing amount is unknown.`
+    : value.status === "partial"
+      ? `${recorded}; billing is still incomplete.`
+      : `${recorded}.`;
+}
+
 export function evalCostLabel(value?: EvalCostAmount) {
   return costDisplay(evalCostValue(value)).label;
 }
@@ -47,9 +57,15 @@ export function EvalCost({
         </button>
       }
     >
-      <div className="space-y-1">
+      <div className="flex flex-col gap-1">
         <p>Workflow: {evalCostLabel(costs?.workflow)}</p>
+        <p className="text-muted-foreground">
+          {evalCostCoverage(costs?.workflow)}
+        </p>
         <p>Judge: {evalCostLabel(costs?.judge)}</p>
+        <p className="text-muted-foreground">
+          {evalCostCoverage(costs?.judge)}
+        </p>
         <p className="text-muted-foreground">
           {costs?.total.status === "complete"
             ? costs.total.estimated

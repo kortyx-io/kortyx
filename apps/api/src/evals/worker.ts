@@ -555,9 +555,32 @@ export function createEvalWorker(
               errors: [],
             };
             if (progress.type === "case-started") {
+              if (
+                capturedCase.sessionId !== progress.sessionId ||
+                capturedCase.attemptId !== progress.attemptId
+              ) {
+                capturedCase.steps = [];
+                capturedCase.runtimeExecutions = [];
+                capturedCase.errors = [];
+              }
               capturedCase.sessionId = progress.sessionId;
               if (progress.attemptId)
                 capturedCase.attemptId = progress.attemptId;
+              else delete capturedCase.attemptId;
+            }
+            if (
+              progress.type === "case-runtime-associated" &&
+              capturedCase.attemptId === progress.attemptId
+            ) {
+              capturedCase.runtimeExecutions ??= [];
+              if (
+                !capturedCase.runtimeExecutions.some(
+                  (execution) =>
+                    execution.sessionId === progress.execution.sessionId &&
+                    execution.runId === progress.execution.runId,
+                )
+              )
+                capturedCase.runtimeExecutions.push(progress.execution);
             }
             if (progress.type === "step-completed") {
               capturedCase.steps ??= [];

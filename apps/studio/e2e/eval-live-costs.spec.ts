@@ -154,6 +154,18 @@ test("receives external eval progress and late billing in a case drawer without 
     await expect(
       caseDrawer.getByText("Accurate", { exact: true }),
     ).toBeVisible();
+    await caseDrawer
+      .getByRole("button", { name: "Total cost: $0.0015", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
+    const billing = page.getByRole("dialog", {
+      name: "Evaluation cost",
+      exact: true,
+    });
+    await expect(billing).toContainText("Workflow: $0.0012");
+    await expect(billing).toContainText("Judge: $0.0003");
+    await expect(billing).toContainText("1 recorded model call.");
+    await page.keyboard.press("Escape");
     await expect(caseHeader.getByText("Passed", { exact: true })).toBeVisible();
     await expect(
       fullPage.getByRole("button", {

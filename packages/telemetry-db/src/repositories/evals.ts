@@ -3,6 +3,11 @@ import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryNotFoundError } from "../errors";
 import { evalRunEvents, evalRuns } from "../schema";
+import {
+  mergeEvalBillingSteps,
+  mergeEvalRuntimeExecutions,
+  sameEvalBillingAttempt,
+} from "./eval-billing-evidence";
 import { loadEvalCosts } from "./eval-costs";
 import {
   getEvalLiveSummaries,
@@ -519,13 +524,21 @@ export async function getEvalAttemptEvidence(
   for (const { event } of rows) {
     if (event.type === "case-started")
       evidence = {
-        ...evidence,
+        ...(evidence && sameEvalBillingAttempt(evidence, event)
+          ? evidence
+          : {}),
         caseId,
         repetition,
         sessionId: event.sessionId,
         ...(event.attemptId ? { attemptId: event.attemptId } : {}),
         steps:
-          evidence?.sessionId === event.sessionId ? (evidence.steps ?? []) : [],
+          evidence && sameEvalBillingAttempt(evidence, event)
+            ? (evidence.steps ?? [])
+            : [],
+        runtimeExecutions:
+          evidence && sameEvalBillingAttempt(evidence, event)
+            ? (evidence.runtimeExecutions ?? [])
+            : [],
       };
     if (event.type === "step-completed") {
       evidence ??= { caseId, repetition, steps: [] };
@@ -535,7 +548,34 @@ export async function getEvalAttemptEvidence(
       else steps[index] = event.step;
       evidence.steps = steps;
     }
-    if (event.type === "case-completed") evidence = event.result;
+    if (
+      event.type === "case-runtime-associated" &&
+      evidence?.attemptId === event.attemptId
+    ) {
+      evidence.runtimeExecutions ??= [];
+      if (
+        !evidence.runtimeExecutions.some(
+          (execution) =>
+            execution.sessionId === event.execution.sessionId &&
+            execution.runId === event.execution.runId,
+        )
+      )
+        evidence.runtimeExecutions.push(event.execution);
+    }
+    if (event.type === "case-completed")
+      evidence = {
+        ...event.result,
+        steps: mergeEvalBillingSteps(
+          evidence && sameEvalBillingAttempt(evidence, event.result)
+            ? (evidence.steps ?? [])
+            : [],
+          event.result.steps,
+        ),
+        runtimeExecutions: mergeEvalRuntimeExecutions(
+          evidence ?? {},
+          event.result,
+        ),
+      };
   }
   return evidence;
 }

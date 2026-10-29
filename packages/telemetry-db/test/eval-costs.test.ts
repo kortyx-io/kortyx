@@ -4,7 +4,7 @@ import {
   calculateEvalAttemptCosts,
   sumEvalCosts,
 } from "../src/repositories/eval-costs";
-import type { TelemetryEventRecord } from "../src/schema";
+import type { ModelRateCard, TelemetryEventRecord } from "../src/schema";
 
 const generation = (eventId: string, micros: number | null, currency = "USD") =>
   ({
@@ -109,6 +109,54 @@ describe("eval billing evidence", () => {
         [step({ judgeCalls: 0, judgeUsage: [], criteria: [] })],
       ).total,
     ).toMatchObject({ amount: 0, status: "complete" });
+  });
+  it("prices Studio judge token usage with rates and keeps missing rates unknown", () => {
+    const judgeStep = step({
+      judgeUsage: [
+        {
+          provider: "test",
+          model: "judge",
+          occurredAt: "2026-10-03T00:00:00.000Z",
+          usage: { input: 100, output: 50 },
+        },
+      ],
+    });
+    const attempt = {
+      sessionId: "attempt",
+      steps: [judgeStep],
+      finished: true,
+    };
+    const rate: ModelRateCard = {
+      id: "judge-rate",
+      organizationId: null,
+      projectId: null,
+      provider: "test",
+      model: "judge",
+      modality: "text",
+      currency: "USD",
+      unitPrices: [
+        { usageType: "input", unit: "token", priceMicros: 10 },
+        { usageType: "output", unit: "token", priceMicros: 20 },
+      ],
+      source: "test",
+      pricingRef: "judge-rate",
+      effectiveFrom: new Date("2026-01-01"),
+      effectiveTo: null,
+      metadata: null,
+      createdAt: new Date("2026-01-01"),
+    };
+    expect(calculateEvalAttemptCosts(attempt, [], [rate]).judge).toMatchObject({
+      amount: 0.002,
+      calls: 1,
+      status: "complete",
+      estimated: true,
+    });
+    expect(calculateEvalAttemptCosts(attempt, [], []).judge).toMatchObject({
+      amount: null,
+      calls: 1,
+      status: "unavailable",
+      unpricedCalls: 1,
+    });
   });
   it("historical grades without usage are unknown, even when they passed", () => {
     expect(

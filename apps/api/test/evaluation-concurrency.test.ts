@@ -150,6 +150,7 @@ function fixture(
             body: string,
             signal: AbortSignal,
           ) =>
+            options.intercept?.(JSON.parse(body)) ??
             handler(
               new Request("http://localhost/evals", {
                 method: "POST",
@@ -190,6 +191,56 @@ function fixture(
 }
 
 describe("evaluation-wide attempt scheduling through the SDK transport", () => {
+  it("retains paid runtime associations in the final error when a consumer stream disconnects", async () => {
+    const attemptId = randomUUID();
+    const execution = { sessionId: "runtime-session", runId: "runtime-run" };
+    const f = fixture([1], 1, {
+      intercept: () =>
+        new Response(
+          [
+            {
+              type: "progress",
+              event: {
+                type: "case-started",
+                caseId: "case-0",
+                repetition: 1,
+                sessionId: "session",
+                attemptId,
+              },
+            },
+            ...[execution, execution].map((execution) => ({
+              type: "progress",
+              event: {
+                type: "case-runtime-associated",
+                caseId: "case-0",
+                repetition: 1,
+                attemptId,
+                execution,
+              },
+            })),
+          ]
+            .map((event) => JSON.stringify(event))
+            .join("\n") + "\n",
+          {
+            headers: { "content-type": "application/x-ndjson" },
+          },
+        ),
+    });
+    f.worker.start();
+    try {
+      await f.done;
+      const result = f.finished.get(f.runs[0]!.id)?.result;
+      expect(result?.counts.error).toBe(1);
+      expect(result?.cases[0]).toMatchObject({
+        attemptId,
+        sessionId: "session",
+        runtimeExecutions: [execution],
+        status: "error",
+      });
+    } finally {
+      await f.worker.stop();
+    }
+  });
   it("isolates a refused attempt and preserves passing siblings across and within suites", async () => {
     const f = fixture([3, 3], 2, {
       native: true,
