@@ -63,3 +63,12 @@ review. Package exports and publish registration are unchanged; normal package
 release automation publishes the updated peer declarations. Studio rolling
 upgrade strategy remains unchanged because its locked Zod version and wire
 contracts are unchanged.
+
+The merge also updates `@hono/node-server` to 2.1.3 and `qs` to 6.16.1 to
+resolve the existing audit gate's
+[adapter advisory](https://github.com/advisories/GHSA-rmxm-3fg6-px4f) and
+[query-string advisory](https://github.com/advisories/GHSA-6pq8-jhm2-2vcw).
+The API and Hono examples retain their existing `serve` integration. Existing
+HTTP adapter tests cover readiness, keep-alive connection reuse, SSE during
+draining, and shutdown; no static-serving integration or database contract is
+introduced by these dependency updates.
