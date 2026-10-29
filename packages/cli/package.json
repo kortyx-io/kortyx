@@ -52,10 +52,13 @@
     "execa": "^9.6.1",
     "tsx": "^4.21.0",
     "typescript": "catalog:",
-    "zod": "catalog:",
     "@kortyx/usage-telemetry": "workspace:*"
   },
+  "peerDependencies": {
+    "zod": "^4.5.0"
+  },
   "devDependencies": {
+    "zod": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "tsup": "catalog:",

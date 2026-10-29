@@ -56,12 +56,15 @@
     "@kortyx/utils": "workspace:*",
     "@langchain/core": "catalog:",
     "@langchain/langgraph": "catalog:",
-    "zod": "catalog:",
     "@kortyx/prompts": "workspace:*",
     "@kortyx/usage-telemetry": "workspace:*",
     "@kortyx/telemetry-contracts": "workspace:*"
   },
+  "peerDependencies": {
+    "zod": "^4.5.0"
+  },
   "devDependencies": {
+    "zod": "catalog:",
     "@kortyx/hooks": "workspace:*",
     "turbo": "catalog:",
     "typescript": "catalog:",
