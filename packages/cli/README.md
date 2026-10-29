@@ -416,11 +416,11 @@ Projects using `kortyx` already have the `kortyx` binary available. To install
 the automation package independently:
 
 ```bash
-pnpm add -D @kortyx/cli
+pnpm add -D @kortyx/cli "zod@^4.5.0"
 ```
 
 ```bash
-npm install -g @kortyx/cli
+npm install -g @kortyx/cli "zod@^4.5.0"
 ```
 
 ## Documentation

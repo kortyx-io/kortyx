@@ -928,9 +928,6 @@ importers:
       '@langchain/langgraph':
         specifier: 'catalog:'
         version: 1.2.5(@langchain/core@1.1.35(@opentelemetry/api@1.9.0))(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(zod-to-json-schema@3.25.2(zod@4.6.7))(zod@4.6.7)
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       '@kortyx/hooks':
         specifier: workspace:*
@@ -956,6 +953,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/aws-cdk:
     devDependencies:
@@ -1013,9 +1013,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1029,15 +1026,15 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/core:
     dependencies:
       js-yaml:
         specifier: 4.3.2
         version: 4.3.2
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
@@ -1054,6 +1051,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/hooks:
     dependencies:
@@ -1072,9 +1072,6 @@ importers:
       '@kortyx/usage-telemetry':
         specifier: workspace:*
         version: link:../usage-telemetry
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
@@ -1091,6 +1088,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/kortyx:
     dependencies:
@@ -1134,6 +1134,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/mcp:
     dependencies:
@@ -1199,9 +1202,6 @@ importers:
       ajv:
         specifier: 8.18.0
         version: 8.18.0
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1218,6 +1218,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/providers:
     dependencies:
@@ -1313,9 +1316,6 @@ importers:
       postgres:
         specifier: ^3.4.7
         version: 3.4.9
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
@@ -1332,6 +1332,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/sdk: {}
 
@@ -1340,9 +1343,6 @@ importers:
       '@kortyx/core':
         specifier: workspace:*
         version: link:../core
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
@@ -1359,6 +1359,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/telemetry:
     dependencies:
@@ -1396,9 +1399,6 @@ importers:
       '@kortyx/prompts':
         specifier: workspace:*
         version: link:../prompts
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       tsup:
         specifier: 'catalog:'
@@ -1412,6 +1412,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/telemetry-db:
     dependencies:
@@ -1654,9 +1657,6 @@ importers:
       '@openrouter/sdk':
         specifier: 1.3.17
         version: 1.3.17
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
@@ -1673,6 +1673,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
 packages:
 
@@ -9731,7 +9734,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
+      vitest: 4.1.12(@opentelemetry/api@1.9.0)(@types/node@20.19.17)(@vitest/coverage-v8@4.1.12)(jsdom@29.1.1)(vite@8.3.3(@types/node@20.19.17)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.46.0)(tsx@4.22.5)(yaml@2.8.3))
 
   '@vitest/expect@4.1.12':
     dependencies:

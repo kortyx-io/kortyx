@@ -23,12 +23,17 @@ Use `kortyx` as the main package. It re-exports the public server/runtime APIs f
 
 ## Install
 
+Install Zod 4.5 or later within major version 4 (`^4.5.0`) in your
+application. Kortyx uses it as a peer dependency so application schemas and
+SDK types share the same Zod version. Zod 3 and earlier Zod 4 minors are
+unsupported.
+
 ```bash
-pnpm add kortyx @kortyx/google @kortyx/react
+pnpm add kortyx @kortyx/google @kortyx/react "zod@^4.5.0"
 ```
 
 ```bash
-npm install kortyx @kortyx/google @kortyx/react
+npm install kortyx @kortyx/google @kortyx/react "zod@^4.5.0"
 ```
 
 ## Self-host Kortyx Studio

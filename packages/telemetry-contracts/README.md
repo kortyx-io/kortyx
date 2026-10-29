@@ -1,5 +1,9 @@
 # @kortyx/telemetry-contracts
 
+Requires application-owned Zod `^4.5.0` as a peer dependency. Install it
+alongside this package and share the same Zod version with other Kortyx
+packages. Zod 3 and Zod 4.0–4.4 are unsupported.
+
 Shared Zod wire contracts and fixtures for Kortyx telemetry producers and consumers.
 
 Studio tables share `TableFiltersSchema`, `TableFilterRuleSchema`, the field

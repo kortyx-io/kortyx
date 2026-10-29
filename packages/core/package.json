@@ -48,10 +48,13 @@
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "zod": "catalog:",
     "js-yaml": "^4.1.0"
   },
+  "peerDependencies": {
+    "zod": "^4.5.0"
+  },
   "devDependencies": {
+    "zod": "catalog:",
     "typescript": "catalog:",
     "turbo": "catalog:",
     "tsup": "catalog:",
