@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.4](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.3...studio-v0.26.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* **evals:** preserve billing evidence and keep header metrics on one row ([68aba20](https://github.com/kortyx-io/kortyx/commit/68aba20b93a394bd46c3296c428ac62be7b4fa5d))
+* **evals:** preserve workflow and judge billing through interruptions ([14c18eb](https://github.com/kortyx-io/kortyx/commit/14c18ebffac8324efba4827484889dc1f74b2741))
+
 ## [0.26.3](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.2...studio-v0.26.3) (2026-10-26)
 
 
