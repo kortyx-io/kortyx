@@ -369,6 +369,8 @@ describe.skipIf(!url)("bounded evaluation inspection on PostgreSQL", () => {
     }
   });
 
+  // Creating a 14 MB JSONB fixture and reading its evidence pages can exceed
+  // Vitest's default five seconds on CI; response-size bounds remain asserted.
   it("inventories attempts and bounds selected evidence with a multi-megabyte saved output", async () => {
     const { id, childId } = await fixture();
     await client.db
@@ -432,7 +434,7 @@ describe.skipIf(!url)("bounded evaluation inspection on PostgreSQL", () => {
       }),
     );
     expect(next.page.nextCursor).toBe(200);
-  });
+  }, 15_000);
   it("redacts nested credentials before evidence pagination and preserves Unicode offsets", async () => {
     const { id, childId } = await fixture();
     await client.db
