@@ -48,7 +48,7 @@
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^5.5.0"
   },
   "peerDependencies": {
     "zod": "^4.5.0"
