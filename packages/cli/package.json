@@ -49,7 +49,7 @@
     "@kortyx/telemetry-contracts": "workspace:*",
     "commander": "^14.0.3",
     "diff": "^9.0.0",
-    "execa": "^9.6.1",
+    "execa": "^10.2.1",
     "tsx": "^4.21.0",
     "typescript": "catalog:",
     "@kortyx/usage-telemetry": "workspace:*"
