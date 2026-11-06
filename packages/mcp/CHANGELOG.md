@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.7](https://github.com/kortyx-io/kortyx/compare/mcp-v0.3.6...mcp-v0.3.7) (2026-11-06)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.5
+
 ## [0.3.6](https://github.com/kortyx-io/kortyx/compare/mcp-v0.3.5...mcp-v0.3.6) (2026-10-26)
 
 

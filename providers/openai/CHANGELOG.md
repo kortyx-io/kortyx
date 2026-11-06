@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.11](https://github.com/kortyx-io/kortyx/compare/openai-v0.5.10...openai-v0.5.11) (2026-11-06)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.5
+    * @kortyx/core bumped to 0.15.1
+
 ## [0.5.10](https://github.com/kortyx-io/kortyx/compare/openai-v0.5.9...openai-v0.5.10) (2026-10-16)
 
 
