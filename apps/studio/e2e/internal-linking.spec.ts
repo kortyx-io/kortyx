@@ -31,7 +31,9 @@ test("interrupt timing hydrates using the server timestamp when the browser cloc
     Date.now = () => readNow() + 60_000;
   });
   await page.goto(path("interrupts", DRAWER_FIXTURE.interruptId));
-  await expect(page.locator("[data-interrupt-detail-id]:visible")).toBeVisible();
+  await expect(
+    page.locator("[data-interrupt-detail-id]:visible"),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Timeline", exact: true }).click();
   await expect(page).toHaveURL(
     (url) => url.searchParams.get("interruptTab") === "timeline",
