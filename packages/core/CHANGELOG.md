@@ -7,6 +7,14 @@
   child outputs, deterministic parallel joins and checkpoint resume. Surface
   callback exceptions as `WORKFLOW_REDUCER_FAILED` without exposing raw values.
 
+## [0.15.1](https://github.com/kortyx-io/kortyx/compare/core-v0.15.0...core-v0.15.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **deps:** share compatible Zod 4 through peer dependencies ([05af98b](https://github.com/kortyx-io/kortyx/commit/05af98bdd76bba303cccaae920555e3ea9f64eca))
+* **deps:** support shared Zod 4.5+ and patch audit blockers ([9dc62be](https://github.com/kortyx-io/kortyx/commit/9dc62beeb7831836168abd3c50576d2648c5a81f))
+
 ## [0.15.0](https://github.com/kortyx-io/kortyx/compare/core-v0.14.0...core-v0.15.0) (2026-10-16)
 
 

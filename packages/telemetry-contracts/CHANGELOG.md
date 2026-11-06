@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.20.5](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.4...telemetry-contracts-v0.20.5) (2026-11-06)
+
+
+### Bug Fixes
+
+* **deps:** share compatible Zod 4 through peer dependencies ([05af98b](https://github.com/kortyx-io/kortyx/commit/05af98bdd76bba303cccaae920555e3ea9f64eca))
+* **deps:** support shared Zod 4.5+ and patch audit blockers ([9dc62be](https://github.com/kortyx-io/kortyx/commit/9dc62beeb7831836168abd3c50576d2648c5a81f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.3.3
+    * @kortyx/core bumped to 0.15.1
+
 ## [0.20.4](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.3...telemetry-contracts-v0.20.4) (2026-10-26)
 
 

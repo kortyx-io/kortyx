@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.35.2](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.35.1...kortyx-v0.35.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **deps:** share compatible Zod 4 through peer dependencies ([05af98b](https://github.com/kortyx-io/kortyx/commit/05af98bdd76bba303cccaae920555e3ea9f64eca))
+* **deps:** support shared Zod 4.5+ and patch audit blockers ([9dc62be](https://github.com/kortyx-io/kortyx/commit/9dc62beeb7831836168abd3c50576d2648c5a81f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.44.2
+    * @kortyx/cli bumped to 0.25.4
+    * @kortyx/core bumped to 0.15.1
+    * @kortyx/hooks bumped to 0.35.8
+    * @kortyx/mcp bumped to 0.3.7
+    * @kortyx/providers bumped to 0.9.5
+    * @kortyx/runtime bumped to 0.27.2
+    * @kortyx/stream bumped to 0.15.8
+    * @kortyx/utils bumped to 0.3.10
+    * @kortyx/prompts bumped to 0.3.3
+
 ## [0.35.1](https://github.com/kortyx-io/kortyx/compare/kortyx-v0.35.0...kortyx-v0.35.1) (2026-10-26)
 
 

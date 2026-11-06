@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.11](https://github.com/kortyx-io/kortyx/compare/deepseek-v0.4.10...deepseek-v0.4.11) (2026-11-06)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/providers bumped to 0.9.5
+    * @kortyx/core bumped to 0.15.1
+
 ## [0.4.10](https://github.com/kortyx-io/kortyx/compare/deepseek-v0.4.9...deepseek-v0.4.10) (2026-10-16)
 
 

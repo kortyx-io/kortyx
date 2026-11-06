@@ -5,6 +5,24 @@
 - Render queued, retrying and reconnecting eval dispatch updates without treating
   them as terminal case results.
 
+## [0.25.4](https://github.com/kortyx-io/kortyx/compare/cli-v0.25.3...cli-v0.25.4) (2026-11-06)
+
+
+### Bug Fixes
+
+* **deps:** share compatible Zod 4 through peer dependencies ([05af98b](https://github.com/kortyx-io/kortyx/commit/05af98bdd76bba303cccaae920555e3ea9f64eca))
+* **deps:** support shared Zod 4.5+ and patch audit blockers ([9dc62be](https://github.com/kortyx-io/kortyx/commit/9dc62beeb7831836168abd3c50576d2648c5a81f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/agent bumped to 0.44.2
+    * @kortyx/core bumped to 0.15.1
+    * @kortyx/prompts bumped to 0.3.3
+    * @kortyx/telemetry-contracts bumped to 0.20.5
+
 ## [0.25.3](https://github.com/kortyx-io/kortyx/compare/cli-v0.25.2...cli-v0.25.3) (2026-10-26)
 
 
