@@ -4,8 +4,11 @@ OpenRouter provider integration for Kortyx. It uses OpenRouter's official,
 OpenAPI-generated TypeScript SDK.
 
 ```bash
-pnpm add @kortyx/openrouter
+pnpm add @kortyx/openrouter "zod@^4.5.0"
 ```
+
+Requires application-owned Zod `^4.5.0` as a peer dependency. Share the same
+Zod version with your other Kortyx packages.
 
 ## Language models
 

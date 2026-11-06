@@ -25,11 +25,14 @@
     "type-check": "tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "zod": "catalog:",
     "@kortyx/prompts": "workspace:*",
     "@kortyx/core": "workspace:*"
   },
+  "peerDependencies": {
+    "zod": "^4.5.0"
+  },
   "devDependencies": {
+    "zod": "catalog:",
     "tsup": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:",

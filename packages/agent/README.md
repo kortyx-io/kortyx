@@ -18,12 +18,17 @@ once; historical revisions and run references remain readable without migration.
 
 ## Install
 
+Install Zod 4.5 or later within major version 4 (`^4.5.0`) in your
+application. Kortyx uses it as a peer dependency so application schemas and
+SDK types share the same Zod version. Zod 3 and earlier Zod 4 minors are
+unsupported.
+
 ```bash
-pnpm add @kortyx/agent
+pnpm add @kortyx/agent "zod@^4.5.0"
 ```
 
 ```bash
-npm install @kortyx/agent
+npm install @kortyx/agent "zod@^4.5.0"
 ```
 
 ## Key APIs

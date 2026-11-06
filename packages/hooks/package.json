@@ -49,11 +49,14 @@
     "@kortyx/core": "workspace:*",
     "@kortyx/providers": "workspace:*",
     "@kortyx/telemetry-contracts": "workspace:*",
-    "zod": "catalog:",
     "@kortyx/prompts": "workspace:*",
     "@kortyx/usage-telemetry": "workspace:*"
   },
+  "peerDependencies": {
+    "zod": "^4.5.0"
+  },
   "devDependencies": {
+    "zod": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:",
     "tsup": "catalog:",

@@ -65,7 +65,8 @@
     "format:check": "biome check .",
     "prepare": "command -v husky >/dev/null 2>&1 && husky || echo 'Husky not available, skipping'",
     "test:examples:errors": "node scripts/error-contract-examples.e2e.mjs",
-    "test:manual:interrupt-contracts": "node scripts/manual-verify-model-interrupt-contracts.mjs"
+    "test:manual:interrupt-contracts": "node scripts/manual-verify-model-interrupt-contracts.mjs",
+    "test:compat:zod": "pnpm exec turbo build --filter=kortyx... --filter=@kortyx/openrouter... && node scripts/verify-zod-peer-install.mjs"
   },
   "engines": {
     "node": ">=22.0.0",
@@ -95,7 +96,7 @@
       "ajv": "8.18.0",
       "@ai-sdk/provider-utils": "3.0.28",
       "@babel/core": "7.29.6",
-      "@hono/node-server": "1.19.15",
+      "@hono/node-server": "2.1.3",
       "baseline-browser-mapping": "2.11.27",
       "body-parser": "2.4.0",
       "browserslist": "4.29.3",
@@ -110,7 +111,7 @@
       "picomatch@^2.0.0": "2.3.2",
       "postcss": "8.5.28",
       "proxy-addr": "2.0.8",
-      "qs": "6.16.0",
+      "qs": "6.16.1",
       "rollup": "4.59.0",
       "sharp": "0.35.5",
       "source-map-js": "1.2.2",

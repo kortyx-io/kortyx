@@ -90,6 +90,10 @@ React client:
 
 ## Core Rules
 
+- Install `kortyx` with `zod@^4.5.0`. Zod is a peer dependency: use one compatible
+  Zod version shared by the application and SDK to preserve schema type
+  compatibility. Zod 3 and Zod 4.0–4.4 are unsupported.
+
 - Prefer a coordinator that chooses a registered specialist workflow per turn. Call it with `useWorkflow(...)`, let the specialist make one `useReason(...)` call with its tools and optional interrupt contracts, then return to the coordinator. Avoid application-written tool-loop state machines.
 - Use `useWorkflow(...)` for registered child calls that return to their caller. Read `references/hooks-child-workflows.md` before implementing call contracts or replay behavior; no special call edges are needed.
 - For response completion/background human review, read `references/response-completion.md`; keep useInterrupt unchanged and Studio optional/read-only.

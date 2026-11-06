@@ -50,10 +50,13 @@
   "dependencies": {
     "@kortyx/core": "workspace:*",
     "@kortyx/providers": "workspace:*",
-    "@openrouter/sdk": "1.3.17",
-    "zod": "catalog:"
+    "@openrouter/sdk": "1.3.17"
+  },
+  "peerDependencies": {
+    "zod": "^4.5.0"
   },
   "devDependencies": {
+    "zod": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "tsup": "catalog:",
     "turbo": "catalog:",

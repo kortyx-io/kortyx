@@ -92,6 +92,10 @@ runs:
       if: inputs.suite == 'build-typecheck'
       run: pnpm turbo run type-check --affected
       shell: bash
+    - name: Zod peer installation compatibility
+      if: inputs.suite == 'build-typecheck'
+      run: pnpm test:compat:zod
+      shell: bash
     - name: Studio release publication regressions
       if: inputs.suite == 'static'
       run: |-
