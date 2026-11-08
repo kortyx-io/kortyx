@@ -145,9 +145,11 @@ Implementations must derive the account from the independently authenticated
 request/session; never accept an account ID from preference input. Account
 storage failures must remain failures rather than silently falling back to a
 browser preference. Failed reads make sample access unavailable and show an error in its Settings panel; real project pages remain usable. An adapter without this member uses the browser preference.
-`StudioShellContribution.projectName` can provide the selected real project's
-safe display label when sample data is active. Existing opaque project switchers
-remain available within the shared selector for changing real projects.
+`StudioShellContribution.renderProjectSwitcher` lets an edition display its
+authorized project choices and actions beside the read-only Sample project in
+one picker. The shared layout passes the sample visibility, active state, and
+safe return URL. Adapters using the existing `projectSwitcher` and
+`projectName` contributions continue to use the shared fallback.
 
 Cloud authentication/routing adapters must allow authenticated access to
 `/sample/*` and `/api/preferences/sample-project`. Shared middleware rewrites

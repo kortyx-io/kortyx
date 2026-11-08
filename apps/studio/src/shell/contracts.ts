@@ -3,6 +3,12 @@ import type { StudioShellContext } from "../lib/studio-context-model";
 import type { StudioLearningGuide } from "../lib/studio-learning-guides";
 import type { StudioRouteScope } from "../lib/studio-routing";
 
+export interface StudioSampleProjectSelection {
+  active: boolean;
+  visible: boolean;
+  returnTo: string;
+}
+
 /** Compiled, request-local shell contributions. No tokens or key material. */
 export interface StudioShellContribution {
   routeScope?: StudioRouteScope;
@@ -10,6 +16,8 @@ export interface StudioShellContribution {
   learningGuides?: readonly StudioLearningGuide[];
   organizationSwitcher?: ReactNode;
   projectSwitcher?: ReactNode;
+  /** Optional project picker that integrates the shared sample project. */
+  renderProjectSwitcher?: (sample: StudioSampleProjectSelection) => ReactNode;
   /** Safe display label for the selected real project while exploring sample data. */
   projectName?: string;
   environmentSwitcher?: ReactNode;

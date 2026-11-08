@@ -14,6 +14,8 @@ Organizations group projects. A project separates execution data and API keys. T
 
 Use the organization and project selectors in the navigation bar. Switching changes the workspace being inspected. Organization settings describe the selected organization; project settings describe the selected project. Workspace controls appear according to your permissions.
 
+The project selector lists your accessible projects and the read-only Sample project when it is visible. If you can create projects in the selected organization, choose **New project** from the same selector.
+
 Use **Settings → Projects** to inspect/create projects where permitted, and the project's General settings to rename it. Keep separate projects when you need separate keys and data. A renamed project retains its identity.
 
 ## Environments

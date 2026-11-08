@@ -25,6 +25,7 @@ writeFileSync(
           .compilerOptions.paths,
         "@studio/auth": ["../../test/studio/auth-fixture.ts"],
         "@studio/auth-contracts": ["./src/auth/contracts.ts"],
+        "@studio/shell": ["../../test/studio/auth-fixture.ts"],
       },
     },
   }),
@@ -176,6 +177,12 @@ async function smoke(mode) {
       beforeSample,
       "Sample reads and denied writes must not contact the upstream API",
     );
+    const realPage = await fetch(`${url}/onboarding`, {
+      headers: { "x-studio-auth-fixture": "alice" },
+      signal: AbortSignal.timeout(20_000),
+    });
+    assert.equal(realPage.status, 200);
+    assert.match(await realPage.text(), /Fixture real-project picker/);
     await Promise.all(
       ["alice", "bob"].map(async (actor) => {
         const response = await fetch(`${url}/api/studio/changes`, {
