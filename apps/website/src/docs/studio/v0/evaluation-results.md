@@ -213,7 +213,7 @@ Passed/failed describe assessed quality. Errors describe execution or grading pr
 
 Compare equivalent cases, judge settings, prompt versions, and environments. Open conversation details and select a repetition for captured evidence instead of inferring quality from the aggregate status.
 
-## Run an experiment
+## Grouped evaluation runs
 
 The Experiments list shows one evaluation per trigger. A parent evaluation owns
 one or more dataset executions for a single application/environment. Open a row to
