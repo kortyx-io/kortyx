@@ -57,7 +57,7 @@ export function evalTerminationNotice({
               {completed} of {total} attempts have recorded outcomes;{" "}
               {Math.max(0, total - completed)} have no recorded outcome.
               {interruptedSuites
-                ? ` ${interruptedSuites} suites interrupted.`
+                ? ` ${interruptedSuites} datasets interrupted.`
                 : ""}{" "}
               Completed evidence and grades are preserved.
             </p>

@@ -60,7 +60,7 @@ test("receives external eval progress and late billing in a case drawer without 
     const change = async (resource = "evals") => {
       await sql`select pg_notify('kortyx_studio_changes', ${JSON.stringify({ schemaVersion: 1, changeId: randomUUID(), emittedAt: new Date().toISOString(), organizationId: scope.organization_id, projectId: scope.project_id, resources: [resource] })})`;
     };
-    await page.goto("/evals/runs?q=Live+billing");
+    await page.goto("/experiments?q=Live+billing");
     await expect(
       page.getByRole("button", { name: /Live refresh: Connected/ }),
     ).toBeVisible({ timeout: 15_000 });
@@ -72,7 +72,7 @@ test("receives external eval progress and late billing in a case drawer without 
     await historyRow
       .getByRole("button", { name: suite.name, exact: true })
       .click();
-    const runPath = `/evals/runs/${id}`;
+    const runPath = `/experiments/runs/${id}`;
     const runDrawer = page.locator("main").last();
     await expect(page).toHaveURL(new RegExp(runPath));
     await expect(
@@ -83,7 +83,7 @@ test("receives external eval progress and late billing in a case drawer without 
     await runDrawer
       .getByRole("link", { name: "Product lookup", exact: true })
       .click();
-    const casePath = `/evals/cases/${id}/lookup/1`;
+    const casePath = `/experiments/cases/${id}/lookup/1`;
     const caseDrawer = page.locator(`[data-detail-drawer="${casePath}"]`);
     await expect(caseDrawer).toHaveAttribute("data-state", "open");
     const url = page.url();

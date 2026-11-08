@@ -9,14 +9,16 @@ import {
   evalRunHref,
   evalSuiteHref,
   evaluationCompareHref,
+  legacyEvalDetailHref,
   legacyEvalHref,
+  parseDatasetId,
 } from "./navigation";
 
 describe("eval navigation", () => {
   it("defaults to history and keeps legacy suite links usable", () => {
-    expect(legacyEvalHref({})).toBe("/evals/runs");
+    expect(legacyEvalHref({})).toBe("/experiments");
     expect(legacyEvalHref({ view: "suites", application: "app" })).toBe(
-      "/evals/suites?application=app",
+      "/datasets?application=app",
     );
   });
   it("redirects saved legacy comparison links without losing inspection state", () => {
@@ -28,27 +30,27 @@ describe("eval navigation", () => {
         change: "improved",
       }),
     ).toBe(
-      "/evals/runs/candidate/compare?case=job%3A1&change=improved&baseline=baseline",
+      "/experiments/runs/candidate/compare?case=job%3A1&change=improved&baseline=baseline",
     );
   });
   it("redirects legacy case inspections to their own browsable route", () => {
     expect(legacyEvalHref({ run: "candidate", case: "job:2" })).toBe(
-      "/evals/cases/candidate/job/2?case=job%3A2",
+      "/experiments/cases/candidate/job/2?case=job%3A2",
     );
   });
   it("encodes entity identities as individual route segments", () => {
     expect(evalComparisonCaseHref("a/b", "case/a", "b/c")).toBe(
-      "/evals/cases/a%2Fb/case%2Fa/compare?baseline=b%2Fc",
+      "/experiments/cases/a%2Fb/case%2Fa/compare?baseline=b%2Fc",
     );
     expect(evalCaseHref("run", "case/a", 2)).toBe(
-      "/evals/cases/run/case%2Fa/2",
+      "/experiments/cases/run/case%2Fa/2",
     );
-    expect(evalRunHref("a/b")).toBe("/evals/runs/a%2Fb");
+    expect(evalRunHref("a/b")).toBe("/experiments/runs/a%2Fb");
     expect(evalSuiteHref("tenant/a", "suite/b")).toBe(
-      "/evals/suites/tenant%2Fa/suite%2Fb",
+      "/datasets/%5B%22tenant%2Fa%22%2C%22suite%2Fb%22%5D",
     );
     expect(evalCompareHref("a", "b/c")).toBe(
-      "/evals/runs/a/compare?baseline=b%2Fc",
+      "/experiments/runs/a/compare?baseline=b%2Fc",
     );
   });
   it("upgrades inline comparison selections while retaining baseline and filters", () => {
@@ -60,7 +62,7 @@ describe("eval navigation", () => {
         candidateAttempt: "1",
       }),
     ).toBe(
-      "/evals/cases/candidate/case%2Fa/compare?baseline=base&change=incomplete&candidateAttempt=1",
+      "/experiments/cases/candidate/case%2Fa/compare?baseline=base&change=incomplete&candidateAttempt=1",
     );
     expect(
       comparisonSelectionHref("candidate", { baseline: "base" }),
@@ -75,7 +77,7 @@ describe("eval navigation", () => {
       ),
     );
     const url = new URL(href, "http://studio");
-    expect(url.pathname).toBe("/evals/runs/next/compare");
+    expect(url.pathname).toBe("/experiments/runs/next/compare");
     expect(Object.fromEntries(url.searchParams)).toEqual({
       q: "jobs",
       application: "app",
@@ -125,9 +127,29 @@ it.each([
 
 it("encodes evaluation comparison scope with or without a baseline", () => {
   expect(evaluationCompareHref("a/b", undefined, "suite/x")).toBe(
-    "/evals/evaluations/a%2Fb/compare?suiteId=suite%2Fx",
+    "/experiments/a%2Fb/compare?suiteId=suite%2Fx",
   );
   expect(evaluationCompareHref("a", "b/c", "suite/x")).toBe(
-    "/evals/evaluations/a/compare?baseline=b%2Fc&suiteId=suite%2Fx",
+    "/experiments/a/compare?baseline=b%2Fc&suiteId=suite%2Fx",
   );
+});
+
+it("preserves target identity, encoded dataset IDs, and repeated query selections", () => {
+  const identity: [string, string] = ["target/a", "case%2F:suite"];
+  const href = evalSuiteHref(...identity);
+  expect(parseDatasetId(href.slice("/datasets/".length))).toEqual(identity);
+  expect(evalSuiteHref("target", "a:case%2F:suite")).not.toBe(href);
+  expect(
+    legacyEvalDetailHref(["suites", ...identity], {
+      env: "staging",
+      suiteCase: "case/1",
+      selected: ["a", "b"],
+    }),
+  ).toBe(`${href}?env=staging&suiteCase=case%2F1&selected=a&selected=b`);
+  expect(parseDatasetId("malformed")).toBeNull();
+  expect(
+    legacyEvalDetailHref(["evaluations", "experiment", "compare"], {
+      baseline: "baseline",
+    }),
+  ).toBe("/experiments/experiment/compare?baseline=baseline");
 });

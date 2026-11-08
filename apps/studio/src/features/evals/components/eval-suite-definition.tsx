@@ -398,7 +398,7 @@ export function EvalSuiteDefinition({
         />
       ))}
       <div className="border-t pt-4">
-        <EvalDisclosure scope={`${scope}-raw`} label="Raw suite definition">
+        <EvalDisclosure scope={`${scope}-raw`} label="Raw dataset definition">
           <EvalPayloadViewer
             scope={`${scope}-raw`}
             value={suite}

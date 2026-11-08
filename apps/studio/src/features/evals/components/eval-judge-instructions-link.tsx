@@ -25,7 +25,7 @@ export function EvalJudgeInstructionsLink({
     <Button variant="outline" size="sm" asChild>
       <DetailLink
         data-eval-judge-link
-        href={`/evals/judges/${source}/${encodeURIComponent(id)}?${query}`}
+        href={`/experiments/judges/${source}/${encodeURIComponent(id)}?${query}`}
         onClick={() =>
           studioFeature("studio.inspect", {
             surface: "evals",

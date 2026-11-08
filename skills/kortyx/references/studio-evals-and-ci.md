@@ -199,9 +199,12 @@ ordinary Studio-triggered runs do not need it or give the consumer a Studio key.
 
 ## Browser and CLI operations
 
-Open `/evals/suites`, choose an application/suite and run selected cases with the
-chosen judge, repetitions and concurrency. `/evals/runs` stores history; suite,
-run, case and comparison details have shareable routes and stacked drawers.
+Open **Datasets** (`/datasets`), choose a code-managed dataset, and use
+**Run experiment** to select cases, judge, repetitions and concurrency. **Experiments**
+(`/experiments`) shows saved history, case results and comparisons. Studio displays
+SDK suites as datasets. Legacy `/evals` bookmarks redirect with their selections.
+SDK suite exports, CLI commands, and application eval endpoint contracts keep
+their existing names.
 Inspect interaction type, emitted evidence, grade reasons, errors and judge
 identity. `ungraded` means awaiting evaluation, not passed.
 
@@ -441,7 +444,7 @@ see every suite and its live progress, then open a suite to inspect cases and
 assessment/trace evidence. Older suite runs remain visible with their original
 links. Suites remains the definition/history view.
 
-The **Run evaluations** drawer offers All suites or Selected suites. Launching
+The **Run experiment** drawer offers All datasets or Selected datasets. Launching
 from a suite page preselects and expands that suite. Expand any selected suite to
 choose its conversations independently. Suite checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
@@ -522,7 +525,7 @@ Example post-deployment job step (after readiness):
     eval_exit=$?
     if jq -e '.run' eval-results.json >/dev/null 2>&1; then
       jq -r '"Evaluation: \(.run.name) — \(.run.status)\nSuites: \(.run.completedSuites)/\(.run.suiteCount)\nPassed: \(.run.counts.passed), failed: \(.run.counts.failed), errors: \(.run.counts.error)"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
-      jq -r '"[Open evaluation](https://studio.example.com/evals/evaluations/\(.run.id))"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
+      jq -r '"[Open evaluation](https://studio.example.com/experiments/\(.run.id))"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
     fi
     exit "$eval_exit"
 ```
@@ -765,13 +768,13 @@ Studio and CLI results; see the conversation-evals reference for authoring.
 
 ## Inspect results in Studio
 
-Open Evals → Runs and select an evaluation. All conversations shows one table
+Open Experiments and select a saved run. All conversations shows one table
 across suites; selecting a suite filters it and All conversations clears that
 filter. Rows stay distinct by suite-run and case ID. Results group all repetitions
 into one conversation row. The platform drawer has a
 Repetition dropdown for individual inputs, outputs, assessments, execution links,
 and cost. Repetitions run every selected case N times, including passes; they
-are not failure retries. Suite details opens the saved Definition and Configuration in a platform drawer.
+are not failure retries. Dataset details opens the saved Definition and Configuration in a platform drawer.
 Changes columns compare suites/cases by identity with the latest earlier completed
 run of the same application and environment in recent history. The reference is
 explicit; Comparison baseline chooses another. Click a change or the run-list comparison
@@ -790,7 +793,7 @@ attributing a pass-rate difference to a prompt or application change.
 
 ### Browse definitions and inspect evidence
 
-Evals → Suites opens a suite workspace with a searchable conversation table.
+Datasets opens a dataset workspace with a searchable conversation table.
 Select one conversation to inspect its current definition in a platform drawer;
 the step selector and Previous/Next controls keep the table context. Suite and
 conversation IDs remain shareable, including the selected definition step.
@@ -835,7 +838,7 @@ connectivity. An unsupported server produces an explicit compatibility error;
 readers never fall back to downloading a complete evaluation.
 
 ```bash
-kortyx studio inspect https://studio.example/evals/evaluations/EVALUATION_ID --connection staging --json
+kortyx studio inspect https://studio.example/experiments/EVALUATION_ID --connection staging --json
 kortyx studio evals attempts EVALUATION_ID --status error --limit 25 --connection staging --json
 kortyx studio evals attempts EVALUATION_ID --status failed --limit 25 --connection staging --json
 kortyx studio evals turn EVALUATION_ID --suite SUITE_RUN_ID --case CASE_ID --repetition 1 --turn 0 --connection staging --json

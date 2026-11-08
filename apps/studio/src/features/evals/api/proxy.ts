@@ -7,6 +7,7 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { studioAuth } from "@studio/auth";
 import { readBoundedJson } from "@/lib/read-bounded-json";
+import { fetchEvalApi } from "./upstream";
 
 export async function proxyEvalRequest(request: Request, parts: string[]) {
   const denial = await studioAuth.authorize(request);
@@ -49,8 +50,9 @@ export async function proxyEvalRequest(request: Request, parts: string[]) {
   if (body && body.length > 16_384)
     return Response.json({ error: "Request too large." }, { status: 413 });
   try {
-    const response = await fetch(
-      `${url.replace(/\/$/, "")}/v1/studio/evals/${path}${new URL(request.url).search}`,
+    const response = await fetchEvalApi(
+      url,
+      `${path}${new URL(request.url).search}`,
       {
         method: request.method,
         headers: {

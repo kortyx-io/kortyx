@@ -1,13 +1,14 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { expect, test } from "@playwright/test";
+import { evalSuiteHref } from "../src/features/evals/lib/navigation";
 
-const suite = `/sample/evals/suites/${sample.targetId}/${sample.suiteId}`;
-const evaluation = `/sample/evals/evaluations/${sample.evaluationId}`;
+const suite = `/sample${evalSuiteHref(sample.targetId, sample.suiteId)}`;
+const evaluation = `/sample/experiments/${sample.evaluationId}`;
 
 test("suite browsing uses one searchable table and one URL-backed definition inspector", async ({
   page,
 }) => {
-  await page.goto("/sample/evals/suites?q=Support");
+  await page.goto("/sample/datasets?q=Support");
   await page
     .getByRole("link", { name: "Support quality", exact: true })
     .click();
@@ -54,10 +55,10 @@ test("suite browsing uses one searchable table and one URL-backed definition ins
     .getByRole("button", { name: "Close conversation definition" })
     .click();
   await expect(page.locator("[data-row-key]")).toHaveCount(1);
-  await page.getByRole("button", { name: "Suites", exact: true }).click();
+  await page.getByRole("button", { name: "Datasets", exact: true }).click();
   await expect(page).toHaveURL(
     (url) =>
-      url.pathname === "/sample/evals/suites" &&
+      url.pathname === "/sample/datasets" &&
       url.searchParams.get("q") === "Support",
   );
 });
@@ -67,13 +68,13 @@ test("saved suite context explains its snapshot and settings without reprinting 
 }) => {
   await page.goto(`${evaluation}?suiteRun=${sample.evalRunId}`);
   await expect(
-    page.getByRole("button", { name: "Suite details", exact: true }),
+    page.getByRole("button", { name: "Dataset details", exact: true }),
   ).toHaveCount(0);
   const detailsUrl = new URL(page.url());
   detailsUrl.searchParams.set("evalTab", "definition");
   await page.goto(detailsUrl.toString());
   const drawer = page.getByRole("dialog", {
-    name: "Suite details",
+    name: "Dataset details",
     exact: true,
   });
   await expect(
@@ -138,7 +139,7 @@ test("conversation results lead with selected metrics and assessment, with steps
 test("comparison aligns assessments and messages, shares step selection and retains repetition costs", async ({
   page,
 }) => {
-  await page.goto("/sample/evals/runs");
+  await page.goto("/sample/experiments");
   await page
     .getByRole("button", {
       name: "Inspect changes for Support quality — recorded sample",

@@ -52,7 +52,6 @@ export function registerEvalRoutes(
 ) {
   app.use("/v1/studio/evals/settings", bodyLimit({ maxSize: 16_384 }));
   registerEvalSettingsRoutes(app);
-  registerEvaluationRoutes(app, targets, studioJudge, adapter);
   app.get("/v1/studio/evals/inspection/capabilities", (c) =>
     c.json({
       inspectionVersion: 1,
@@ -83,12 +82,21 @@ export function registerEvalRoutes(
   const manifestFor = adapter
     ? (target: EvalTarget) => adapter.manifest(target)
     : fetchEvalManifest;
-  app.use("/v1/studio/evals/runs", bodyLimit({ maxSize: 16_384 }));
-  app.use("/v1/studio/evals/runs/*", bodyLimit({ maxSize: 16_384 }));
-  app.get("/v1/studio/evals/capabilities", async (c) =>
-    c.json({ canRun: await canApiAction(c, "eval:run") }),
+  const runPaths = (suffix = "") => [
+    `/v1/studio/experiments/runs${suffix}`,
+    `/v1/studio/evals/runs${suffix}`,
+  ];
+  for (const path of runPaths()) {
+    app.use(path, bodyLimit({ maxSize: 16_384 }));
+    app.use(`${path}/*`, bodyLimit({ maxSize: 16_384 }));
+  }
+  app.on(
+    "GET",
+    ["/v1/studio/experiments/capabilities", "/v1/studio/evals/capabilities"],
+    async (c) => c.json({ canRun: await canApiAction(c, "eval:run") }),
   );
-  app.get("/v1/studio/evals/targets", async (c) => {
+  const datasetPaths = ["/v1/studio/datasets", "/v1/studio/evals/targets"];
+  app.on("GET", datasetPaths, async (c) => {
     const current = currentStudioReadContract(
       c.req.header("x-kortyx-studio-api-version"),
     );
@@ -177,7 +185,7 @@ export function registerEvalRoutes(
         : null,
     });
   });
-  app.get("/v1/studio/evals/runs", async (c) =>
+  app.on("GET", runPaths(), async (c) =>
     c.json({
       runs: await c.get("withTenantDatabase")((db) =>
         listEvalRuns(
@@ -188,7 +196,7 @@ export function registerEvalRoutes(
       ),
     }),
   );
-  app.get("/v1/studio/evals/runs/:id", async (c) => {
+  app.on("GET", runPaths("/:id"), async (c) => {
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid eval ID." }, 400);
     return c.json({
@@ -197,7 +205,7 @@ export function registerEvalRoutes(
       ),
     });
   });
-  app.get("/v1/studio/evals/runs/:id/live", async (c) => {
+  app.on("GET", runPaths("/:id/live"), async (c) => {
     c.header("Cache-Control", "no-store");
     const id = z.uuid().safeParse(c.req.param("id"));
     const after = c.req.query("after");
@@ -218,7 +226,7 @@ export function registerEvalRoutes(
       ),
     });
   });
-  app.get("/v1/studio/evals/runs/:id/case", async (c) => {
+  app.on("GET", runPaths("/:id/case"), async (c) => {
     c.header("Cache-Control", "no-store");
     const parsed = z
       .object({
@@ -238,7 +246,7 @@ export function registerEvalRoutes(
       ),
     });
   });
-  app.post("/v1/studio/evals/runs", async (c) => {
+  app.on("POST", runPaths(), async (c) => {
     const auth = c.get("principal");
     await requireApiAction(c, "eval:run");
     const parsed = StudioEvalStartRequestSchema.safeParse(
@@ -405,7 +413,7 @@ export function registerEvalRoutes(
     );
     return c.json({ id: run.id }, 202);
   });
-  app.post("/v1/studio/evals/runs/:id/cancel", async (c) => {
+  app.on("POST", runPaths("/:id/cancel"), async (c) => {
     const auth = c.get("principal");
     await requireApiAction(c, "eval:run");
     const id = z.uuid().safeParse(c.req.param("id"));
@@ -417,4 +425,6 @@ export function registerEvalRoutes(
       );
     return c.json({ ok: true });
   });
+  // Static run and capability paths take precedence over experiment IDs.
+  registerEvaluationRoutes(app, targets, studioJudge, adapter);
 }

@@ -105,12 +105,12 @@ export function EvalConversationTable({
       ? [
           {
             key: "suite",
-            label: "Suite",
+            label: "Dataset",
             defaultWidth: 180,
             cellTitle: (row: ConversationTableRow) => row.suiteName,
             filter: columnFilter(
               "suite",
-              "Suite",
+              "Dataset",
               "text",
               (row: ConversationTableRow) => row.suiteName,
             ),

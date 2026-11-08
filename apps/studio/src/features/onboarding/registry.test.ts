@@ -25,7 +25,7 @@ it("keeps identities unique and destinations restricted to supported sample read
     for (const step of chapter.steps) {
       const { href, target } = resolveView(step.view);
       expect(href).toMatch(
-        /^\/(runs|sessions|workflows|interrupts|prompts|evals|settings|diagnostics)(\/|$|\?)/,
+        /^\/(runs|sessions|workflows|interrupts|prompts|datasets|experiments|settings|diagnostics)(\/|$|\?)/,
       );
       expect(target).not.toContain("nth-child");
       expect(step.content.length).toBeLessThan(400);

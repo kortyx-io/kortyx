@@ -87,7 +87,7 @@ export function EvalRunDetail({
       <EvalDetailHeader
         title={run.suite.name ?? displayName(run.suiteId)}
         description={`${run.targetName} · ${run.environment} · ${formatDateTime(run.createdAt)}`}
-        backLabel={run.evaluationId ? "Evaluation run" : "Run history"}
+        backLabel={run.evaluationId ? "Experiment" : "Run history"}
         onBack={onBack}
         actions={
           <>
@@ -203,7 +203,7 @@ export function EvalRunConfiguration({
       >
         <dl>
           <KeyValue label="Run ID">{run.id}</KeyValue>
-          <KeyValue label="Suite revision">{run.suiteRevision}</KeyValue>
+          <KeyValue label="Dataset revision">{run.suiteRevision}</KeyValue>
           <KeyValue label="Started">
             {run.startedAt ? formatDateTime(run.startedAt) : "Not started"}
           </KeyValue>

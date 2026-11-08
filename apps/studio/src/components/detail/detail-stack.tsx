@@ -45,9 +45,9 @@ const DETAIL_BASE_PATHS = [
   "/sessions",
   "/runs",
   "/interrupts",
-  "/evals/cases",
-  "/evals/judges",
-  "/evals/suites",
+  "/experiments/cases",
+  "/experiments/judges",
+  "/datasets",
   "/prompts",
 ] as const;
 

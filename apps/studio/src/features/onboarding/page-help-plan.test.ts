@@ -23,7 +23,7 @@ it("explains the comparison modal instead of the table underneath without readin
     '<header data-page-help="comparison-context">private run name</header><div data-comparison-side="Earlier">private answer</div><div data-comparison-side="This run">private answer</div><footer data-page-help="comparison-navigation"></footer>';
   document.body.append(modal);
   const result = createPageHelpPlan(
-    new URL("https://studio.example/sample/evals/runs"),
+    new URL("https://studio.example/sample/experiments"),
   );
   expect(result.id).toBe("eval-case-comparison");
   expect(result.steps).toHaveLength(4);
@@ -135,15 +135,15 @@ it("covers every primary Studio route and retains help for extension pages", () 
     "/prompts/groups": "prompt-groups",
     "/prompts/groups/id": "prompt-group",
     "/evals": "evals",
-    "/evals/runs": "evals",
-    "/evals/runs/id": "eval-run",
-    "/evals/evaluations/id": "evaluation",
-    "/evals/suites": "eval-suites",
-    "/evals/suites/target/suite": "eval-suite",
-    "/evals/runs/id/compare": "eval-comparison",
-    "/evals/evaluations/id/compare": "eval-comparison",
-    "/evals/cases/run/case/1": "eval-case",
-    "/evals/cases/run/case/compare": "eval-case-comparison",
+    "/experiments": "evals",
+    "/experiments/runs/id": "eval-run",
+    "/experiments/id": "evaluation",
+    "/datasets": "eval-suites",
+    "/datasets/dataset-id": "eval-suite",
+    "/experiments/runs/id/compare": "eval-comparison",
+    "/experiments/id/compare": "eval-comparison",
+    "/experiments/cases/run/case/1": "eval-case",
+    "/experiments/cases/run/case/compare": "eval-case-comparison",
     "/diagnostics/id": "diagnostic",
     "/settings": "settings",
     "/settings/members": "settings",
@@ -173,7 +173,7 @@ it("gets to selected evidence without teaching generic table or tab controls aga
 
 it("retains domain help for related records on detail pages without tab panels", () => {
   const result = plan(
-    "/sample/evals/evaluations/current",
+    "/sample/experiments/current",
     `<header data-tour-surface="eval-summary"></header><div data-table-controls="evaluation-conversations"></div><table><tr data-row-key="private-suite"><td>Private suite</td></tr></table>`,
   );
   expect(result.steps.map((step) => step.id)).toEqual(["overview", "content"]);
@@ -215,7 +215,7 @@ it("explains the actual selected tab and missing prompt evidence without reading
     ["sessions/id", "state", "State shows"],
     ["sessions/id", "metadata", "Metadata shows"],
     ["interrupts/id", "payload", "Payload shows"],
-    ["evals/cases/run/case/compare", "candidate", "baseline is hidden"],
+    ["experiments/cases/run/case/compare", "candidate", "baseline is hidden"],
   ]) {
     const result = plan(
       `/sample/${route}`,
@@ -280,7 +280,7 @@ it("uses authored setup help and rejects untrusted documentation destinations", 
 
 it("explains the conversation results inside the evaluation workspace", () => {
   const result = plan(
-    "/evals/evaluations/id?suiteRun=suite&evalTab=cases",
+    "/experiments/id?suiteRun=suite&evalTab=cases",
     `<header data-page-help="header"></header><div data-eval-run-id="suite"><button data-page-help="suite-details"></button><div data-detail-tab-content="cases" aria-hidden="false"><table><tbody><tr data-row-key="case"><td>private</td></tr></tbody></table></div></div>`,
   );
   expect(result.id).toBe("eval-run");
@@ -295,7 +295,7 @@ it("explains suite details in the open inspector instead of the results undernea
   document.body.innerHTML = `<main data-studio-page="true"><div data-eval-run-id="suite"><div data-detail-tab-content="cases" aria-hidden="false"></div></div></main><section data-detail-inspector data-state="open"><section data-suite-details-section="context" data-detail-tab-content="context" aria-hidden="false"><h3 data-page-help="header">Configuration</h3><dl data-guide-focus="eval-configuration"><dt>Run ID</dt><dd>private-id</dd></dl></section></section>`;
   const result = createPageHelpPlan(
     new URL(
-      "https://studio.example/evals/evaluations/id?suiteRun=suite&evalTab=context",
+      "https://studio.example/experiments/id?suiteRun=suite&evalTab=context",
     ),
   );
   const inspector = document.querySelector("[data-detail-inspector]");
@@ -309,7 +309,7 @@ it("explains suite details in the open inspector instead of the results undernea
 
 it("explains the instruction reader without reading instruction content", () => {
   const result = plan(
-    "/sample/evals/judges/target/app?suiteId=suite",
+    "/sample/experiments/judges/target/app?suiteId=suite",
     '<section data-judge-instructions><header data-judge-instructions-context>private judge</header><input type="search" /><article aria-label="Judge instruction text">private instructions</article></section>',
   );
   expect(result.title).toBe("Judge instructions");

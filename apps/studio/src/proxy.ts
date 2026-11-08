@@ -70,7 +70,7 @@ export async function proxy(request: NextRequest): Promise<Response> {
   if (sample) {
     const path = samplePath(request.nextUrl.pathname);
     if (
-      !/^\/(runs|sessions|workflows|interrupts|evals|prompts|settings|diagnostics)(\/|$)/.test(
+      !/^\/(runs|sessions|workflows|interrupts|datasets|experiments|evals|prompts|settings|diagnostics)(\/|$)/.test(
         path,
       )
     )

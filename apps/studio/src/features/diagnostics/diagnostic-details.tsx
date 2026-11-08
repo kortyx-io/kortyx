@@ -271,7 +271,7 @@ function DiagnosticContext({
                 ) : ["evaluationId", "suiteRunId"].includes(key) ? (
                   <Link
                     className="hover:underline"
-                    href={`${key === "evaluationId" ? "/evals/evaluations" : "/evals/runs"}/${encodeURIComponent(value)}?env=${encodeURIComponent(manifest.environment)}`}
+                    href={`${key === "evaluationId" ? "/experiments" : "/experiments/runs"}/${encodeURIComponent(value)}?env=${encodeURIComponent(manifest.environment)}`}
                   >
                     {value}
                   </Link>

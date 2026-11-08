@@ -89,7 +89,7 @@ export function EvalListSkeleton({ view }: { view: "runs" | "suites" }) {
           ...runs.slice(4),
         ]
       : [
-          { key: "suite", label: "Suite", defaultWidth: 310 },
+          { key: "suite", label: "Dataset", defaultWidth: 310 },
           { key: "application", label: "Application", defaultWidth: 240 },
           { key: "cases", label: "Conversations", defaultWidth: 130 },
           { key: "latest", label: "Latest run", defaultWidth: 150 },
@@ -113,24 +113,24 @@ export function EvalListSkeleton({ view }: { view: "runs" | "suites" }) {
       searchPlaceholder={
         view === "runs"
           ? "Search runs, commits or environments…"
-          : "Search suites…"
+          : "Search datasets…"
       }
       tableId={view === "runs" ? "evaluations" : "eval-suites"}
       columns={columns}
       header={
         <TablePageHeader
-          help={studioHelp.evals}
-          title={view === "runs" ? "Evaluation runs" : "Evaluation suites"}
+          help={view === "runs" ? studioHelp.evals : studioHelp.datasets}
+          title={view === "runs" ? "Experiments" : "Datasets"}
           description={
             view === "runs"
-              ? "Results, costs and changes across saved evaluation runs"
-              : "Browse suites and their conversation definitions"
+              ? "Results, costs and changes across saved experiments"
+              : "Browse code-managed datasets and their conversation definitions"
           }
           actions={
             <div className="flex items-center gap-2">
-              <Skeleton className="h-8 w-12" />
               <Skeleton className="size-8" />
               <Skeleton className="h-8 w-36" />
+              <Skeleton className="h-8 w-12" />
             </div>
           }
         />
@@ -176,10 +176,10 @@ function SuiteRailSkeleton({ comparison = false }: { comparison?: boolean }) {
   return (
     <EvalSuiteNavigation
       loading
-      overviewLabel={comparison ? "All suites" : "All conversations"}
+      overviewLabel={comparison ? "All datasets" : "All conversations"}
       suites={["suite-a", "suite-b", "suite-c"].map((id) => ({
         id,
-        name: "Loading suite",
+        name: "Loading dataset",
         description: comparison ? undefined : "Loading results",
       }))}
       selected={null}
@@ -192,12 +192,12 @@ export function EvalEvaluationBodySkeleton() {
     <section
       className="flex h-full min-h-0 flex-col"
       aria-busy="true"
-      aria-label="Loading evaluation run"
+      aria-label="Loading experiment"
     >
       <Header>
         <div className="data-table-body-scroll mt-2 flex min-w-0 flex-nowrap gap-0 overflow-x-auto rounded-md border bg-muted/20">
           {[
-            "Suites finished",
+            "Datasets finished",
             "Outcomes",
             "Passed",
             "Failed",
@@ -244,7 +244,7 @@ export function EvalEvaluationBodySkeleton() {
 }
 export function EvalEvaluationPageSkeleton() {
   return (
-    <DetailPage title="Evaluation run" description="Loading">
+    <DetailPage title="Experiment" description="Loading">
       <EvalEvaluationBodySkeleton />
     </DetailPage>
   );
@@ -267,7 +267,7 @@ export function EvalRunBodySkeleton() {
     <section
       className="flex h-full min-h-0 flex-col"
       aria-busy="true"
-      aria-label="Loading suite run"
+      aria-label="Loading dataset run"
     >
       <Header>
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
@@ -290,7 +290,7 @@ export function EvalRunBodySkeleton() {
 }
 export function EvalRunPageSkeleton() {
   return (
-    <DetailPage title="Suite run" description="Loading">
+    <DetailPage title="Dataset execution" description="Loading">
       <EvalRunBodySkeleton />
     </DetailPage>
   );
@@ -331,7 +331,7 @@ export function EvalCasePageSkeleton() {
 export function EvalCaseDrawerSkeleton() {
   return (
     <DetailDrawerLoading
-      basePath="/evals/cases"
+      basePath="/experiments/cases"
       title="Conversation result"
       description="Loading conversation"
     >
@@ -392,7 +392,7 @@ export function EvalJudgePageSkeleton() {
 export function EvalJudgeDrawerSkeleton() {
   return (
     <DetailDrawerLoading
-      basePath="/evals/judges"
+      basePath="/experiments/judges"
       title="Judge instructions"
       description="Loading instructions"
     >
@@ -426,12 +426,12 @@ export function EvalComparisonTableSkeleton({
           }
           searchPlaceholder={
             evaluation
-              ? "Search suites or conversations…"
+              ? "Search datasets or conversations…"
               : "Search all columns…"
           }
           columns={[
             ...(evaluation
-              ? [{ key: "suite", label: "Suite", defaultWidth: 180 }]
+              ? [{ key: "suite", label: "Dataset", defaultWidth: 180 }]
               : []),
             {
               key: "case",
@@ -588,7 +588,7 @@ export function EvalComparisonCasePageSkeleton() {
 export function EvalComparisonCaseDrawerSkeleton() {
   return (
     <DetailDrawerLoading
-      basePath="/evals/cases"
+      basePath="/experiments/cases"
       title="Conversation comparison"
       description="Saved run comparison"
     >
@@ -599,7 +599,7 @@ export function EvalComparisonCaseDrawerSkeleton() {
 
 export function EvalLegacyComparisonPageSkeleton() {
   return (
-    <DetailPage title="Compare suite runs" description="Loading">
+    <DetailPage title="Compare dataset executions" description="Loading">
       <div className="flex h-full min-h-0 flex-col">
         <Header>
           <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-md border bg-muted/20 px-3 py-2">

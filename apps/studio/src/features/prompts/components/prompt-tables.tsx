@@ -241,7 +241,7 @@ export function PromptTables({
   const evalColumns = [
     ...createEvaluationColumns((run) =>
       navigate(
-        run.legacy ? `/evals/runs/${run.id}` : `/evals/evaluations/${run.id}`,
+        run.legacy ? `/experiments/runs/${run.id}` : `/experiments/${run.id}`,
       ),
     ),
     {
@@ -381,8 +381,8 @@ export function PromptTables({
           onRowClick={(run, event) =>
             navigate(
               run.legacy
-                ? `/evals/runs/${run.id}`
-                : `/evals/evaluations/${run.id}`,
+                ? `/experiments/runs/${run.id}`
+                : `/experiments/${run.id}`,
               event,
             )
           }

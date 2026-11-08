@@ -212,6 +212,11 @@ export function EvalRunSetup({
     const body = {
       targetId: target.id,
       selection: query.launchScope,
+      ...(all
+        ? { name: "All datasets" }
+        : selected.length > 1
+          ? { name: `${selected.length} selected datasets` }
+          : {}),
       suites: selected.map((item) => ({
         suiteId: item.id,
         suiteRevision: target.revisions[item.id],
@@ -252,7 +257,7 @@ export function EvalRunSetup({
         await close();
         await onStarted();
       } else {
-        router.push(evalNavigationHref(`/evals/evaluations/${run.id}`, search));
+        router.push(evalNavigationHref(`/experiments/${run.id}`, search));
       }
     } catch (cause) {
       setError(
@@ -270,8 +275,8 @@ export function EvalRunSetup({
         launch.current = null;
         close();
       }}
-      title="Run evaluations"
-      description="Run all or selected suites against one application environment."
+      title="Run experiment"
+      description="Run all or selected datasets against one application environment."
       closeLabel="Close run setup"
       bodyClassName="flex flex-col overflow-hidden p-0"
     >
@@ -311,7 +316,7 @@ export function EvalRunSetup({
         {query.launchRerun ? (
           <p className="text-sm text-muted-foreground">
             Failed and errored cases are selected once each. This creates a new
-            run using current deployed suite definitions and the prompt source
+            run using current deployed dataset definitions and the prompt source
             selected below (Live prompts by default). It does not replay the
             original application or data state. Review the cases, judge and
             execution settings before launching; tools will execute again.
@@ -473,7 +478,7 @@ export function EvalRunSetup({
           </p>
         ) : null}
         <fieldset disabled={working} className="space-y-2">
-          <legend className="mb-2 text-xs font-medium">Suites</legend>
+          <legend className="mb-2 text-xs font-medium">Datasets</legend>
           <div className="flex gap-4 text-sm">
             {(["all", "selected"] as const).map((value) => (
               <label key={value} className="flex items-center gap-2">
@@ -487,8 +492,8 @@ export function EvalRunSetup({
                   }}
                 />
                 {value === "all"
-                  ? `All suites (${available.length})`
-                  : "Selected suites"}
+                  ? `All datasets (${available.length})`
+                  : "Selected datasets"}
               </label>
             ))}
           </div>
@@ -512,7 +517,7 @@ export function EvalRunSetup({
             ))
           ) : (
             <p className="text-xs text-muted-foreground">
-              Every registered suite runs all its conversations.
+              Every registered dataset runs all its conversations.
             </p>
           )}
         </fieldset>
@@ -555,7 +560,7 @@ export function EvalRunSetup({
                 label: "App judge",
                 disabled: !appJudge,
                 description: !appJudge
-                  ? "No App judge configured for one or more selected suites."
+                  ? "No App judge configured for one or more selected datasets."
                   : undefined,
               },
             ]}
@@ -568,7 +573,7 @@ export function EvalRunSetup({
             {judge === "app"
               ? appJudge
                 ? appJudgeDescription
-                : "No App judge configured for one or more selected suites."
+                : "No App judge configured for one or more selected datasets."
               : judge === "studio"
                 ? studioAvailable
                   ? `${targets.studioJudge?.id} · ${targets.studioJudge?.version}`
@@ -638,8 +643,8 @@ export function EvalRunSetup({
           </div>
         </details>
         <p className="text-xs text-muted-foreground">
-          Up to 100 conversation executions per suite and 1,000 per evaluation,
-          including all repetitions.
+          Up to 100 conversation executions per dataset and 1,000 per
+          evaluation, including all repetitions.
         </p>
         {!valid && selected.length > 0 ? (
           <output className="block text-xs text-muted-foreground">
@@ -656,7 +661,7 @@ export function EvalRunSetup({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t p-5">
         <p className="text-xs text-muted-foreground">
-          {selected.length} suites · {count} conversations ·{" "}
+          {selected.length} datasets · {count} conversations ·{" "}
           {Number.isFinite(total) ? total : "—"} executions
         </p>
         <Button
@@ -664,7 +669,7 @@ export function EvalRunSetup({
           onClick={() => void onRun()}
         >
           <Play />
-          {working ? "Starting…" : "Run evaluations"}
+          {working ? "Starting…" : "Run experiment"}
         </Button>
       </div>
     </DetailInspectorDrawer>

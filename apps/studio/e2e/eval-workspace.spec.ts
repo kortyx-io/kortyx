@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 import postgres from "postgres";
 import { EVAL_FIXTURE } from "./support/eval-plan";
 
-const evaluationPath = `/sample/evals/evaluations/${sample.evaluationId}`;
+const evaluationPath = `/sample/experiments/${sample.evaluationId}`;
 test("keeps suite context, previews its table facts, and opens conversation evidence in a platform drawer", async ({
   page,
 }, testInfo) => {
@@ -26,7 +26,7 @@ test("keeps suite context, previews its table facts, and opens conversation evid
     page.getByRole("button", { name: "All conversations", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   const navigation = page.getByRole("navigation", {
-    name: "Evaluation suites",
+    name: "Experiment datasets",
   });
   const suite = navigation.getByRole("button", { name: /^Support quality / });
   await suite.hover();
@@ -87,7 +87,7 @@ test("keeps suite context, previews its table facts, and opens conversation evid
   ).toBeVisible();
   await expect(
     page
-      .getByRole("navigation", { name: "Evaluation suites" })
+      .getByRole("navigation", { name: "Experiment datasets" })
       .locator('[data-status="passed"]')
       .first(),
   ).toBeVisible();
@@ -120,7 +120,7 @@ test("keeps suite context, previews its table facts, and opens conversation evid
     .getByRole("link", { name: "Shipment status and a follow-up", exact: true })
     .click();
   const drawer = page.locator(
-    `[data-detail-drawer="/evals/cases/${sample.evalRunId}/${sample.caseId}/1"]`,
+    `[data-detail-drawer="/experiments/cases/${sample.evalRunId}/${sample.caseId}/1"]`,
   );
   await expect(drawer).toHaveAttribute("data-state", "open");
   await expect(
@@ -147,13 +147,13 @@ test("keeps suite context, previews its table facts, and opens conversation evid
   expect(fullReads).toBe(0);
   await expect(page.locator('[data-page-help="tabs"]')).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Suite details", exact: true }),
+    page.getByRole("button", { name: "Dataset details", exact: true }),
   ).toHaveCount(0);
   const detailsUrl = new URL(page.url());
   detailsUrl.searchParams.set("evalTab", "definition");
   await page.goto(detailsUrl.toString());
   const details = page.getByRole("dialog", {
-    name: "Suite details",
+    name: "Dataset details",
     exact: true,
   });
   await expect(details).toBeVisible();
@@ -173,7 +173,7 @@ test("keeps suite context, previews its table facts, and opens conversation evid
   await page.reload();
   await expect(details).toBeVisible();
   await details
-    .getByRole("button", { name: "Close suite details", exact: true })
+    .getByRole("button", { name: "Close dataset details", exact: true })
     .click();
   await expect(details).toHaveCount(0);
   await expect(page.locator("[data-row-key]")).toHaveCount(3);
@@ -210,7 +210,7 @@ test("compares saved evaluations across suites and restores comparison after clo
     .getByRole("link", { name: "Shipment status and a follow-up", exact: true })
     .click();
   const drawer = page.locator(
-    `[data-detail-drawer="/evals/cases/${sample.evalRunId}/${sample.caseId}/compare"]`,
+    `[data-detail-drawer="/experiments/cases/${sample.evalRunId}/${sample.caseId}/compare"]`,
   );
   await expect(drawer).toHaveAttribute("data-state", "open");
   await expect(
@@ -232,7 +232,7 @@ test("compares saved evaluations across suites and restores comparison after clo
 test("groups mixed repetitions in one row and restores individual evidence on reload", async ({
   page,
 }, testInfo) => {
-  await page.goto(`/evals/runs/${EVAL_FIXTURE.repeatedCandidate}`);
+  await page.goto(`/experiments/runs/${EVAL_FIXTURE.repeatedCandidate}`);
   await expect(page.locator("[data-row-key]")).toHaveCount(1);
   await expect(page.locator('[data-row-key="repeated-role"]')).toContainText(
     "Mixed results",
@@ -272,7 +272,7 @@ test("keeps suite navigation and conversation drawers usable on a narrow screen"
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${evaluationPath}?suiteRun=${sample.evalRunId}`);
   await expect(
-    page.getByRole("navigation", { name: "Evaluation suites" }),
+    page.getByRole("navigation", { name: "Experiment datasets" }),
   ).toBeVisible();
   const conversation = page.getByRole("link", {
     name: "Shipment status and a follow-up",
@@ -322,7 +322,7 @@ test("filters one conversation table across suites and restores All conversation
     .filter({ has: page.locator("[data-row-key]") })
     .elementHandle();
   const navigation = page.getByRole("navigation", {
-    name: "Evaluation suites",
+    name: "Experiment datasets",
   });
   const search = page.getByRole("searchbox", {
     name: "Search conversations",
@@ -408,7 +408,7 @@ test("filters one conversation table across suites and restores All conversation
 test("sample consistency runs expose two and three repetitions across two suites", async ({
   page,
 }, testInfo) => {
-  await page.goto("/sample/evals/runs?q=Consistency");
+  await page.goto("/sample/experiments?q=Consistency");
   await page
     .getByRole("button", {
       name: "Consistency check — three repetitions",
@@ -442,7 +442,7 @@ test("sample consistency runs expose two and three repetitions across two suites
   await expect(page.getByRole("menuitemradio")).toHaveCount(3);
   await page.getByRole("menuitemradio", { name: /^Repetition 3/ }).click();
   await expect(drawer).toContainText(/in transit/i);
-  await page.goto("/sample/evals/runs?q=Consistency");
+  await page.goto("/sample/experiments?q=Consistency");
   await page
     .getByRole("button", {
       name: "Consistency check — two repetitions",
@@ -521,7 +521,7 @@ test("inline conversation tables keep a flush filter panel and native full-text 
   page,
 }) => {
   await page.goto(
-    `/sample/evals/evaluations/${sample.evaluationId}?suiteRun=${sample.evalRunId}`,
+    `/sample/experiments/${sample.evaluationId}?suiteRun=${sample.evalRunId}`,
   );
   const table = page
     .locator('[data-table-controls="evaluation-conversations"]')
@@ -550,7 +550,7 @@ test("inline conversation tables keep a flush filter panel and native full-text 
     .first();
   await expect(suiteCell).toHaveAttribute("title", /Support quality/);
   await expect(
-    page.getByRole("button", { name: "Suite details", exact: true }),
+    page.getByRole("button", { name: "Dataset details", exact: true }),
   ).toHaveCount(0);
 });
 
@@ -560,7 +560,7 @@ test("evaluation metrics stay on one scrollable row with and without interrupted
   test.setTimeout(60_000);
   await page.goto(evaluationPath);
   await expect(
-    page.locator('[data-tour-surface="evaluation-metrics"]'),
+    page.locator('[data-tour-surface="evaluation-metrics"]:visible'),
   ).toContainText("Execution settings");
   const sql = postgres(
     process.env.DATABASE_URL ??
@@ -574,13 +574,13 @@ test("evaluation metrics stay on one scrollable row with and without interrupted
     await sql`insert into eval_runs (organization_id,project_id,evaluation_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,requested_by,status,error,started_at,ended_at)
       select organization_id,project_id,${id},environment,'e2e-ktx25-eval',target_name,suite_id,suite_revision,suite,request,'e2e','error','Evaluation interrupted',now(),now() from eval_runs where id=${EVAL_FIXTURE.candidate}`;
     for (const interrupted of [false, true]) {
-      await page.goto(
-        interrupted ? `/evals/evaluations/${id}` : evaluationPath,
+      await page.goto(interrupted ? `/experiments/${id}` : evaluationPath);
+      const metrics = page.locator(
+        '[data-tour-surface="evaluation-metrics"]:visible',
       );
-      const metrics = page.locator('[data-tour-surface="evaluation-metrics"]');
       await expect(metrics).toContainText("Execution settings");
       await expect(
-        metrics.getByText("Suites interrupted", { exact: true }),
+        metrics.getByText("Datasets interrupted", { exact: true }),
       ).toHaveCount(interrupted ? 1 : 0);
       for (const width of [1440, 1000, 480]) {
         await page.setViewportSize({ width, height: 900 });

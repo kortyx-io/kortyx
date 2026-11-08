@@ -100,9 +100,7 @@ async function expectPreferredHelpSide(
 test("opening another header help replaces pinned help and prefers available space above", async ({
   page,
 }) => {
-  await page.goto(
-    "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003",
-  );
+  await page.goto("/sample/experiments/10000000-0000-4000-8000-000000000003");
   const outcome = page
     .locator('th[data-column="status"]')
     .getByRole("button", { name: "About Outcome", exact: true });
@@ -156,7 +154,7 @@ test("opening another header help replaces pinned help and prefers available spa
   await change.click();
   await expect(changeHelp).toBeVisible();
   await page
-    .getByRole("navigation", { name: "Evaluation suites" })
+    .getByRole("navigation", { name: "Experiment datasets" })
     .getByRole("button", { name: /^Support quality / })
     .focus();
   await expect(page.getByRole("tooltip")).toBeVisible();
@@ -230,7 +228,8 @@ test("header help overlays the label without shifting it and preserves sorting",
   await sort.press("Enter");
   await expect(header).toHaveAttribute("aria-sort", "ascending");
   await expect(header).not.toHaveAttribute("data-column-dragging", "true");
-  await sort.press(" ");
+  await expect(page).toHaveURL(/sort=status&dir=asc/);
+  await sort.press("Space");
   await expect(header).toHaveAttribute("aria-sort", "descending");
   await expect(header).not.toHaveAttribute("data-column-dragging", "true");
 
@@ -393,7 +392,13 @@ test("touch help fits a narrow screen and can be dismissed outside", async ({
     .filter({ hasText: /^Status$/ })
     .locator("span")
     .tap();
-  await expect(page).toHaveURL(/sort=status/);
+  await expect(header).toHaveAttribute("aria-sort", "descending");
+  await expect
+    .poll(() => {
+      const query = new URL(page.url()).searchParams;
+      return [query.get("sort"), query.get("dir") ?? "desc"];
+    })
+    .toEqual(["status", "desc"]);
   const sorted = page.url();
   await header.getByRole("button", { name: "About Status", exact: true }).tap();
   expect(page.url()).toBe(sorted);

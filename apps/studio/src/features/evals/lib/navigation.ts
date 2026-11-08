@@ -1,11 +1,11 @@
 export const evalCaseHref = (run: string, caseId: string, repetition: number) =>
-  `/evals/cases/${encodeURIComponent(run)}/${encodeURIComponent(caseId)}/${repetition}`;
+  `/experiments/cases/${encodeURIComponent(run)}/${encodeURIComponent(caseId)}/${repetition}`;
 export const evalComparisonCaseHref = (
   run: string,
   caseId: string,
   baseline: string,
 ) =>
-  `/evals/cases/${encodeURIComponent(run)}/${encodeURIComponent(caseId)}/compare?baseline=${encodeURIComponent(baseline)}`;
+  `/experiments/cases/${encodeURIComponent(run)}/${encodeURIComponent(caseId)}/compare?baseline=${encodeURIComponent(baseline)}`;
 
 /** Upgrade the old inline case selection to the shareable comparison detail. */
 export function comparisonSelectionHref(
@@ -26,9 +26,9 @@ export function comparisonSelectionHref(
   return `${path}?${next}`;
 }
 export const evalRunHref = (id: string) =>
-  `/evals/runs/${encodeURIComponent(id)}`;
+  `/experiments/runs/${encodeURIComponent(id)}`;
 export const evaluationHref = (id: string) =>
-  `/evals/evaluations/${encodeURIComponent(id)}`;
+  `/experiments/${encodeURIComponent(id)}`;
 export function evaluationCompareHref(
   id: string,
   baseline?: string,
@@ -40,8 +40,53 @@ export function evaluationCompareHref(
   if (suiteId) params.set("suiteId", suiteId);
   return `${path}${params.size ? `?${params}` : ""}`;
 }
+/** Consumer dataset IDs are unique within a target, not across a project. */
 export const evalSuiteHref = (target: string, suite: string) =>
-  `/evals/suites/${encodeURIComponent(target)}/${encodeURIComponent(suite)}`;
+  `/datasets/${encodeURIComponent(JSON.stringify([target, suite]))}`;
+
+export function parseDatasetId(segment: string): [string, string] | null {
+  try {
+    const value: unknown = JSON.parse(decodeURIComponent(segment));
+    return Array.isArray(value) &&
+      value.length === 2 &&
+      typeof value[0] === "string" &&
+      typeof value[1] === "string"
+      ? [value[0], value[1]]
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function legacyEvalDetailHref(
+  segments: string[],
+  params: Record<string, string | string[] | undefined>,
+) {
+  const [resource, first, second, third] = segments;
+  let path: string;
+  if (segments.length === 1 && ["runs", "suites", "cases"].includes(resource)) {
+    path = resource === "suites" ? "/datasets" : "/experiments";
+  } else if (resource === "suites" && segments.length === 3) {
+    path = evalSuiteHref(first, second);
+  } else if (
+    (resource === "runs" || resource === "evaluations") &&
+    (segments.length === 2 || (segments.length === 3 && second === "compare"))
+  ) {
+    path = resource === "runs" ? evalRunHref(first) : evaluationHref(first);
+    if (second === "compare") path += "/compare";
+  } else if (resource === "cases" && segments.length === 4) {
+    path = `/experiments/cases/${[first, second, third].map(encodeURIComponent).join("/")}`;
+  } else if (resource === "judges" && segments.length === 3) {
+    path = `/experiments/judges/${encodeURIComponent(first)}/${encodeURIComponent(second)}`;
+  } else {
+    return null;
+  }
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params))
+    for (const item of Array.isArray(value) ? value : [value])
+      if (item !== undefined) query.append(key, item);
+  return `${path}${query.size ? `?${query}` : ""}`;
+}
 export function evalCompareHref(candidate: string, baseline?: string) {
   const path = `${evalRunHref(candidate)}/compare`;
   return baseline ? `${path}?baseline=${encodeURIComponent(baseline)}` : path;
@@ -62,8 +107,8 @@ export function legacyEvalHref(
       ? `${evalRunHref(run)}/compare`
       : evalRunHref(run)
     : params.view === "suites"
-      ? "/evals/suites"
-      : "/evals/runs";
+      ? "/datasets"
+      : "/experiments";
   const caseKey = typeof params.case === "string" ? params.case : undefined;
   if (run && !compare && caseKey) {
     const separator = caseKey.lastIndexOf(":");
@@ -85,6 +130,7 @@ export function evalNavigationHref(
   const next = new URLSearchParams();
   for (const key of [
     "live",
+    "env",
     "q",
     "application",
     "status",

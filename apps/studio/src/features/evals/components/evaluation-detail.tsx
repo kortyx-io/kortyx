@@ -131,8 +131,8 @@ export function EvaluationDetail({
   };
   return (
     <DetailPage
-      title="Evaluation run"
-      description="Suite progress and evaluation results"
+      title="Experiment"
+      description="Dataset progress and evaluation results"
     >
       <div data-evaluation-id={id} className="flex h-full min-h-0 flex-col">
         {error ? (
@@ -158,8 +158,8 @@ export function EvaluationDetail({
               title={run.name}
               help={null}
               description={`${run.targetName} · ${run.environment} · ${run.metadata.source}`}
-              backLabel="Back to evaluation runs"
-              onBack={() => navigate("/evals/runs")}
+              backLabel="Back to experiments"
+              onBack={() => navigate("/experiments")}
               actions={
                 <>
                   <EvalStatus
@@ -226,9 +226,9 @@ export function EvaluationDetail({
                         code: failure.code,
                         message: failure.message,
                         diagnosticId: failure.diagnosticId,
-                        context: `${run.suites.find((suite) => suite.id === failure.suiteRunId)?.suiteName ?? "Suite"} · ${failure.phase}${failure.caseId ? ` · ${failure.caseId} · attempt ${failure.repetition ?? 1}` : ""}`,
+                        context: `${run.suites.find((suite) => suite.id === failure.suiteRunId)?.suiteName ?? "Dataset"} · ${failure.phase}${failure.caseId ? ` · ${failure.caseId} · attempt ${failure.repetition ?? 1}` : ""}`,
                         href: failure.caseId
-                          ? `/evals/cases/${failure.suiteRunId}/${encodeURIComponent(failure.caseId)}/${failure.repetition ?? 1}`
+                          ? `/experiments/cases/${failure.suiteRunId}/${encodeURIComponent(failure.caseId)}/${failure.repetition ?? 1}`
                           : evalRunHref(failure.suiteRunId),
                       }),
                     ),
@@ -239,7 +239,7 @@ export function EvaluationDetail({
                 data-tour-surface="evaluation-metrics"
               >
                 <Metric
-                  label="Suites finished"
+                  label="Datasets finished"
                   value={`${run.completedSuites - (run.interruptedSuites ?? 0)}/${run.suiteCount}`}
                   help={studioHelp.evalResults}
                 />
@@ -265,7 +265,7 @@ export function EvaluationDetail({
                 />
                 {Boolean(run.interruptedSuites) && (
                   <Metric
-                    label="Suites interrupted"
+                    label="Datasets interrupted"
                     value={run.interruptedSuites ?? 0}
                     help={studioHelp.evalResults}
                   />

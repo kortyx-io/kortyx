@@ -422,7 +422,7 @@ export function EvalChangeModal({
 }) {
   const [query, setQuery] = useComparisonQuery();
   const pathname = usePathname();
-  const readingInstructions = pathname.startsWith("/evals/judges/");
+  const readingInstructions = pathname.startsWith("/experiments/judges/");
   const candidateId = query.changeCase
     ? (query.changeRun ?? defaultRunId)
     : undefined;

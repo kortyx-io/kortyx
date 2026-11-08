@@ -1,7 +1,7 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { expect, type Page, test } from "@playwright/test";
 
-const evaluation = `/sample/evals/evaluations/${sample.evaluationId}`;
+const evaluation = `/sample/experiments/${sample.evaluationId}`;
 async function unchangedHeight(page: Page, column: string) {
   const measured = await page.locator("[data-row-key]").evaluateAll(
     (rows, key) =>
@@ -24,7 +24,7 @@ async function unchangedHeight(page: Page, column: string) {
 test("run change counts and icon open a modal without changing row height or selecting runs", async ({
   page,
 }, testInfo) => {
-  await page.goto("/sample/evals/runs");
+  await page.goto("/sample/experiments");
   const row = page.locator("[data-row-key]").filter({
     has: page.getByRole("button", {
       name: "Support quality — recorded sample",
@@ -190,7 +190,7 @@ test("comparison modal remains readable on mobile and repetitions stay independe
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/sample/evals/runs?q=Consistency");
+  await page.goto("/sample/experiments?q=Consistency");
   await page
     .getByRole("button", {
       name: "Consistency check — three repetitions",
@@ -262,13 +262,14 @@ test("comparison modal remains readable on mobile and repetitions stay independe
 test("explained eval headers can be dragged and still open their help", async ({
   page,
 }) => {
-  for (const path of ["/sample/evals/runs", evaluation]) {
+  for (const path of ["/sample/experiments", evaluation]) {
     await page.goto(path);
-    await expect(page.locator("[data-row-key]").first()).toBeVisible();
-    const header = page.locator(
+    const table = page.locator('[data-table-ready="true"][aria-busy="false"]');
+    await expect(table.locator("[data-row-key]").first()).toBeVisible();
+    const header = table.locator(
       `th[data-column="${path === evaluation ? "change" : "changes"}"]`,
     );
-    const before = await page
+    const before = await table
       .locator("th[data-column]")
       .evaluateAll((headers) =>
         headers.map((header) => header.getAttribute("data-column")),
@@ -284,7 +285,7 @@ test("explained eval headers can be dragged and still open their help", async ({
     if (!box) throw new Error("Missing header");
     await page.mouse.move(box.x + 8, box.y + box.height / 2);
     await page.mouse.down();
-    const destination = await page
+    const destination = await table
       .locator(
         `th[data-column="${path === evaluation ? "status" : "results"}"]`,
       )
@@ -299,7 +300,7 @@ test("explained eval headers can be dragged and still open their help", async ({
     await page.mouse.up();
     await expect
       .poll(() =>
-        page
+        table
           .locator("th[data-column]")
           .evaluateAll((headers) =>
             headers.map((header) => header.getAttribute("data-column")),
@@ -324,7 +325,7 @@ test("explained eval headers can be dragged and still open their help", async ({
 test("modal changes its baseline, keeps the conversation and recovers from a failed comparison", async ({
   page,
 }, testInfo) => {
-  await page.goto("/sample/evals/runs?q=Consistency");
+  await page.goto("/sample/experiments?q=Consistency");
   await page
     .getByRole("button", {
       name: "Consistency check — three repetitions",
@@ -426,9 +427,9 @@ test("the runs table loads before background comparisons finish", async ({
     await route.continue();
   });
   try {
-    await page.goto("/sample/evals/runs", { waitUntil: "domcontentloaded" });
+    await page.goto("/sample/experiments", { waitUntil: "domcontentloaded" });
     await expect(
-      page.getByRole("heading", { name: "Evaluation runs", exact: true }),
+      page.getByRole("heading", { name: "Experiments", exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", {

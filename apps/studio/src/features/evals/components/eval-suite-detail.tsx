@@ -176,7 +176,7 @@ export function EvalSuiteDetail({
             <EvalDetailHeader
               title={suite.name ?? displayName(suite.id)}
               description={`${target.name} · ${target.environment} · ${suite.cases.length} conversations`}
-              backLabel="Suites"
+              backLabel="Datasets"
               onBack={onBack}
               actions={
                 <Button
@@ -185,7 +185,7 @@ export function EvalSuiteDetail({
                   onClick={onRun}
                 >
                   <Play />
-                  Run suite
+                  Run experiment
                 </Button>
               }
             />

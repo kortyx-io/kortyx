@@ -4,6 +4,7 @@ import type { StudioShellContribution } from "@studio/shell-contracts";
 import {
   Activity,
   CirclePause,
+  Database,
   FileText,
   FlaskConical,
   MessageSquare,
@@ -41,7 +42,10 @@ const navSections = [
   },
   {
     title: "Evaluate",
-    items: [{ title: "Evals", url: "/evals/runs", icon: FlaskConical }],
+    items: [
+      { title: "Datasets", url: "/datasets", icon: Database },
+      { title: "Experiments", url: "/experiments", icon: FlaskConical },
+    ],
   },
   {
     title: "Prompt Management",
@@ -109,9 +113,7 @@ export function AppSidebar({
                       tooltip={item.title}
                       isActive={
                         pathname === item.url ||
-                        pathname.startsWith(`${item.url}/`) ||
-                        (item.title === "Evals" &&
-                          pathname.startsWith("/evals/"))
+                        pathname.startsWith(`${item.url}/`)
                       }
                     >
                       <Link

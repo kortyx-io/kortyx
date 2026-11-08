@@ -55,3 +55,14 @@ it("keeps project links, detail routes and settings in explicit scope", () => {
     studioHref("/runs", scope),
   );
 });
+
+it.each([
+  "/datasets/example",
+  "/experiments/example/compare?baseline=previous",
+])("keeps project and sample scope on %s", (href) => {
+  const projectPublicId = "prj_0123456789abcdef01234567";
+  expect(studioHref(href, { projectPublicId })).toBe(
+    `/projects/${projectPublicId}${href}`,
+  );
+  expect(studioHref(href, { sampleProject: true })).toBe(`/sample${href}`);
+});

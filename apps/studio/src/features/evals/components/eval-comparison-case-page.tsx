@@ -57,7 +57,7 @@ export async function EvalComparisonCasePage({
       matchPath={
         evalComparisonCaseHref(evalRunId, caseId, baselineId).split("?", 1)[0]
       }
-      dismissPath="/evals/cases"
+      dismissPath="/experiments/cases"
       title={row.name}
       description="Saved run comparison"
     >

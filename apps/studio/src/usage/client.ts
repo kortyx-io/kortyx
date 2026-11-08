@@ -109,6 +109,7 @@ export function flushStudioUsage() {
 export function usageSurface(path: string): string {
   const normalized = studioPathname(path);
   const first = normalized.split("/").filter(Boolean)[0];
+  if (first === "datasets" || first === "experiments") return "evals";
   return [
     "runs",
     "sessions",

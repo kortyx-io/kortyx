@@ -5,8 +5,8 @@ for (const path of [
   "/sample/sessions",
   "/sample/interrupts",
   "/sample/evals?view=runs",
-  "/sample/evals/suites",
-  `/sample/evals/evaluations/${sample.evaluationId}`,
+  "/sample/datasets",
+  `/sample/experiments/${sample.evaluationId}`,
 ]) {
   test(`status clicks filter without navigating the row: ${path}`, async ({
     page,
@@ -51,7 +51,7 @@ for (const path of [
 test("filter header and footer follow the table's actual heights", async ({
   page,
 }) => {
-  await page.goto(`/sample/evals/evaluations/${sample.evaluationId}`);
+  await page.goto(`/sample/experiments/${sample.evaluationId}`);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
   const panel = page.getByRole("complementary", {
     name: "Filters",

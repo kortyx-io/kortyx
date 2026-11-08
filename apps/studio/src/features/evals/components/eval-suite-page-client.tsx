@@ -28,9 +28,7 @@ export function EvalSuitePageClient({
           suite={suite}
           target={target}
           canRun={targets.canRun}
-          onBack={() =>
-            router.push(evalNavigationHref("/evals/suites", search))
-          }
+          onBack={() => router.push(evalNavigationHref("/datasets", search))}
           onRun={() => open(target.id, suite.id)}
         />
       </div>

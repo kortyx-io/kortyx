@@ -1,4 +1,5 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
+import { evalSuiteHref } from "@/features/evals/lib/navigation";
 
 /** A lesson can only navigate to supported read-only views of known fixtures. */
 export type LessonView =
@@ -227,7 +228,8 @@ export const CHAPTERS = [
     title: "Read evaluation results",
     duration: "About 2 minutes",
     fullTour: true,
-    description: "Connect a suite, its grading evidence, and a saved baseline.",
+    description:
+      "Connect a dataset, its grading evidence, and a saved experiment.",
     outcome:
       "You can inspect a case's criteria and compare saved results without launching an evaluation.",
     steps: [
@@ -243,7 +245,7 @@ export const CHAPTERS = [
         view: { surface: "evaluation" },
         title: "Read the saved result",
         content:
-          "This suite passed all three conversations. All conversations shows every case; selecting a suite filters this table. Each row groups its repetitions. Hover or focus a suite for its summary. Finished cases with assessed passes and failures show Mixed results, with errors separate. Writable projects can rerun failed cases as a fresh evaluation.",
+          "This dataset passed all three conversations. All conversations shows every case; selecting a dataset filters this table. Each row groups its repetitions. Hover or focus a dataset for its summary. Finished cases with assessed passes and failures show Mixed results, with errors separate. Writable projects can rerun failed cases in a new experiment.",
       },
       {
         id: "case-evidence",
@@ -311,7 +313,7 @@ export const CHAPTERS = [
         view: { surface: "evaluation-progress" },
         title: "Separate progress from outcome",
         content:
-          "One suite has finished and another is still grading. Five of six case attempts have outcomes. These are partial counts; a running evaluation has no final verdict. This sample preserves that moment rather than running a background job.",
+          "One dataset has finished and another is still grading. Five of six case attempts have outcomes. These are partial counts; a running experiment has no final verdict. This sample preserves that moment rather than running a background job.",
       },
       {
         id: "evaluation-grading",
@@ -428,23 +430,23 @@ export function resolveView(view: LessonView): {
       };
     case "suite":
       return {
-        href: `/evals/suites/${sample.targetId}/${sample.suiteId}`,
+        href: evalSuiteHref(sample.targetId, sample.suiteId),
         target: `[data-eval-suite-id="${sample.suiteId}"] [data-tour-surface="suite-definition"]`,
       };
     case "evaluation":
       return {
-        href: `/evals/evaluations/${sample.evaluationId}?suiteRun=${sample.evalRunId}`,
+        href: `/experiments/${sample.evaluationId}?suiteRun=${sample.evalRunId}`,
         target: `[data-eval-run-id="${sample.evalRunId}"] [data-row-key="${sample.evalRunId}:${sample.caseId}"] [data-column="status"]`,
       };
     case "eval-case":
       return {
-        href: `/evals/cases/${sample.evalRunId}/${sample.caseId}/1`,
+        href: `/experiments/cases/${sample.evalRunId}/${sample.caseId}/1`,
         target:
           '[data-tour-surface="eval-case-evidence"] [data-guide-focus="eval-criterion"]',
       };
     case "eval-comparison":
       return {
-        href: `/evals/evaluations/${sample.evaluationId}?changesSince=${sample.evaluationIds.baseline}&changeCase=${encodeURIComponent(JSON.stringify([sample.suiteId, sample.caseId]))}`,
+        href: `/experiments/${sample.evaluationId}?changesSince=${sample.evaluationIds.baseline}&changeCase=${encodeURIComponent(JSON.stringify([sample.suiteId, sample.caseId]))}`,
         target:
           '[data-eval-comparison-modal] [data-comparison-side="Earlier"] [data-guide-focus="eval-conversation"]',
       };
@@ -455,17 +457,17 @@ export function resolveView(view: LessonView): {
       };
     case "evaluation-progress":
       return {
-        href: `/evals/evaluations/${sample.evaluationIds.candidate}`,
+        href: `/experiments/${sample.evaluationIds.candidate}`,
         target: `[data-evaluation-id="${sample.evaluationIds.candidate}"] [data-tour-surface="eval-summary"]`,
       };
     case "grading-progress":
       return {
-        href: `/evals/evaluations/${sample.evaluationIds.candidate}?suiteRun=${sample.candidateEvalRunId}`,
+        href: `/experiments/${sample.evaluationIds.candidate}?suiteRun=${sample.candidateEvalRunId}`,
         target: `[data-eval-run-id="${sample.candidateEvalRunId}"] [data-row-key="${sample.candidateEvalRunId}:${sample.gradingCaseId}"] [data-column="status"]`,
       };
     case "pending-eval-case":
       return {
-        href: `/evals/cases/${sample.candidateEvalRunId}/${sample.gradingCaseId}/1`,
+        href: `/experiments/cases/${sample.candidateEvalRunId}/${sample.gradingCaseId}/1`,
         target:
           '[data-tour-surface="eval-case-evidence"] [data-guide-focus="eval-conversation"]',
       };

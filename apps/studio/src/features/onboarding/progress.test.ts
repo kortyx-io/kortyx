@@ -255,7 +255,9 @@ it("recommends deeper guides only on their matching evidence pages", () => {
     "error-diagnostics",
   );
   expect(
-    contextChapter("/evals/runs/10000000-0000-4000-8000-000000000032"),
+    contextChapter("/experiments/runs/10000000-0000-4000-8000-000000000032"),
   ).toBe("evaluation-progress");
-  expect(contextChapter("/evals/runs/customer-run")).toBe("evaluation-results");
+  expect(contextChapter("/experiments/runs/customer-run")).toBe(
+    "evaluation-results",
+  );
 });

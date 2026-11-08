@@ -1,13 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { evalSuiteHref } from "../src/features/evals/lib/navigation";
 import { OUTPUT_SUITE } from "./support/eval-output-plan";
 import { EVAL_FIXTURE } from "./support/eval-plan";
 
 test("native workflow outputs are checked, persisted and inspectable through suite workspace and case drawers", async ({
   page,
 }) => {
-  await page.goto(
-    `/evals/suites?q=${encodeURIComponent(OUTPUT_SUITE.name ?? "")}`,
-  );
+  await page.goto(`/datasets?q=${encodeURIComponent(OUTPUT_SUITE.name ?? "")}`);
   await page
     .getByRole("link", { name: "Product output contracts", exact: true })
     .click();
@@ -39,17 +38,19 @@ test("native workflow outputs are checked, persisted and inspectable through sui
   await definition
     .getByRole("button", { name: "Close conversation definition" })
     .click();
-  await suite.getByRole("button", { name: "Run suite", exact: true }).click();
-  const launch = page.getByRole("dialog", { name: "Run evaluations" });
+  await suite
+    .getByRole("button", { name: "Run experiment", exact: true })
+    .click();
+  const launch = page.getByRole("dialog", { name: "Run experiment" });
   await launch.getByRole("button", { name: "Judge", exact: true }).click();
   await page
     .getByRole("menuitemradio", { name: "App judge", exact: true })
     .click();
   await launch
-    .getByRole("button", { name: "Run evaluations", exact: true })
+    .getByRole("button", { name: "Run experiment", exact: true })
     .click();
   await expect(page).toHaveURL(
-    (url) => /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
+    (url) => /^\/experiments\/[0-9a-f-]+$/.test(url.pathname),
     { timeout: 15_000 },
   );
   await page.getByRole("button", { name: /^Product output contracts/ }).click();
@@ -75,7 +76,7 @@ test("native workflow outputs are checked, persisted and inspectable through sui
   await page
     .getByRole("link", { name: "Product list and summary", exact: true })
     .click();
-  const casePath = `/evals/cases/${runId}/multiple-outputs/1`;
+  const casePath = `/experiments/cases/${runId}/multiple-outputs/1`;
   const inspector = page.locator(`[data-detail-drawer="${casePath}"]`);
   await inspector
     .getByRole("button", { name: "Assessment details", exact: true })
@@ -119,7 +120,7 @@ test("output requirements remain readable at half width after opening a suite di
   page,
 }) => {
   await page.setViewportSize({ width: 760, height: 900 });
-  await page.goto(`/evals/suites/${EVAL_FIXTURE.targetId}/${OUTPUT_SUITE.id}`);
+  await page.goto(`${evalSuiteHref(EVAL_FIXTURE.targetId, OUTPUT_SUITE.id)}`);
   await expect(page.locator("[data-row-key]")).toHaveCount(5);
   await page
     .getByRole("button", { name: "Product list and summary", exact: true })

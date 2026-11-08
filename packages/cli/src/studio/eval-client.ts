@@ -29,7 +29,7 @@ export const parseEvalRunTarget = (input: string) => {
       throw new StudioReadError("invalid_target", "Invalid eval run URL.");
     }
     const match = locator.pathname.match(
-      /\/evals\/(?:runs|evaluations)\/([^/]+)\/?$/,
+      /\/(?:evals\/(?:runs|evaluations)|experiments(?:\/runs)?)\/([^/]+)\/?$/,
     );
     if (
       !match ||
@@ -39,7 +39,7 @@ export const parseEvalRunTarget = (input: string) => {
     )
       throw new StudioReadError(
         "invalid_target",
-        "Expected an HTTP(S) Studio /evals/runs/<uuid> URL without credentials.",
+        "Expected an HTTP(S) Studio experiment or saved evaluation URL without credentials.",
       );
     id = match[1] ?? "";
     locator.search = "";

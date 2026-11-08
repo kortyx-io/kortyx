@@ -7,11 +7,11 @@ for (const [path, id] of [
   ["/runs?range=All+time", "runs"],
   ["/sessions?range=All+time", "sessions"],
   ["/interrupts?range=All+time", "interrupts"],
-  ["/evals/runs", "evaluations"],
-  ["/evals/suites", "eval-suites"],
-  [`/evals/runs/${EVAL_FIXTURE.candidate}`, "eval-cases"],
+  ["/experiments", "evaluations"],
+  ["/datasets", "eval-suites"],
+  [`/experiments/runs/${EVAL_FIXTURE.candidate}`, "eval-cases"],
   [
-    `/evals/runs/${EVAL_FIXTURE.candidate}/compare?baseline=${EVAL_FIXTURE.baseline}`,
+    `/experiments/runs/${EVAL_FIXTURE.candidate}/compare?baseline=${EVAL_FIXTURE.baseline}`,
     "eval-comparison",
   ],
   ["/prompts", "prompts"],
@@ -21,7 +21,9 @@ for (const [path, id] of [
     page,
   }) => {
     await page.goto(path);
-    const controls = page.locator(`[data-table-controls="${id}"]`);
+    const controls = page
+      .locator('[data-table-ready="true"]')
+      .locator(`[data-table-controls="${id}"]`);
     await expect(controls).toBeVisible();
     await expect(
       controls.getByRole("button", { name: /^(Filters|Columns|Views)$/ }),
@@ -31,7 +33,7 @@ for (const [path, id] of [
     await expect(page.locator("[data-table-footer]")).toHaveCount(1);
     await expect(
       page
-        .locator("[data-table-footer]")
+        .locator("[data-table-footer]:visible")
         .getByRole("combobox", { name: "Rows per page" }),
     ).toBeVisible();
     if (id === "runs") {
@@ -213,7 +215,9 @@ test("prompt-linked tables always expose controls and filter empty datasets", as
       await page.goto(
         `/prompts/${id}?tab=${tab}&q=parent-search&prompt${tab}Search=linked-search&prompt${tab}Page=20`,
       );
-      const controls = page.locator(`[data-table-controls="${tableId}"]`);
+      const controls = page
+        .locator('[data-table-ready="true"]')
+        .locator(`[data-table-controls="${tableId}"]`);
       await expect(controls).toBeVisible();
       await expect(
         controls.getByRole("button", { name: /^(Filters|Columns|Views)$/ }),
@@ -337,7 +341,9 @@ test("response autocomplete uses the shared dropdown and accepts a selected valu
 test("embedded table search is independent of parent search, combines with filters and persists", async ({
   page,
 }) => {
-  await page.goto(`/evals/runs/${EVAL_FIXTURE.candidate}?q=parent-search`);
+  await page.goto(
+    `/experiments/runs/${EVAL_FIXTURE.candidate}?q=parent-search`,
+  );
   const controls = page.locator('[data-table-controls="eval-cases"]');
   const search = controls.getByRole("searchbox");
   await search.fill("human-choice");

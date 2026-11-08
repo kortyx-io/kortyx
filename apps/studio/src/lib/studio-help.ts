@@ -50,9 +50,14 @@ export const studioHelp = {
     "prompts",
   ),
   evals: help(
-    "Evaluations",
-    "Test your app with example conversations. Results show whether each conversation ran and whether its answers passed the checks.",
-    "evals",
+    "Experiments",
+    "Run conversations from one or more datasets and review their saved outcomes and checks. Compare experiments to see what changed.",
+    "evaluation-results",
+  ),
+  datasets: help(
+    "Datasets",
+    "Browse the conversation cases registered by your application. Open a dataset to inspect its current definition or run an experiment.",
+    "evals#start-with-one-conversation",
   ),
   filters: help(
     "Search and filters",

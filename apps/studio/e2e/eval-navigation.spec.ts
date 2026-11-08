@@ -1,64 +1,71 @@
+import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
 import { expect, type Page, test } from "@playwright/test";
+import { evalSuiteHref } from "../src/features/evals/lib/navigation";
 import { EVAL_FIXTURE } from "./support/eval-fixture";
 import { EVAL_OPAQUE_CASES, EVAL_SUITE } from "./support/eval-plan";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 import { setUrlSelection } from "./support/url-selection";
 
-const runPath = `/evals/runs/${EVAL_FIXTURE.candidate}`;
+const runPath = `/experiments/runs/${EVAL_FIXTURE.candidate}`;
 const comparePath = `${runPath}/compare?baseline=${EVAL_FIXTURE.baseline}`;
-const repeatComparePath = `/evals/runs/${EVAL_FIXTURE.repeatedCandidate}/compare?baseline=${EVAL_FIXTURE.repeatedBaseline}`;
-const casePath = `/evals/cases/${EVAL_FIXTURE.candidate}/${EVAL_FIXTURE.caseId}/1`;
-const comparisonCasePath = `/evals/cases/${EVAL_FIXTURE.candidate}/${EVAL_FIXTURE.caseId}/compare`;
+const repeatComparePath = `/experiments/runs/${EVAL_FIXTURE.repeatedCandidate}/compare?baseline=${EVAL_FIXTURE.repeatedBaseline}`;
+const casePath = `/experiments/cases/${EVAL_FIXTURE.candidate}/${EVAL_FIXTURE.caseId}/1`;
+const comparisonCasePath = `/experiments/cases/${EVAL_FIXTURE.candidate}/${EVAL_FIXTURE.caseId}/compare`;
 const workflowPath = `/runs/${DRAWER_FIXTURE.runId}`;
 test.describe("Eval route and drawer navigation", () => {
-  test("opens Runs by default, reaches Suites, and restores history navigation", async ({
+  test("redirects the old list and navigates between separate sidebar destinations", async ({
     page,
   }) => {
-    await page.goto("/evals");
-    await expect(page).toHaveURL(/\/evals\/runs$/);
-    // A cold development server can finish the redirect route's Fast Refresh
-    // after the next client navigation and restore its newer router tree over
-    // a browser Back. Restore the canonical entry first so this assertion
-    // exercises persisted Runs -> Suites history in both dev and production.
-    await page.reload();
+    await page.goto("/evals/runs?env=development");
+    await expect(page).toHaveURL("/experiments?env=development");
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
-    const sections = page.getByRole("navigation", { name: "Eval navigation" });
     await expect(
-      page.getByRole("heading", { name: "Evaluation runs", exact: true }),
+      page.getByRole("heading", { name: "Experiments" }),
     ).toBeVisible();
+    const sidebar = page.locator('[data-sidebar="sidebar"]');
     await expect(
-      sections.getByRole("link", { name: "Runs", exact: true }),
-    ).toHaveAttribute("aria-current", "page");
-    const sectionBox = await sections.boundingBox();
-    const breadcrumbs = await page
-      .getByRole("navigation", { name: "Workspace navigation" })
-      .boundingBox();
-    expect(
-      sectionBox &&
-        breadcrumbs &&
-        sectionBox.x > breadcrumbs.x + breadcrumbs.width,
-    ).toBeTruthy();
-    expect(sectionBox?.y).toBeLessThan(48);
+      sidebar.getByRole("link", { name: "Experiments" }),
+    ).toHaveAttribute("data-active", "true");
+    await sidebar.getByRole("link", { name: "Datasets" }).click();
+    await expect(page).toHaveURL("/datasets?env=development");
+    await expect(page.getByRole("heading", { name: "Datasets" })).toBeVisible();
     await expect(
-      page
-        .locator("[data-table-ready]")
-        .getByRole("navigation", { name: "Eval navigation" }),
-    ).toHaveCount(0);
-    await page
-      .getByRole("navigation", { name: "Eval navigation" })
-      .getByRole("link", { name: "Suites", exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/evals\/suites$/);
-    await page.reload();
+      sidebar.getByRole("link", { name: "Datasets" }),
+    ).toHaveAttribute("data-active", "true");
     await expect(
-      page.getByRole("link", { name: "Suites", exact: true }),
-    ).toHaveAttribute("aria-current", "page");
-    // aria-current is server-rendered. Wait for the list to hydrate before
-    // traversing history so the stale development router cannot replay Suites.
+      sidebar.getByRole("link", { name: "Experiments" }),
+    ).toHaveAttribute("data-active", "false");
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
     await page.goBack();
-    await expect(page).toHaveURL(/\/evals\/runs$/);
+    await expect(page).toHaveURL("/experiments?env=development");
   });
+
+  test("keeps sample and opaque identities on old detail bookmarks", async ({
+    page,
+  }) => {
+    const target = EVAL_FIXTURE.targetId;
+    const suite = EVAL_FIXTURE.opaqueSuiteId;
+    await page.goto(
+      `/evals/suites/${encodeURIComponent(target)}/${encodeURIComponent(suite)}?env=development`,
+    );
+    await expect(page).toHaveURL(
+      `${evalSuiteHref(target, suite)}?env=development`,
+    );
+    await expect(page.locator("[data-eval-suite-id]:visible")).toHaveAttribute(
+      "data-eval-suite-id",
+      suite,
+    );
+    await page.goto(
+      `/sample/evals/cases/${SAMPLE_PROJECT.evalRunId}/${SAMPLE_PROJECT.caseId}/1?repetition=1`,
+    );
+    await expect(page).toHaveURL(
+      `/sample/experiments/cases/${SAMPLE_PROJECT.evalRunId}/${SAMPLE_PROJECT.caseId}/1?repetition=1`,
+    );
+    await expect(
+      page.getByText("Step 1 assessment", { exact: false }),
+    ).toBeVisible();
+  });
+
   test("restores case selection with its recorded conversation", async ({
     page,
   }) => {
@@ -79,7 +86,7 @@ test.describe("Eval route and drawer navigation", () => {
       .getByRole("link", { name: "Evaluation results", exact: true })
       .click();
     await expect(page).toHaveURL(
-      new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),
+      new RegExp(`/experiments/runs/${EVAL_FIXTURE.candidate}`),
     );
     await page.goBack();
     await expect(
@@ -131,7 +138,7 @@ test.describe("Eval route and drawer navigation", () => {
       .click();
     await expect(comparisonDrawer).toHaveCount(0);
     await expect(page).toHaveURL(
-      new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}/compare`),
+      new RegExp(`/experiments/runs/${EVAL_FIXTURE.candidate}/compare`),
     );
   });
   test("restores the selected case after workflow inspection and reopen", async ({
@@ -188,11 +195,11 @@ test.describe("Eval route and drawer navigation", () => {
 });
 
 test.describe("Eval drawer hardening", () => {
-  const suitePath = `/evals/suites/${EVAL_FIXTURE.targetId}/${encodeURIComponent(EVAL_FIXTURE.suiteId)}`;
+  const suitePath = `${evalSuiteHref(EVAL_FIXTURE.targetId, EVAL_FIXTURE.suiteId)}`;
   const surface = (page: Page, path: string) =>
     page.locator(`[data-detail-drawer="${path}"]`);
   const openSuite = async (page: Page, name = "E2E job conversations") => {
-    await page.goto(`/evals/suites?q=${encodeURIComponent(name)}`);
+    await page.goto(`/datasets?q=${encodeURIComponent(name)}`);
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
     await page.getByRole("link", { name, exact: true }).click();
   };
@@ -209,7 +216,7 @@ test.describe("Eval drawer hardening", () => {
     await page.goBack();
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === "/evals/suites" &&
+        url.pathname === "/datasets" &&
         url.searchParams.get("q") === "E2E job conversations",
     );
     await page.goForward();
@@ -289,8 +296,10 @@ test.describe("Eval drawer hardening", () => {
   }) => {
     await openSuite(page);
     const suite = page.locator("[data-eval-suite-id]");
-    await suite.getByRole("button", { name: "Run suite", exact: true }).click();
-    const launch = page.getByRole("dialog", { name: "Run evaluations" });
+    await suite
+      .getByRole("button", { name: "Run experiment", exact: true })
+      .click();
+    const launch = page.getByRole("dialog", { name: "Run experiment" });
     await expect(launch).toBeVisible();
     await launch.getByRole("button", { name: "Judge", exact: true }).click();
     await page
@@ -305,13 +314,13 @@ test.describe("Eval drawer hardening", () => {
     await expect(page).toHaveURL(/launchJudge=app/);
     await page.reload();
     await expect(
-      page.getByRole("dialog", { name: "Run evaluations" }),
+      page.getByRole("dialog", { name: "Run experiment" }),
     ).toBeVisible();
     await expect(
       launch.getByRole("button", { name: "Judge", exact: true }),
     ).toContainText("App judge");
     await expect(
-      launch.getByRole("radio", { name: "Selected suites", exact: true }),
+      launch.getByRole("radio", { name: "Selected datasets", exact: true }),
     ).toBeChecked();
     await page
       .getByRole("button", { name: "Close run setup", exact: true })
@@ -323,7 +332,7 @@ test.describe("Eval drawer hardening", () => {
     );
     await page.goBack();
     await expect(
-      page.getByRole("dialog", { name: "Run evaluations" }),
+      page.getByRole("dialog", { name: "Run experiment" }),
     ).toBeVisible();
   });
 
@@ -333,9 +342,9 @@ test.describe("Eval drawer hardening", () => {
     await openSuite(page);
     await page
       .locator("[data-eval-suite-id]")
-      .getByRole("button", { name: "Run suite", exact: true })
+      .getByRole("button", { name: "Run experiment", exact: true })
       .click();
-    const launch = page.getByRole("dialog", { name: "Run evaluations" });
+    const launch = page.getByRole("dialog", { name: "Run experiment" });
     await launch.getByRole("button", { name: "Judge", exact: true }).click();
     await page
       .getByRole("menuitemradio", { name: "App judge", exact: true })
@@ -370,7 +379,7 @@ test.describe("Eval drawer hardening", () => {
       ).toBeVisible();
     }
     await expect(
-      launch.getByRole("button", { name: "Run evaluations", exact: true }),
+      launch.getByRole("button", { name: "Run experiment", exact: true }),
     ).toBeDisabled();
     await expect(page).toHaveURL(
       (url) => url.searchParams.get("launchSuites") === "[]",
@@ -394,10 +403,10 @@ test.describe("Eval drawer hardening", () => {
         }),
     ).toBeVisible();
     await launch
-      .getByRole("button", { name: "Run evaluations", exact: true })
+      .getByRole("button", { name: "Run experiment", exact: true })
       .click();
     await expect(page).toHaveURL((url) =>
-      /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
+      /^\/experiments\/[0-9a-f-]+$/.test(url.pathname),
     );
     await page.getByRole("button", { name: /^E2E job conversations/ }).click();
     await expect(
@@ -414,14 +423,14 @@ test.describe("Eval drawer hardening", () => {
       0,
     );
     await expect(
-      page.getByRole("button", { name: "Suite details", exact: true }),
+      page.getByRole("button", { name: "Dataset details", exact: true }),
     ).toHaveCount(0);
     const detailsUrl = new URL(page.url());
     detailsUrl.searchParams.set("evalTab", "definition");
     await page.goto(detailsUrl.toString());
     await expect(
       page
-        .getByRole("dialog", { name: "Suite details", exact: true })
+        .getByRole("dialog", { name: "Dataset details", exact: true })
         .getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
     // nuqs updates the visible tab before its batched URL write completes.
@@ -432,7 +441,7 @@ test.describe("Eval drawer hardening", () => {
     await page.reload();
     await expect(
       page
-        .getByRole("dialog", { name: "Suite details", exact: true })
+        .getByRole("dialog", { name: "Dataset details", exact: true })
         .getByText("fixture-judge · 1", { exact: true }),
     ).toBeVisible();
   });
@@ -555,7 +564,7 @@ test.describe("Eval drawer hardening", () => {
     await page
       .getByRole("link", { name: "Repeated role", exact: true })
       .click();
-    const path = `/evals/cases/${EVAL_FIXTURE.repeatedCandidate}/repeated-role/compare`;
+    const path = `/experiments/cases/${EVAL_FIXTURE.repeatedCandidate}/repeated-role/compare`;
     const comparison = surface(page, path);
     await comparison
       .getByRole("button", { name: "Candidate", exact: true })
@@ -597,7 +606,7 @@ test.describe("Eval drawer hardening", () => {
   test("full-page eval tabs stay full page through history and preserve the original run list filters", async ({
     page,
   }) => {
-    const original = `/evals/runs?q=E2E&application=${EVAL_FIXTURE.targetId}&status=passed`;
+    const original = `/experiments?q=E2E&application=${EVAL_FIXTURE.targetId}&status=passed`;
     await page.goto(original);
     await page
       .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`)
@@ -620,7 +629,7 @@ test.describe("Eval drawer hardening", () => {
       .click();
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === "/evals/runs" &&
+        url.pathname === "/experiments" &&
         url.searchParams.get("q") === "E2E" &&
         url.searchParams.get("status") === "passed" &&
         url.searchParams.get("application") === EVAL_FIXTURE.targetId &&
@@ -636,7 +645,7 @@ test.describe("Eval opaque IDs and shareable links", () => {
         page,
       }) => {
         await page.goto(kind === "result" ? runPath : comparePath);
-        const expected = `/evals/cases/${EVAL_FIXTURE.candidate}/${encodeURIComponent(item.id)}/${kind === "result" ? "1" : "compare"}`;
+        const expected = `/experiments/cases/${EVAL_FIXTURE.candidate}/${encodeURIComponent(item.id)}/${kind === "result" ? "1" : "compare"}`;
         const control = page.getByRole("link", {
           name: item.name,
           exact: true,
@@ -670,8 +679,8 @@ test.describe("Eval opaque IDs and shareable links", () => {
   test("opaque suite ID survives row links, expanded drawer and direct reload", async ({
     page,
   }) => {
-    await page.goto("/evals/suites?q=Opaque");
-    const href = `/evals/suites/${EVAL_FIXTURE.targetId}/${encodeURIComponent(EVAL_FIXTURE.opaqueSuiteId)}`;
+    await page.goto("/datasets?q=Opaque");
+    const href = `${evalSuiteHref(EVAL_FIXTURE.targetId, EVAL_FIXTURE.opaqueSuiteId)}`;
     const link = page.getByRole("link", {
       name: "Opaque suite identifiers",
       exact: true,
@@ -746,9 +755,11 @@ test.describe("Eval opaque IDs and shareable links", () => {
   test("missing case and missing suite use not-found pages", async ({
     page,
   }) => {
-    await page.goto(`/evals/cases/${EVAL_FIXTURE.candidate}/missing-case/1`);
+    await page.goto(
+      `/experiments/cases/${EVAL_FIXTURE.candidate}/missing-case/1`,
+    );
     await expect(page.getByText("404", { exact: true })).toBeVisible();
-    await page.goto(`/evals/suites/${EVAL_FIXTURE.targetId}/missing-suite`);
+    await page.goto(`${evalSuiteHref(EVAL_FIXTURE.targetId, "missing-suite")}`);
     await expect(page.getByText("404", { exact: true })).toBeVisible();
   });
   test("multi-step suite remains readable at a half-screen viewport without horizontal page overflow", async ({
@@ -756,7 +767,7 @@ test.describe("Eval opaque IDs and shareable links", () => {
   }) => {
     await page.setViewportSize({ width: 760, height: 900 });
     await page.goto(
-      `/evals/suites/${EVAL_FIXTURE.targetId}/${EVAL_FIXTURE.suiteId}`,
+      `${evalSuiteHref(EVAL_FIXTURE.targetId, EVAL_FIXTURE.suiteId)}`,
     );
     await page
       .getByRole("button", { name: "Choose between cities", exact: true })
@@ -808,7 +819,7 @@ test.describe("Eval adversarial state transitions", () => {
       .getByRole("link", { name: "Repeated role", exact: true })
       .click();
     const parent = page.locator(
-      `[data-detail-drawer="/evals/cases/${EVAL_FIXTURE.repeatedCandidate}/repeated-role/compare"]`,
+      `[data-detail-drawer="/experiments/cases/${EVAL_FIXTURE.repeatedCandidate}/repeated-role/compare"]`,
     );
     await parent
       .getByRole("button", { name: "Candidate repetition", exact: true })

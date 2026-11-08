@@ -42,17 +42,22 @@ export function registerEvaluationRoutes(
   studioJudge?: EvalJudge,
   adapter?: EvalTargetAdapter,
 ) {
-  const path = "/v1/studio/evals/evaluations";
-  app.use(path, bodyLimit({ maxSize: 16_384 }));
-  app.use(`${path}/*`, bodyLimit({ maxSize: 16_384 }));
-  app.get(path, async (c) =>
+  const paths = (suffix = "") => [
+    `/v1/studio/experiments${suffix}`,
+    `/v1/studio/evals/evaluations${suffix}`,
+  ];
+  for (const path of paths()) {
+    app.use(path, bodyLimit({ maxSize: 16_384 }));
+    app.use(`${path}/*`, bodyLimit({ maxSize: 16_384 }));
+  }
+  app.on("GET", paths(), async (c) =>
     c.json({
       runs: await c.get("withTenantDatabase")((db) =>
         listEvaluations(db, c.get("principal")),
       ),
     }),
   );
-  app.get(`${path}/table`, async (c) => {
+  app.on("GET", paths("/table"), async (c) => {
     const parsed = z
       .object({
         tableFilters: z.string().max(32768).optional(),
@@ -81,7 +86,7 @@ export function registerEvaluationRoutes(
       ),
     );
   });
-  app.get(`${path}/:id`, async (c) => {
+  app.on("GET", paths("/:id"), async (c) => {
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid evaluation ID." }, 400);
     return c.json({
@@ -90,7 +95,7 @@ export function registerEvaluationRoutes(
       ),
     });
   });
-  app.get(`${path}/:id/results`, async (c) => {
+  app.on("GET", paths("/:id/results"), async (c) => {
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid evaluation ID." }, 400);
     return c.json({
@@ -100,7 +105,7 @@ export function registerEvaluationRoutes(
     });
   });
   let comparisons = 0;
-  app.get(`${path}/:id/comparison`, async (c) => {
+  app.on("GET", paths("/:id/comparison"), async (c) => {
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid evaluation ID." }, 400);
     // Admission control, not an unbounded queue of requests retaining tenant contexts.
@@ -122,7 +127,7 @@ export function registerEvaluationRoutes(
       comparisons--;
     }
   });
-  app.post(path, async (c) => {
+  app.on("POST", paths(), async (c) => {
     await requireApiAction(c, "eval:run");
     const parsed = StudioEvaluationStartRequestSchema.safeParse(
       await c.req.json().catch(() => null),
@@ -396,7 +401,7 @@ export function registerEvaluationRoutes(
       throw error;
     }
   });
-  app.post(`${path}/:id/cancel`, async (c) => {
+  app.on("POST", paths("/:id/cancel"), async (c) => {
     await requireApiAction(c, "eval:run");
     const id = z.uuid().safeParse(c.req.param("id"));
     if (!id.success) return c.json({ error: "Invalid evaluation ID." }, 400);

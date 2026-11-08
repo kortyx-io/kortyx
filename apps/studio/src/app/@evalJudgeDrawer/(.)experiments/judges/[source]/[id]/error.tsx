@@ -10,7 +10,7 @@ export default function JudgeInstructionsError(props: {
   return (
     <DetailDrawer
       matchPath={pathname}
-      dismissPath="/evals/runs"
+      dismissPath="/experiments"
       title="Judge instructions"
       description="Instructions could not load"
     >

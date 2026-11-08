@@ -8,33 +8,33 @@ section: "evaluations"
 ---
 # Read and compare evaluation results
 
-Open **Evals** and select a saved run. Start by checking whether each conversation executed, then read the checks applied to its answers.
+Open **Experiments** and select a saved run. Start by checking whether each conversation executed, then read the checks applied to its answers.
 
 ## Use the interface
 
-Open **Evals → Suites** to browse the applications and cases registered by your
-consumer. Select a suite to inspect its definition in a drawer, or open it as a
+Open **Datasets** to browse the applications and cases registered by your
+consumer. Select a dataset to inspect its definition in a drawer, or open it as a
 full page. Choose cases, repetitions and concurrency, then start the run.
 
-**Evals → Runs** lists evaluations. Open a run to see suite progress and cost.
-**All conversations** is the default: one table contains cases from every suite,
-with a Suite column to identify their source. Selecting a suite filters this same
-table; All conversations clears the suite filter. Search, columns, and table
-filters stay in place. Cases with the same ID in different suites remain separate.
+**Experiments** lists saved experiments. Open a run to see dataset progress and cost.
+**All conversations** is the default: one table contains cases from every dataset,
+with a Dataset column to identify their source. Selecting a dataset filters this same
+table; All conversations clears the dataset filter. Search, columns, and table
+filters stay in place. Cases with the same ID in different datasets remain separate.
 The metric strip uses the same layout as Runs and always summarizes the whole
 run. Total cost opens its workflow/judge breakdown. Execution settings follows
 it with recorded repetition/concurrency values and a card for timeouts, judge,
-commit, and deployment context. Compare evaluations from the Runs list.
+commit, and deployment context. Compare experiments from the Experiments list.
 
-For a selected suite, **Suite details** opens its saved Definition and Configuration
-in a platform drawer. The suite list stays available without another header or tabs. Hover or focus a suite to preview its status, progress, results, workflow/judge/total costs, duration, pass rate, and queue time beside the navigation.
+For a selected dataset, **Dataset details** opens its saved Definition and Configuration
+in a platform drawer. The dataset list stays available without another header or tabs. Hover or focus a dataset to preview its status, progress, results, workflow/judge/total costs, duration, pass rate, and queue time beside the navigation.
 
-Each suite's progress bar shows the proportion of attempts in each status. The preview lists each status on its own row with a matching color and count, including pending work when present.
+Each dataset's progress bar shows the proportion of attempts in each status. The preview lists each status on its own row with a matching color and count, including pending work when present.
 
 Results show **one row per conversation**, including all repetitions. Open a row
 in the platform drawer to read its recorded input, answer, checks, and workflow
 links. **Inspect workflow** opens the existing execution drawer on top; closing
-it returns to the conversation. Closing the conversation returns to All conversations or the selected suite filter. Direct links also work as full pages. Filters, details, and repetition choices
+it returns to the conversation. Closing the conversation returns to All conversations or the selected dataset filter. Direct links also work as full pages. Filters, details, and repetition choices
 are stored in the URL and survive reloads.
 
 ## Repetitions
@@ -53,7 +53,7 @@ statistics expand from **See more stats**, the thin gray bar attached to the sum
 
 ## Compare saved runs
 
-**Changes** is visible directly in **Evals → Runs**. Each completed evaluation
+**Changes** is visible directly in **Experiments**. Each completed evaluation
 uses the latest earlier completed run of the same application and environment
 from the recent 100-run history. The reference is named below the change counts;
 hover or focus it to read its full name and timestamp. Searching, sorting, or
@@ -215,20 +215,20 @@ Compare equivalent cases, judge settings, prompt versions, and environments. Ope
 
 ## Grouped evaluation runs
 
-The default Runs list shows one evaluation per trigger. A parent evaluation owns
-one or more suite executions for a single application/environment. Open a row to
-see every suite and its live progress, then select a suite in the same workspace
-to inspect conversations and assessment/trace evidence. Older suite runs remain visible with their original
-links. Suites remains the definition/history view.
+The Experiments list shows one evaluation per trigger. A parent evaluation owns
+one or more dataset executions for a single application/environment. Open a row to
+see every dataset and its live progress, then select a dataset in the same workspace
+to inspect conversations and assessment/trace evidence. Older dataset runs remain visible with their original
+links. Datasets shows the current registered definitions.
 
-The **Run evaluations** drawer offers All suites or Selected suites. Launching
-from a suite page preselects and expands that suite. Expand any selected suite to
-choose its conversations independently. Suite checkboxes select or clear every
+The **Run experiment** drawer offers All datasets or Selected datasets. Launching
+from a dataset page preselects and expands that dataset. Expand any selected dataset to
+choose its conversations independently. Dataset checkboxes select or clear every
 conversation and show a mixed state for partial selections. Selections and
-expanded suites survive reloads and browser history. Without a project judge default, the drawer selects Studio
+expanded datasets survive reloads and browser history. Without a project judge default, the drawer selects Studio
 when available, otherwise App; unavailable judges remain disabled with a reason.
 Repetitions (1 to 20) and concurrent attempts across the evaluation (1 to 20) apply to the selection.
-Each suite is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
+Each dataset is limited to 100 attempts; one evaluation is limited to 1,000 attempts.
 Missing App judge configuration is explained beside the disabled option.
 
 The Studio API snapshots all selected suite revisions and the judge before
@@ -341,7 +341,7 @@ Both consistency examples include Support quality and Resolution safety, so you 
 
 ### Browse definitions and inspect evidence
 
-Evals → Suites opens a suite workspace with a searchable conversation table.
+Datasets opens a suite workspace with a searchable conversation table.
 Select one conversation to inspect its current definition in a platform drawer;
 the step selector and Previous/Next controls keep the table context. Suite and
 conversation IDs remain shareable, including the selected definition step.

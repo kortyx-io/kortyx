@@ -23,17 +23,17 @@ export function createEvaluationColumns(
     {
       key: "name",
       filter: [
-        columnFilter("name", "Evaluation run", "text", (r) => r.name),
+        columnFilter("name", "Experiment", "text", (r) => r.name),
         columnFilter("id", "Evaluation ID", "text", (r) => r.id),
         columnFilter(
           "selection",
-          "Suite selection",
+          "Dataset selection",
           "enum",
           (r) => r.selection,
         ),
-        columnFilter("suiteCount", "Suites", "number", (r) => r.suiteCount),
+        columnFilter("suiteCount", "Datasets", "number", (r) => r.suiteCount),
       ],
-      label: "Evaluation run",
+      label: "Experiment",
       sortKey: "name",
       defaultWidth: 260,
       render: (run) => (
@@ -50,11 +50,11 @@ export function createEvaluationColumns(
           </Button>
           <p className="text-[11px] text-muted-foreground">
             {run.legacy
-              ? "Previous suite run"
+              ? "Previous dataset execution"
               : run.selection === "all"
-                ? "All suites"
-                : "Selected suites"}{" "}
-            · {run.suiteCount} {run.suiteCount === 1 ? "suite" : "suites"}
+                ? "All datasets"
+                : "Selected datasets"}{" "}
+            · {run.suiteCount} {run.suiteCount === 1 ? "dataset" : "datasets"}
           </p>
         </div>
       ),
@@ -84,7 +84,7 @@ export function createEvaluationColumns(
       filter: [
         columnFilter(
           "completedSuites",
-          "Completed suites",
+          "Completed datasets",
           "number",
           (r) => r.completedSuites,
         ),
@@ -108,7 +108,7 @@ export function createEvaluationColumns(
         <div className="text-xs">
           <p>
             {run.completedSuites - (run.interruptedSuites ?? 0)}/
-            {run.suiteCount} suites finished
+            {run.suiteCount} datasets finished
             {run.interruptedSuites
               ? ` · ${run.interruptedSuites} interrupted`
               : ""}

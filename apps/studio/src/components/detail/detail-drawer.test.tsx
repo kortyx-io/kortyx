@@ -123,29 +123,29 @@ it("opens the committed drawer while Next still retains the list pathname", asyn
 });
 
 it("retains different parallel slots sharing the same dismiss destination", async () => {
-  const casePath = "/evals/cases/run/case/1";
-  const judgePath = "/evals/judges/run/run";
+  const casePath = "/experiments/cases/run/case/1";
+  const judgePath = "/experiments/judges/run/run";
   const renderJudgeStack = async (showJudge: boolean) => {
     await act(() =>
       root.render(
         <DetailStackProvider>
           <NavigationControl />
           <DetailDrawerHost>
-            <DetailSlotPresence dismissPath="/evals/cases">
+            <DetailSlotPresence dismissPath="/experiments/cases">
               <DetailDrawer
                 matchPath={casePath}
-                dismissPath="/evals/cases"
+                dismissPath="/experiments/cases"
                 title="Case"
                 description="Case evidence"
               >
                 <p>Original case payload</p>
               </DetailDrawer>
             </DetailSlotPresence>
-            <DetailSlotPresence dismissPath="/evals/judges">
+            <DetailSlotPresence dismissPath="/experiments/judges">
               {showJudge ? (
                 <DetailDrawer
                   matchPath={judgePath}
-                  dismissPath="/evals/cases"
+                  dismissPath="/experiments/cases"
                   title="Judge"
                   description="Saved instructions"
                 >
@@ -208,7 +208,7 @@ it("retains the mounted ancestor when Next releases its parallel slot", async ()
 
 it.each([
   "/runs",
-  "/evals/suites/target/suite",
+  "/datasets/example",
   "/prompts/categories/folder",
 ])("closes retained payloads when a normal navigation opens %s", async (path) => {
   window.history.replaceState({}, "", "/runs/first");

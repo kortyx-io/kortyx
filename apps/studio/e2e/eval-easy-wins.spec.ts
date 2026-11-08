@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { evalSuiteHref } from "../src/features/evals/lib/navigation";
 import { OUTPUT_SUITE } from "./support/eval-output-plan";
 import { EVAL_FIXTURE, EVAL_SUITE } from "./support/eval-plan";
 
@@ -13,7 +14,7 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
     )
       fullResultReads++;
   });
-  await page.goto(`/evals/runs/${EVAL_FIXTURE.repeatedCandidate}`);
+  await page.goto(`/experiments/runs/${EVAL_FIXTURE.repeatedCandidate}`);
   const original = await (
     await page.request.get(
       `/api/studio/evals/runs/${EVAL_FIXTURE.repeatedCandidate}`,
@@ -42,13 +43,13 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
   await page
     .getByRole("button", { name: "Rerun failed cases", exact: true })
     .click();
-  const drawer = page.getByRole("dialog", { name: "Run evaluations" });
+  const drawer = page.getByRole("dialog", { name: "Run experiment" });
   await expect(drawer).toBeVisible();
   // Live case summaries already contain failed-case identities; no full result fetch.
   expect(fullResultReads).toBe(0);
   await expect(
     drawer.getByText(
-      "This creates a new run using current deployed suite definitions",
+      "This creates a new run using current deployed dataset definitions",
       { exact: false },
     ),
   ).toBeVisible();
@@ -69,7 +70,7 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
     }),
   ).not.toBeChecked();
   await expect(
-    drawer.getByText("1 suites · 1 conversations · 2 executions", {
+    drawer.getByText("1 datasets · 1 conversations · 2 executions", {
       exact: true,
     }),
   ).toBeVisible();
@@ -86,10 +87,10 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
     conversations.getByRole("checkbox", { name: "Repeated role", exact: true }),
   ).toBeChecked();
   await drawer
-    .getByRole("button", { name: "Run evaluations", exact: true })
+    .getByRole("button", { name: "Run experiment", exact: true })
     .click();
   await expect(page).toHaveURL(
-    (url) => /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
+    (url) => /^\/experiments\/[0-9a-f-]+$/.test(url.pathname),
     { timeout: 20000 },
   );
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
@@ -157,7 +158,7 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
 test("renders completed-output check verdicts and prepares grouped failures without selecting passing cases", async ({
   page,
 }, testInfo) => {
-  await page.goto(`/evals/suites/${EVAL_FIXTURE.targetId}/${OUTPUT_SUITE.id}`);
+  await page.goto(`${evalSuiteHref(EVAL_FIXTURE.targetId, OUTPUT_SUITE.id)}`);
   await expect(page.locator("[data-row-key]")).toHaveCount(5);
   await page
     .getByRole("button", { name: "Product list version two", exact: true })
@@ -168,13 +169,15 @@ test("renders completed-output check verdicts and prepares grouped failures with
   await page
     .getByRole("button", { name: "Close conversation definition" })
     .click();
-  await page.getByRole("button", { name: "Run suite", exact: true }).click();
-  const drawer = page.getByRole("dialog", { name: "Run evaluations" });
+  await page
+    .getByRole("button", { name: "Run experiment", exact: true })
+    .click();
+  const drawer = page.getByRole("dialog", { name: "Run experiment" });
   await drawer
-    .getByRole("button", { name: "Run evaluations", exact: true })
+    .getByRole("button", { name: "Run experiment", exact: true })
     .click();
   await expect(page).toHaveURL(
-    (url) => /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
+    (url) => /^\/experiments\/[0-9a-f-]+$/.test(url.pathname),
     { timeout: 20000 },
   );
   const path = new URL(page.url()).pathname;
