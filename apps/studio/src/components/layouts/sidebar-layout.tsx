@@ -60,6 +60,11 @@ export async function SidebarLayout({
         shell.routeScope?.projectPublicId
       ? studioHref("/runs", shell.routeScope)
       : "/onboarding";
+  const sampleSelection = {
+    active: sample,
+    visible: preference.visible,
+    returnTo,
+  };
 
   return (
     <StudioRouteProvider scope={routeScope}>
@@ -85,7 +90,10 @@ export async function SidebarLayout({
                 setupHref="/onboarding"
                 guides={safeLearningGuides(shell.learningGuides)}
               >
-                <AppSidebar studioContext={studioContext} shell={shell} />
+                <AppSidebar
+                  studioContext={studioContext}
+                  account={shell.account}
+                />
                 <SidebarInset className="h-svh overflow-hidden bg-sidebar">
                   <header className="flex h-12 shrink-0 items-center gap-2 px-4">
                     <SidebarTrigger className="-ml-1" />
@@ -95,21 +103,21 @@ export async function SidebarLayout({
                     />
                     <WorkspaceNavigation
                       projectSwitcher={
-                        <SampleProjectSelector
-                          active={sample}
-                          visible={preference.visible}
-                          projectName={
-                            shell.projectName ??
-                            (sample
-                              ? "Your project"
-                              : studioContext.scope.project ===
-                                  "Project unavailable"
+                        shell.renderProjectSwitcher?.(sampleSelection) ?? (
+                          <SampleProjectSelector
+                            {...sampleSelection}
+                            projectName={
+                              shell.projectName ??
+                              (sample
                                 ? "Your project"
-                                : studioContext.scope.project)
-                          }
-                          returnTo={returnTo}
-                          realSwitcher={shell.projectSwitcher}
-                        />
+                                : studioContext.scope.project ===
+                                    "Project unavailable"
+                                  ? "Your project"
+                                  : studioContext.scope.project)
+                            }
+                            realSwitcher={shell.projectSwitcher}
+                          />
+                        )
                       }
                       organizationSwitcher={
                         sample ? undefined : shell.organizationSwitcher

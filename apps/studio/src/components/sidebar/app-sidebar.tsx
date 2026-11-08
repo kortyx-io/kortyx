@@ -51,10 +51,10 @@ const navSections = [
 
 export function AppSidebar({
   studioContext,
-  shell,
+  account,
 }: {
   studioContext: StudioShellContext;
-  shell: StudioShellContribution;
+  account?: StudioShellContribution["account"];
 }) {
   const pathname = usePathname();
   const environment = useSearchParams().get("env");
@@ -157,7 +157,7 @@ export function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter className="pb-4">
-        <NavUser studioContext={studioContext} account={shell.account} />
+        <NavUser studioContext={studioContext} account={account} />
       </SidebarFooter>
       <SidebarRail className="mt-12 mb-4" />
     </Sidebar>

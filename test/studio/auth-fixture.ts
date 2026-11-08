@@ -1,5 +1,15 @@
 import "server-only";
 import type { StudioAuthAdapter } from "@studio/auth-contracts";
+import type { StudioShellAdapter } from "@studio/shell-contracts";
+
+export const studioShell: StudioShellAdapter = {
+  async resolve() {
+    return {
+      renderProjectSwitcher: ({ active }) =>
+        active ? null : "Fixture real-project picker",
+    };
+  },
+};
 
 /** Test only: these headers are NOT a usable authentication mechanism. */
 export const studioAuth: StudioAuthAdapter = {
