@@ -21,6 +21,7 @@ import {
   EvalHistorySchema,
   EvalTargetsResponseSchema,
 } from "../schema";
+import { fetchEvalApi } from "./upstream";
 
 async function read<T>(
   kind:
@@ -66,29 +67,26 @@ async function read<T>(
       throw new Error("Studio API is not configured.");
     }
     phase = "network";
-    const response = await fetch(
-      `${url.replace(/\/$/, "")}/v1/studio/evals/${path}`,
-      {
-        headers: {
-          authorization: credential.authorization,
-          "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
-          ...(credential.environment
-            ? { "x-kortyx-environment": credential.environment }
-            : {}),
-          ...(credential.environmentId
-            ? { "x-kortyx-environment-id": credential.environmentId }
-            : {}),
-          ...(credential.projectId
-            ? { "x-kortyx-project-id": credential.projectId }
-            : {}),
-        },
-        cache: "no-store",
-        signal: request
-          ? AbortSignal.any([request.signal, AbortSignal.timeout(20_000)])
-          : AbortSignal.timeout(20_000),
-        redirect: "error",
+    const response = await fetchEvalApi(url, path, {
+      headers: {
+        authorization: credential.authorization,
+        "x-kortyx-studio-api-version": STUDIO_API_PROTOCOL_VERSION,
+        ...(credential.environment
+          ? { "x-kortyx-environment": credential.environment }
+          : {}),
+        ...(credential.environmentId
+          ? { "x-kortyx-environment-id": credential.environmentId }
+          : {}),
+        ...(credential.projectId
+          ? { "x-kortyx-project-id": credential.projectId }
+          : {}),
       },
-    );
+      cache: "no-store",
+      signal: request
+        ? AbortSignal.any([request.signal, AbortSignal.timeout(20_000)])
+        : AbortSignal.timeout(20_000),
+      redirect: "error",
+    });
     if (!response.ok) {
       phase = "http";
       scope.end("failed", { phase, http_status: String(response.status) });

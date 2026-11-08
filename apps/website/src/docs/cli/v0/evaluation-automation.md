@@ -62,7 +62,7 @@ Example post-deployment job step (after readiness):
     eval_exit=$?
     if jq -e '.run' eval-results.json >/dev/null 2>&1; then
       jq -r '"Evaluation: \(.run.name) — \(.run.status)\nSuites: \(.run.completedSuites)/\(.run.suiteCount)\nPassed: \(.run.counts.passed), failed: \(.run.counts.failed), errors: \(.run.counts.error)"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
-      jq -r '"[Open evaluation](https://studio.example.com/evals/evaluations/\(.run.id))"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
+      jq -r '"[Open evaluation](https://studio.example.com/experiments/\(.run.id))"' eval-results.json >> "$GITHUB_STEP_SUMMARY"
     fi
     exit "$eval_exit"
 ```
@@ -83,11 +83,14 @@ application's version endpoint instead of assuming the checked-out CI commit is
 running on the server. An evaluation pins suite and judge definitions, but does
 not freeze the deployment or external data while execution is in progress.
 
-The grouped API is `/v1/studio/evals/evaluations`: POST creates a selection, GET
-lists grouped/legacy history; `/:id` returns summary and suites, `/:id/results`
-returns detailed results, and POST `/:id/cancel` cancels remaining work. Existing
-`/v1/studio/evals/runs` endpoints continue to serve individual suite executions.
-Apply migration `0007_evaluation_runs` before deploying the new API. Browser and
-CLI grouped operations require a compatible Studio/API release.
+The Studio API lists registered targets and their dataset manifests at
+`GET /v1/studio/datasets`. Use `/v1/studio/experiments` to list or start
+experiments, `/:id` for a saved summary, `/:id/results` for detailed results,
+and `POST /:id/cancel` to cancel remaining work. Individual dataset execution
+records are under `/v1/studio/experiments/runs`.
+
+The earlier `/v1/studio/evals/targets`, `/v1/studio/evals/evaluations`, and
+`/v1/studio/evals/runs` routes use the same handlers and request/response shapes.
+Existing CLI and API integrations can keep using them.
 
 Next: [Inspect saved results](/docs/cli/evaluations#inspect-and-cancel).

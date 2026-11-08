@@ -15,7 +15,7 @@ for (const status of ["retrying", "reconnecting", "unknown"] as const) {
       await sql`INSERT INTO eval_runs (id,organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,status,requested_by,lease_owner,lease_expires_at) SELECT ${id},organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,${sql.json({ repetitions: 1, caseIds: [EVAL_FIXTURE.caseId] })},${status === "unknown" ? "error" : "running"},'e2e','fixture',now()+interval '1 hour' FROM eval_runs WHERE id=${EVAL_FIXTURE.baseline}`;
       await sql`INSERT INTO eval_run_events(organization_id,project_id,run_id,event) SELECT organization_id,project_id,id,${sql.json({ type: "case-dispatch", caseId: EVAL_FIXTURE.caseId, repetition: 1, status: status === "unknown" ? "reconnecting" : status, httpStatus: 503, retryAt: new Date(Date.now() + 2000).toISOString() })} FROM eval_runs WHERE id=${id}`;
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto(`/evals/runs/${id}`);
+      await page.goto(`/experiments/runs/${id}`);
       await page
         .getByRole("link", { name: "Ambiguous role", exact: true })
         .click();

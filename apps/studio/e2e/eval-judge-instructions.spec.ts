@@ -6,11 +6,12 @@ import {
 } from "@kortyx/agent";
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
+import { evalSuiteHref } from "../src/features/evals/lib/navigation";
 import { DRAWER_FIXTURE } from "./support/telemetry-fixture";
 
-const suite = "/sample/evals/suites/sample-support/sample-resolution-safety";
+const suite = `/sample${evalSuiteHref("sample-support", "sample-resolution-safety")}`;
 const result =
-  "/sample/evals/cases/10000000-0000-4000-8000-000000000004/order-status/1";
+  "/sample/experiments/cases/10000000-0000-4000-8000-000000000004/order-status/1";
 
 test("definition instructions stack above the conversation, search, expand and restore its state", async ({
   page,
@@ -86,14 +87,12 @@ test("definition instructions stack above the conversation, search, expand and r
 test("expanded judge history never expands its retained conversation", async ({
   page,
 }) => {
-  await page.goto(
-    "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003",
-  );
+  await page.goto("/sample/experiments/10000000-0000-4000-8000-000000000003");
   await page
     .getByRole("link", { name: "Shipment status and a follow-up", exact: true })
     .click();
   const conversation = page.locator(
-    '[data-detail-drawer="/evals/cases/10000000-0000-4000-8000-000000000004/order-status/1"]',
+    '[data-detail-drawer="/experiments/cases/10000000-0000-4000-8000-000000000004/order-status/1"]',
   );
   const openJudge = () =>
     conversation
@@ -190,9 +189,7 @@ test("instructions remain readable on a phone", async ({ page }) => {
 test("conversation stats expand beneath the summary and the header shows its ID", async ({
   page,
 }) => {
-  await page.goto(
-    "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003",
-  );
+  await page.goto("/sample/experiments/10000000-0000-4000-8000-000000000003");
   await page
     .getByRole("link", { name: "Shipment status and a follow-up", exact: true })
     .click();
@@ -308,9 +305,7 @@ test("postcondition help explains the separate application check", async ({
 test("evaluation header uses refresh icon and keeps Live at the right", async ({
   page,
 }) => {
-  await page.goto(
-    "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003",
-  );
+  await page.goto("/sample/experiments/10000000-0000-4000-8000-000000000003");
   const header = page.locator('[data-tour-surface="eval-summary"]');
   const refresh = header.getByRole("button", {
     name: "Refresh evaluation",
@@ -431,7 +426,9 @@ test("historical judge instructions use recorded grades before finalization and 
     if (!scope) throw new Error("Seed the drawer fixture first");
     await sql`insert into eval_runs (id,organization_id,project_id,environment,target_id,target_name,suite_id,suite_revision,suite,request,requested_by,status) values (${id},${scope.organization_id},${scope.project_id},'development','e2e-saved-judge','Saved judge history',${savedSuite.id},${execution.suiteRevision},${sql.json(savedSuite)},${sql.json({ suiteId: savedSuite.id, suiteRevision: execution.suiteRevision, repetitions: 1, judge: { id: "configured-only", version: "2", instructions: "Queued configuration must not replace history" } })},'e2e','running')`;
     await sql`insert into eval_run_events (run_id,organization_id,project_id,event) values (${id},${scope.organization_id},${scope.project_id},${sql.json(JSON.parse(JSON.stringify({ type: "step-completed", caseId: "discovery", repetition: 1, step })))})`;
-    await page.goto(`/evals/judges/run/${id}?caseId=discovery&repetition=1`);
+    await page.goto(
+      `/experiments/judges/run/${id}?caseId=discovery&repetition=1`,
+    );
     const reader = page
       .locator("[data-judge-instructions]")
       .filter({ visible: true });

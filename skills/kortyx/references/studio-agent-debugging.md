@@ -194,7 +194,7 @@ connectivity. An unsupported server produces an explicit compatibility error;
 readers never fall back to downloading a complete evaluation.
 
 ```bash
-kortyx studio inspect https://studio.example/evals/evaluations/EVALUATION_ID --connection staging --json
+kortyx studio inspect https://studio.example/experiments/EVALUATION_ID --connection staging --json
 kortyx studio evals attempts EVALUATION_ID --status error --limit 25 --connection staging --json
 kortyx studio evals attempts EVALUATION_ID --status failed --limit 25 --connection staging --json
 kortyx studio evals turn EVALUATION_ID --suite SUITE_RUN_ID --case CASE_ID --repetition 1 --turn 0 --connection staging --json

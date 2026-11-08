@@ -146,7 +146,7 @@ test("select, explore, hide and restore the immutable sample project", async ({
   await expect(
     page.getByText("Support assistant", { exact: true }).first(),
   ).toBeVisible();
-  await page.goto("/sample/evals/runs");
+  await page.goto("/sample/experiments");
   await expect(
     page
       .getByText("Support quality — recorded sample", { exact: true })

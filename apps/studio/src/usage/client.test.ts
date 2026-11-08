@@ -236,3 +236,12 @@ it("collects finite chapter diagnostics while excluding arbitrary step names and
   expect(body).not.toContain("private-");
   usage.configureStudioUsage({ ...config, enabled: false });
 });
+
+it.each([
+  "/datasets",
+  "/sample/experiments/example",
+  "/projects/prj_aaaaaaaaaaaaaaaaaaaaaaaa/experiments",
+])("preserves evaluation usage attribution on %s", async (path) => {
+  const { usageSurface } = await import("./client");
+  expect(usageSurface(path)).toBe("evals");
+});

@@ -39,9 +39,9 @@ const guidance: Record<
       "Connect telemetry and execute a workflow that pauses for an interrupt. Ordinary runs do not create interrupts.",
   },
   evals: {
-    title: "Run your first evaluation",
+    title: "Run your first experiment",
     instruction:
-      "Expose your application's Kortyx eval endpoint, register the server-side target, and run a conversation suite.",
+      "Expose your application's Kortyx eval endpoint, register the server-side target, and run a conversation dataset.",
   },
 };
 
@@ -61,7 +61,7 @@ export function FirstObservation({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const item = guidance[resource];
-  const prompt = `Add Kortyx ${resource === "evals" ? "conversation evaluations" : "observability"} to this application using the existing Kortyx SDK and the current official documentation at ${documentationUrl}. ${item.instruction} Read API credentials from the server environment; never embed secrets in browser code or prompts. Preserve default payload privacy. Verify the integration by running a minimal example and checking ${resource} in Studio.`;
+  const prompt = `Add Kortyx ${resource === "evals" ? "conversation evaluations" : "observability"} to this application using the existing Kortyx SDK and the current official documentation at ${documentationUrl}. ${item.instruction} Read API credentials from the server environment; never embed secrets in browser code or prompts. Preserve default payload privacy. Verify the integration by running a minimal example and checking ${resource === "evals" ? "Experiments" : resource} in Studio.`;
   return (
     <div
       data-page-help-state="empty"

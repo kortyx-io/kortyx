@@ -26,7 +26,7 @@ The application endpoint credential and provider credential have different jobs.
 
 ## Verify execution and grading
 
-Open **Evals**, select the registered application and environment, discover a suite, and run a representative case. Verify the saved workflow result, expected interrupts/tool evidence, and the selected judge's result. A queued evaluation or successful discovery alone is insufficient.
+Open **Datasets** in the registered application environment, choose a dataset, and run a representative case. Find the saved result under **Experiments**. Verify the saved workflow result, expected interrupts/tool evidence, and the selected judge's result. A queued evaluation or successful discovery alone is insufficient.
 
 Keep the shared [results and comparison guide](/docs/studio/evals#read-results-and-compare) nearby. Execution errors, quality failures, cancellation, and interrupted work are different outcomes. Missing judging evidence should not be treated as a passing grade.
 

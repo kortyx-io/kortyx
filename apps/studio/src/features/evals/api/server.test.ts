@@ -282,3 +282,24 @@ it("reports missing configuration once with an actionable stable code", async ()
     },
   });
 });
+
+it("falls back only for a missing canonical route on the preceding API", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(new Response("404 Not Found", { status: 404 }))
+    .mockResolvedValueOnce(Response.json({ targets: [], canRun: true }))
+    .mockResolvedValueOnce(
+      Response.json({ error: "Not found" }, { status: 404 }),
+    );
+  vi.stubGlobal("fetch", fetch);
+  await expect(readEvalTargets()).resolves.toEqual({
+    targets: [],
+    canRun: true,
+  });
+  await expect(readEvaluationHistory()).rejects.toThrow("unavailable");
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+    "http://api:6400/v1/studio/datasets",
+    "http://api:6400/v1/studio/evals/targets",
+    "http://api:6400/v1/studio/experiments",
+  ]);
+});

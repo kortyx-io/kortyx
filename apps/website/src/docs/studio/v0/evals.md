@@ -14,7 +14,20 @@ An evaluation runs example conversations through your application's real agent a
 
 Follow [Run your first evaluation](/docs/studio/first-eval). You will define a case, expose an authenticated application endpoint, connect it to Studio, and run it once. Your application supplies its normal model, tools, and test-user permissions.
 
-If setup is already complete, open **Evals**, select the application and suite, choose a judge, and run the cases you need.
+If setup is complete, open **Evaluate → Datasets** to browse the conversation
+cases registered by your application. Studio displays SDK suites as datasets.
+Edit their definitions in application code, then refresh discovery in Studio.
+
+Open a dataset and choose **Run experiment** to select cases, a judge, and
+execution settings. Use **Evaluate → Experiments** to monitor the run, read its
+saved results, or compare it with an earlier experiment.
+
+### Existing links and integrations
+
+Studio uses `/datasets` and `/experiments` for the two destinations. Existing
+`/evals` bookmarks redirect and keep their saved selections. The SDK suite
+exports, CLI commands, and application eval endpoint use their existing
+contracts.
 
 ## Read results and compare
 

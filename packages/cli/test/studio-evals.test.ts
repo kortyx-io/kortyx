@@ -864,10 +864,15 @@ describe("eval endpoint validation", () => {
     "https://studio.test/evals/runs/not-uuid",
   ])("rejects %s", (input) =>
     expect(() => parseEvalRunTarget(input)).toThrow());
-  it("strips query and fragment from valid locators", () =>
-    expect(
-      parseEvalRunTarget(`https://studio.test/evals/runs/${id}?secret=x#x`),
-    ).toEqual({ id, url: `https://studio.test/evals/runs/${id}` }));
+  it.each([
+    "evals/runs",
+    "evals/evaluations",
+    "experiments",
+    "experiments/runs",
+  ])("reads %s links and strips query and fragment", (path) => {
+    const url = `https://studio.test/${path}/${id}`;
+    expect(parseEvalRunTarget(`${url}?secret=x#x`)).toEqual({ id, url });
+  });
   it("validates request limits before making a call", async () => {
     const request = mockFetch();
     const client = new StudioEvalClient(

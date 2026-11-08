@@ -49,12 +49,21 @@ it("does not relabel dynamic identifiers as settings sections", () => {
   expect(html).toContain('title="members">members</span>');
 });
 
-it("links an evaluation run breadcrumb to the grouped Runs list", () => {
-  route.pathname = "/evals/evaluations/11111111-1111-4111-8111-111111111111";
+it("links an experiment breadcrumb to the experiments list and preserves environment", () => {
+  route.pathname = "/experiments/11111111-1111-4111-8111-111111111111";
+  route.search = "env=staging";
   const html = renderToStaticMarkup(<WorkspaceNavigation />);
-  expect(html).toContain('href="/evals/runs"');
-  expect(html).toContain('title="Evaluation run">Evaluation run</span>');
-  expect(html).not.toContain('href="/evals/evaluations"');
+  route.search = "";
+  expect(html).toContain('href="/experiments?env=staging"');
+  expect(html).toContain('title="Experiment">Experiment</span>');
+  expect(html).not.toContain('aria-label="Eval navigation"');
+});
+
+it("labels a dataset breadcrumb without exposing its composite identity", () => {
+  route.pathname = "/datasets/%5B%22target%22%2C%22suite%22%5D";
+  const html = renderToStaticMarkup(<WorkspaceNavigation />);
+  expect(html).toContain('href="/datasets"');
+  expect(html).toContain('title="Dataset">Dataset</span>');
 });
 
 it("does not link a private diagnostic breadcrumb to a nonexistent inbox", () => {
@@ -72,41 +81,9 @@ it("uses a prompt label until the detail title is available instead of exposing 
   expect(html).not.toContain("11111111-1111-4111-8111-111111111111");
 });
 
-it.each([
-  ["/evals/runs", "runs"],
-  ["/evals/evaluations/evaluation-id", "runs"],
-  ["/evals/evaluations/evaluation-id/compare", "runs"],
-  ["/evals/cases/run-id/case-id/1", "runs"],
-  ["/evals/suites", "suites"],
-  ["/evals/judges/target/app", "suites"],
-  ["/evals/judges/run/run-id", "runs"],
-  ["/evals/suites/suite-id", "suites"],
-])("keeps the eval section switch active on %s and preserves environment scope", (pathname, active) => {
-  route.pathname = pathname;
-  route.search = "env=staging";
-  const html = renderToStaticMarkup(<WorkspaceNavigation />);
-  route.search = "";
-  const navigation = html.match(
-    /<nav aria-label="Eval navigation"[^>]*>(.*?)<\/nav>/,
-  )?.[1];
-  expect(navigation).toContain('href="/evals/runs?env=staging"');
-  expect(navigation).toContain('href="/evals/suites?env=staging"');
-  expect(navigation).toContain(
-    `href="/evals/${active}?env=staging" aria-current="page"`,
-  );
-  expect(navigation?.match(/aria-current="page"/g)).toHaveLength(1);
-});
-
-it("does not show eval section navigation outside evaluations", () => {
-  route.pathname = "/runs";
-  expect(renderToStaticMarkup(<WorkspaceNavigation />)).not.toContain(
-    'aria-label="Eval navigation"',
-  );
-});
-
 it("gives judge instruction readers a useful breadcrumb without invalid source ancestors", () => {
-  route.pathname = "/evals/judges/target/app";
+  route.pathname = "/experiments/judges/target/app";
   const html = renderToStaticMarkup(<WorkspaceNavigation />);
   expect(html).toContain("Judge instructions</span>");
-  expect(html).not.toContain('href="/evals/judges/target"');
+  expect(html).not.toContain('href="/experiments/judges/target"');
 });

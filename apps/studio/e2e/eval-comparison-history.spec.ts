@@ -1,12 +1,12 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
 import { expect, test } from "@playwright/test";
 
-const evaluation = `/sample/evals/evaluations/${sample.evaluationId}`;
+const evaluation = `/sample/experiments/${sample.evaluationId}`;
 
 test("comparison groups and arrow navigation survive reload and browser Back/Forward", async ({
   page,
 }) => {
-  await page.goto("/sample/evals/runs?live=false");
+  await page.goto("/sample/experiments?live=false");
   const row = page.locator("[data-row-key]").filter({
     has: page.getByRole("button", {
       name: "Support quality — recorded sample",
@@ -60,7 +60,7 @@ test("comparison groups and arrow navigation survive reload and browser Back/For
 test("baseline and independent repetitions are shareable and restored through history", async ({
   page,
 }) => {
-  await page.goto("/sample/evals/runs?q=Consistency&live=false");
+  await page.goto("/sample/experiments?q=Consistency&live=false");
   await page
     .getByRole("button", {
       name: "Consistency check — three repetitions",

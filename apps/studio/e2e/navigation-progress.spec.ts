@@ -1,13 +1,14 @@
 import { expect, test } from "@playwright/test";
+import { evalSuiteHref } from "../src/features/evals/lib/navigation";
 import { EVAL_FIXTURE } from "./support/eval-fixture";
 
-const runPath = `/evals/runs/${EVAL_FIXTURE.candidate}`;
+const runPath = `/experiments/runs/${EVAL_FIXTURE.candidate}`;
 
 test("standard Next links show progress while a suite workspace response is delayed", async ({
   page,
 }) => {
-  const suitePath = `/evals/suites/${EVAL_FIXTURE.targetId}/${encodeURIComponent(EVAL_FIXTURE.suiteId)}`;
-  await page.goto("/evals/suites?live=false");
+  const suitePath = `${evalSuiteHref(EVAL_FIXTURE.targetId, EVAL_FIXTURE.suiteId)}`;
+  await page.goto("/datasets?live=false");
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   let release = () => {};
   const blocked = new Promise<void>((resolve) => {
@@ -49,7 +50,7 @@ for (const clickTarget of ["row", "button"] as const) {
         .getByRole("button", { name: "Run history", exact: true })
         .click();
     } else {
-      await page.goto(`/evals/runs?live=false&q=${EVAL_FIXTURE.candidate}`);
+      await page.goto(`/experiments?live=false&q=${EVAL_FIXTURE.candidate}`);
     }
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
     const row = page.locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`);
@@ -111,7 +112,7 @@ for (const clickTarget of ["row", "button"] as const) {
 test("a newer navigation wins while an eval row navigation is still pending", async ({
   page,
 }) => {
-  await page.goto(`/evals/runs?live=false&q=${EVAL_FIXTURE.candidate}`);
+  await page.goto(`/experiments?live=false&q=${EVAL_FIXTURE.candidate}`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   let release!: () => void;
   const blocked = new Promise<void>((resolve) => {
@@ -134,10 +135,10 @@ test("a newer navigation wins while an eval row navigation is still pending", as
     await expect.poll(() => requested).toBe(true);
     await expect(page.locator(".bprogress .bar")).toBeVisible();
     await page
-      .getByRole("navigation", { name: "Eval navigation" })
-      .getByRole("link", { name: "Suites", exact: true })
+      .locator('[data-sidebar="sidebar"]')
+      .getByRole("link", { name: "Datasets", exact: true })
       .click();
-    await expect(page).toHaveURL(/\/evals\/suites$/);
+    await expect(page).toHaveURL(/\/datasets$/);
   } finally {
     release();
   }
@@ -145,13 +146,13 @@ test("a newer navigation wins while an eval row navigation is still pending", as
     page.getByRole("link", { name: "E2E job conversations", exact: true }),
   ).toBeVisible();
   await expect(page.locator(".bprogress")).toHaveCount(0);
-  await expect(page).toHaveURL(/\/evals\/suites$/);
+  await expect(page).toHaveURL(/\/datasets$/);
 });
 
 test("returning to the current list cancels pending detail navigation and clears progress", async ({
   page,
 }) => {
-  await page.goto(`/evals/runs?q=${EVAL_FIXTURE.candidate}`);
+  await page.goto(`/experiments?q=${EVAL_FIXTURE.candidate}`);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   let release = () => {};
   const blocked = new Promise<void>((resolve) => {
@@ -174,14 +175,14 @@ test("returning to the current list cancels pending detail navigation and clears
     await expect.poll(() => requested).toBe(true);
     await expect(page.locator(".bprogress .bar")).toBeVisible();
     await page
-      .getByRole("navigation", { name: "Eval navigation" })
-      .getByRole("link", { name: "Runs", exact: true })
+      .locator('[data-sidebar="sidebar"]')
+      .getByRole("link", { name: "Experiments", exact: true })
       .click();
     await expect(page.locator(".bprogress")).toHaveCount(0);
   } finally {
     release();
   }
-  await expect(page).toHaveURL(/\/evals\/runs$/);
+  await expect(page).toHaveURL(/\/experiments$/);
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   await expect(page.locator("[data-row-key]").first()).toBeVisible();
 });
@@ -210,5 +211,5 @@ test("an unavailable eval refresh shows its failure without trapping navigation"
   await expect(page.locator(".bprogress")).toHaveCount(0);
   await page.getByRole("button", { name: /Live refresh:/ }).click();
   await page.getByRole("button", { name: "Run history", exact: true }).click();
-  await expect(page).toHaveURL(/\/evals\/runs\?live=false$/);
+  await expect(page).toHaveURL(/\/experiments\?live=false$/);
 });

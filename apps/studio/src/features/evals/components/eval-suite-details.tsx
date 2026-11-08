@@ -65,7 +65,7 @@ export function EvalSuiteDetails({
           }}
         >
           <FileText />
-          Suite details
+          Dataset details
         </Button>
       ) : null}
       <DetailInspectorDrawer
@@ -73,9 +73,9 @@ export function EvalSuiteDetails({
         onClose={() => {
           void setSelection(null);
         }}
-        title="Suite details"
+        title="Dataset details"
         description={title}
-        closeLabel="Close suite details"
+        closeLabel="Close dataset details"
       >
         {sections.map((section) => (
           <section

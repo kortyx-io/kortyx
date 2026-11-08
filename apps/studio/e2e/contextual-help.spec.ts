@@ -100,9 +100,7 @@ async function expectPreferredHelpSide(
 test("opening another header help replaces pinned help and prefers available space above", async ({
   page,
 }) => {
-  await page.goto(
-    "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003",
-  );
+  await page.goto("/sample/experiments/10000000-0000-4000-8000-000000000003");
   const outcome = page
     .locator('th[data-column="status"]')
     .getByRole("button", { name: "About Outcome", exact: true });
@@ -156,7 +154,7 @@ test("opening another header help replaces pinned help and prefers available spa
   await change.click();
   await expect(changeHelp).toBeVisible();
   await page
-    .getByRole("navigation", { name: "Evaluation suites" })
+    .getByRole("navigation", { name: "Experiment datasets" })
     .getByRole("button", { name: /^Support quality / })
     .focus();
   await expect(page.getByRole("tooltip")).toBeVisible();

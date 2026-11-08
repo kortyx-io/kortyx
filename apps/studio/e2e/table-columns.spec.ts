@@ -353,8 +353,8 @@ for (const [path, tableId] of [
   ["/interrupts?range=All+time", "interrupts"],
   ["/prompts", "prompts"],
   ["/prompts/groups", "prompt-groups"],
-  ["/evals/runs", "evaluations"],
-  ["/evals/suites", "eval-suites"],
+  ["/experiments", "evaluations"],
+  ["/datasets", "eval-suites"],
 ] as const) {
   test(`column chooser reorders, hides and restores the same layout on ${tableId}`, async ({
     page,

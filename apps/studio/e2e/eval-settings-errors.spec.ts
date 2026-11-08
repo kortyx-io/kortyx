@@ -16,7 +16,7 @@ test("shows the evaluation timeout and incomplete work without investigation", a
   page,
 }) => {
   await seedEvalSettingsFixture();
-  await page.goto(`/evals/evaluations/${EVAL_SETTINGS_FIXTURE.id}`);
+  await page.goto(`/experiments/${EVAL_SETTINGS_FIXTURE.id}`);
   const timeout = page.getByRole("button", {
     name: /Timed out after 30m · 44 unfinished attempts/,
   });
@@ -104,7 +104,9 @@ test("shows original provider errors, stacks, causes and response details automa
   page,
 }) => {
   await seedEvalSettingsFixture();
-  await page.goto(`/evals/cases/${EVAL_SETTINGS_FIXTURE.errorSuite}/case-0/1`);
+  await page.goto(
+    `/experiments/cases/${EVAL_SETTINGS_FIXTURE.errorSuite}/case-0/1`,
+  );
   await expect(
     page
       .getByText(
@@ -140,7 +142,7 @@ test("saves project defaults and submits only settings explicitly changed for a 
       .getByLabel("Evaluation timeout (minutes)", { exact: true })
       .fill("45");
     await page
-      .getByLabel("Concurrent attempts across suites", { exact: true })
+      .getByLabel("Concurrent attempts across datasets", { exact: true })
       .fill("2");
     await page
       .getByLabel("Grading timeout (seconds)", { exact: true })
@@ -160,13 +162,13 @@ test("saves project defaults and submits only settings explicitly changed for a 
     expect(configuration!.y - (save!.y + save!.height)).toBeGreaterThan(40);
     await capture(page, "project-evaluation-defaults");
     await page.goto(
-      `/evals/runs?launch=true&launchApplication=${EVAL_FIXTURE.targetId}`,
+      `/experiments?launch=true&launchApplication=${EVAL_FIXTURE.targetId}`,
     );
     await expect(
       page.getByLabel("Evaluation timeout (minutes)", { exact: true }),
     ).toHaveValue("45");
     await expect(
-      page.getByLabel("Concurrent attempts across suites", { exact: true }),
+      page.getByLabel("Concurrent attempts across datasets", { exact: true }),
     ).toHaveValue("2");
     await expect(
       page.getByLabel("Grading timeout (seconds)", { exact: true }),
@@ -193,7 +195,7 @@ test("saves project defaults and submits only settings explicitly changed for a 
     });
     await page
       .getByRole("dialog")
-      .getByRole("button", { name: "Run evaluations", exact: true })
+      .getByRole("button", { name: "Run experiment", exact: true })
       .click();
     await expect.poll(() => submitted?.runTimeoutMs).toBe(5_400_000);
     expect(submitted?.gradingTimeoutMs).toBe(180_000);
@@ -235,21 +237,21 @@ test("allows a run override to satisfy an application ceiling below the project 
       target.manifest.execution.limits = { concurrency: 1 };
       await route.fulfill({ response, json: data });
     });
-    await page.goto("/evals/runs");
+    await page.goto("/experiments");
     await page
-      .getByRole("button", { name: "Refresh evaluations", exact: true })
+      .getByRole("button", { name: "Refresh experiments", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Run evaluations", exact: true })
+      .getByRole("button", { name: "Run experiment", exact: true })
       .click();
     const drawer = page.getByRole("dialog");
     await drawer.getByText("Execution settings", { exact: true }).click();
     const start = drawer.getByRole("button", {
-      name: "Run evaluations",
+      name: "Run experiment",
       exact: true,
     });
     await expect(
-      page.getByLabel("Concurrent attempts across suites", { exact: true }),
+      page.getByLabel("Concurrent attempts across datasets", { exact: true }),
     ).toHaveValue("2");
     await expect(
       page.getByText("concurrency exceeds the application maximum of 1.", {
@@ -258,7 +260,7 @@ test("allows a run override to satisfy an application ceiling below the project 
     ).toBeVisible();
     await expect(start).toBeDisabled();
     await page
-      .getByLabel("Concurrent attempts across suites", { exact: true })
+      .getByLabel("Concurrent attempts across datasets", { exact: true })
       .fill("1");
     await expect(start).toBeEnabled();
     let submitted: Record<string, unknown> | undefined;

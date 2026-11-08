@@ -393,14 +393,14 @@ test.describe("Prompt detail drawers", () => {
     );
     const launch = page.locator("[data-detail-inspector]");
     await expect(
-      launch.getByRole("button", { name: "Run evaluations", exact: true }),
+      launch.getByRole("button", { name: "Run experiment", exact: true }),
     ).toBeEnabled();
     const stable = await monitorPromptSurface(page, [
       "[data-prompt-header]",
       "[data-prompt-version-history]",
     ]);
     await launch
-      .getByRole("button", { name: "Run evaluations", exact: true })
+      .getByRole("button", { name: "Run experiment", exact: true })
       .click();
     await expect(launch).toHaveCount(0);
     await expect(page).toHaveURL(
@@ -2313,7 +2313,7 @@ test.describe("Prompt detail drawers", () => {
       await expect(status).toHaveAttribute("aria-pressed", "true");
       await expect(promptDrawer(page)).toHaveAttribute("data-state", "open");
       await expect(page).not.toHaveURL(
-        new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),
+        new RegExp(`/experiments/runs/${EVAL_FIXTURE.candidate}`),
       );
       await status.click();
       await expect(status).toHaveAttribute("aria-pressed", "false");
@@ -2322,7 +2322,7 @@ test.describe("Prompt detail drawers", () => {
         .getByRole("button")
         .click();
       await expect(page).toHaveURL(
-        new RegExp(`/evals/runs/${EVAL_FIXTURE.candidate}`),
+        new RegExp(`/experiments/runs/${EVAL_FIXTURE.candidate}`),
         { timeout: 15_000 },
       );
     } finally {

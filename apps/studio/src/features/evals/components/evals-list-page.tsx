@@ -5,49 +5,45 @@ import {
   readEvalTargets,
   readEvaluationTable,
 } from "../api/server";
-import { EvalsPageClient } from "./evals-page-client";
+import { DatasetsPageClient } from "./datasets-page-client";
 import { EvaluationList } from "./evaluation-list";
-export async function EvalsListPage({
-  view,
-  query = {},
+export async function ExperimentsPage({
+  query,
 }: {
-  view: "runs" | "suites";
-  query?: Record<string, string | string[] | undefined>;
+  query: Record<string, string | string[] | undefined>;
 }) {
-  if (view === "runs") {
-    const [targets, history] = await Promise.allSettled([
-      readEvalTargets(),
-      readEvaluationTable(query),
-    ]);
-    return (
-      <EvaluationList
-        initialTotalCount={
-          history.status === "fulfilled" ? history.value.totalCount : 0
-        }
-        initialTargets={
-          targets.status === "fulfilled"
-            ? targets.value
-            : { targets: [], canRun: false }
-        }
-        initialHistory={
-          history.status === "fulfilled" ? history.value.runs : []
-        }
-        initialError={
-          targets.status === "rejected" || history.status === "rejected"
-            ? "Some evaluation data is unavailable. Check the API version and refresh."
-            : ""
-        }
-      />
-    );
-  }
+  const [targets, history] = await Promise.allSettled([
+    readEvalTargets(),
+    readEvaluationTable(query),
+  ]);
+  return (
+    <EvaluationList
+      initialTotalCount={
+        history.status === "fulfilled" ? history.value.totalCount : 0
+      }
+      initialTargets={
+        targets.status === "fulfilled"
+          ? targets.value
+          : { targets: [], canRun: false }
+      }
+      initialHistory={history.status === "fulfilled" ? history.value.runs : []}
+      initialError={
+        targets.status === "rejected" || history.status === "rejected"
+          ? "Some experiment data is unavailable. Check the API version and refresh."
+          : ""
+      }
+    />
+  );
+}
+
+export async function DatasetsPage() {
   const [targets, history, cookieStore] = await Promise.allSettled([
     readEvalTargets(),
     readEvalHistory(true),
     cookies(),
   ]);
   return (
-    <EvalsPageClient
-      view={view}
+    <DatasetsPageClient
       initialTargets={
         targets.status === "fulfilled"
           ? targets.value
@@ -58,7 +54,7 @@ export async function EvalsListPage({
       }
       initialError={
         targets.status === "rejected" || history.status === "rejected"
-          ? "Some eval data is unavailable. Refresh to reconnect."
+          ? "Some dataset data is unavailable. Refresh to reconnect."
           : ""
       }
       preferences={parseListTablePreferences(

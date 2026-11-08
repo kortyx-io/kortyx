@@ -261,12 +261,18 @@ export function contextChapter(path: string): ChapterId | null {
   if (path.startsWith("/interrupts")) return "approvals";
   if (path.startsWith("/prompts")) return "prompt-versions";
   if (
-    path.startsWith(`/evals/evaluations/${sample.evaluationIds.candidate}`) ||
-    path.startsWith(`/evals/runs/${sample.candidateEvalRunId}`) ||
-    path.startsWith(`/evals/cases/${sample.candidateEvalRunId}/`)
+    path.startsWith(`/experiments/${sample.evaluationIds.candidate}`) ||
+    path.startsWith(`/experiments/runs/${sample.candidateEvalRunId}`) ||
+    path.startsWith(`/experiments/cases/${sample.candidateEvalRunId}/`)
   )
     return "evaluation-progress";
-  if (path.startsWith("/evals")) return "evaluation-results";
+  if (
+    path === "/datasets" ||
+    path.startsWith("/datasets/") ||
+    path === "/experiments" ||
+    path.startsWith("/experiments/")
+  )
+    return "evaluation-results";
   if (path.startsWith("/settings")) return "personalize";
   return null;
 }

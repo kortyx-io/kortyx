@@ -34,12 +34,12 @@ export function EvalSuiteNavigation({
 }) {
   return (
     <nav
-      aria-label="Evaluation suites"
+      aria-label="Experiment datasets"
       inert={loading || undefined}
       className="data-table-body-scroll flex shrink-0 items-center gap-1 overflow-x-auto border-b bg-background p-2 lg:w-48 lg:flex-col lg:items-stretch lg:overflow-x-hidden lg:overflow-y-auto lg:border-r lg:border-b-0"
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-2 py-1">
-        <span className="text-xs text-muted-foreground">Suites</span>
+        <span className="text-xs text-muted-foreground">Datasets</span>
         <HelpCircle help={studioHelp.evals} />
       </div>
       <Button

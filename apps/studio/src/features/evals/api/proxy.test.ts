@@ -66,6 +66,7 @@ it("keeps server credentials in the forwarded request and preserves the actual A
   expect(body.error).toContain("Suite revision changed.");
   expect(body.error).not.toContain("private-consumer-token");
   expect(response.status).toBe(409);
+  expect(fetch).toHaveBeenCalledTimes(1);
 });
 it("allows only the fixed eval paths", async () => {
   const fetch = vi.fn();
@@ -91,7 +92,9 @@ it("forwards grouped run launch, results and cancellation through the same authe
       : request();
     expect((await proxyEvalRequest(req, parts)).status).toBe(200);
     expect(fetch.mock.calls.at(-1)?.[0]).toBe(
-      `http://api:6400/v1/studio/evals/${parts.join("/")}`,
+      req.method === "POST"
+        ? `http://api:6400/v1/studio/evals/${parts.join("/")}`
+        : `http://api:6400/v1/studio/experiments/${parts.slice(1).join("/")}`,
     );
   }
   expect(

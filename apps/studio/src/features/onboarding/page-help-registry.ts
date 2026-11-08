@@ -1,4 +1,5 @@
 import { SAMPLE_PROJECT as sample } from "@kortyx/telemetry-contracts";
+import { evalSuiteHref } from "@/features/evals/lib/navigation";
 import type { DetailTabCopy } from "@/lib/detail-tab-contract";
 import { studioHelp } from "@/lib/studio-help";
 
@@ -117,49 +118,49 @@ export const PAGE_GUIDES = {
       "Inspect the included versions and linked evaluation results. Editing a candidate group does not by itself promote those versions to production.",
   },
   evals: {
-    title: "Evaluations",
+    title: "Experiments",
     kind: "list",
     overview:
-      "Evaluation runs execute conversation suites against an application target. Progress counts recorded outcomes; a running evaluation can already contain completed, failed, and ungraded attempts.",
+      "Experiments execute conversation datasets against an application target. Progress counts recorded outcomes; a running experiment can already contain completed, failed, and ungraded attempts.",
     content:
-      "The Changes column names the earlier reference run; click a change or comparison icon to inspect saved evidence. Filter conversations by suite; Comparison baseline chooses the earlier run. Open a row for its detail drawer. Pass rate covers graded outcomes, not production reliability. Hover or focus a header to reveal help and column controls.",
-    example: "/evals/runs",
+      "The Changes column names the earlier reference experiment; click a change or comparison icon to inspect saved evidence. Filter conversations by dataset; Comparison baseline chooses the earlier run. Open an experiment to inspect its datasets and results. Pass rate covers graded outcomes, not production reliability. Hover or focus a header to reveal help and column controls.",
+    example: "/experiments",
   },
   "eval-suites": {
-    title: "Evaluation suites",
+    title: "Datasets",
     kind: "list",
     overview:
-      "Suites define conversations and expectations exposed by an application target. A definition describes what to test; it is not itself a recorded test result.",
+      "Datasets define conversations and expectations exposed by an application target. A definition describes what to test; it is not itself a recorded test result.",
     content:
-      "Open a suite to browse its conversations in a searchable table. Select a conversation to inspect its steps and expectations in a drawer. Current definitions are separate from saved run snapshots.",
-    example: "/evals/suites",
+      "Open a dataset to browse its conversations in a searchable table. Select a conversation to inspect its steps and expectations in a drawer. Current definitions are separate from saved run snapshots.",
+    example: "/datasets",
   },
   "eval-suite": {
-    title: "Suite definition",
+    title: "Dataset definition",
     kind: "detail",
     overview:
-      "This suite defines conversation cases, their steps, and expected observations. The suite revision identifies the exact definition used by an evaluation.",
+      "This dataset defines conversation cases, their steps, and expected observations. The dataset revision identifies the exact definition used by an evaluation.",
     content:
       "Open a conversation for its message, criteria and automatic checks. A criterion states the requirement; Judge instructions opens reusable grading instructions as read-only message cards in a stacked drawer, with highlighted input variables. Use the step selector and Previous/Next to browse. Case definition shows test data. Saved runs keep their own snapshots.",
-    example: `/evals/suites/${sample.targetId}/${sample.suiteId}`,
+    example: evalSuiteHref(sample.targetId, sample.suiteId),
   },
   evaluation: {
-    title: "Evaluation details",
+    title: "Experiment details",
     kind: "detail",
     overview:
-      "This evaluation groups suite executions for one target. Finished suites and recorded case outcomes are separate progress counts; unfinished grading has no final verdict yet. In connected projects, Live keeps progress and costs current.",
+      "This experiment groups dataset executions for one target. Finished datasets and recorded case outcomes are separate progress counts; unfinished grading has no final verdict yet. In connected projects, Live keeps progress and costs current.",
     content:
-      "All conversations shows one row per case across suites. Selecting a suite filters the same table; All conversations clears that filter. Run totals stay above, with a cost breakdown on the amount. Open a conversation for individual repetitions. Hover or focus a suite for its summary.",
-    example: `/evals/evaluations/${sample.evaluationId}`,
+      "All conversations shows one row per case across datasets. Selecting a dataset filters the same table; All conversations clears that filter. Run totals stay above, with a cost breakdown on the amount. Open a conversation for individual repetitions. Hover or focus a dataset for its summary.",
+    example: `/experiments/${sample.evaluationId}`,
   },
   "eval-run": {
-    title: "Suite run results",
+    title: "Dataset execution results",
     kind: "detail",
     overview:
-      "This is one execution of a conversation suite. Counts summarize repetitions; a case's criterion results and recorded observations explain the evidence behind its outcome.",
+      "This is one execution of a conversation dataset. Counts summarize repetitions; a case's criterion results and recorded observations explain the evidence behind its outcome.",
     content:
-      "Each row groups all repetitions. Hover or focus the selected suite for its summary. Open a conversation for evidence and workflow links; Suite details shows the saved suite snapshot and execution settings without repeating every conversation. Mixed results requires recorded passes and failures. Rerun failed cases prepares a fresh launch.",
-    example: `/evals/runs/${sample.evalRunId}`,
+      "Each row groups all repetitions. Hover or focus the selected dataset for its summary. Open a conversation for evidence and workflow links; Dataset details shows the saved dataset snapshot and execution settings without repeating every conversation. Mixed results requires recorded passes and failures. Rerun failed cases prepares a fresh launch.",
+    example: `/experiments/runs/${sample.evalRunId}`,
   },
   "eval-case": {
     title: "Conversation evaluation",
@@ -168,25 +169,25 @@ export const PAGE_GUIDES = {
       "This drawer explains one conversation, with a Repetition dropdown for each independent execution. Step results connect expected behavior, the observed response, grading criteria, and execution evidence.",
     content:
       "Select a repetition and step to inspect its assessment and messages. Assessment details contains the criterion, evidence, checks and recorded Grading request. Postcondition verification checks application state separately. See more stats expands this repetition’s metrics and totals. Judge instructions opens the saved snapshot.",
-    example: `/evals/cases/${sample.evalRunId}/${sample.caseId}/1`,
+    example: `/experiments/cases/${sample.evalRunId}/${sample.caseId}/1`,
   },
   "eval-comparison": {
-    title: "Compare evaluation runs",
+    title: "Compare experiments",
     kind: "detail",
     overview:
-      "Compare two saved evaluations across their suites. Cases match by suite and conversation identity. Choosing a baseline does not rerun either evaluation.",
+      "Compare two saved experiments across their datasets. Cases match by dataset and conversation identity. Choosing a baseline does not rerun either experiment.",
     content:
-      "Use All suites or choose a suite, then filter for regressions, improvements, or results that are not comparable. Change cells open a modal with independent Earlier and This run Repetition dropdowns. Rows group repetitions. Older comparison pages remain readable; their cost deltas require fully priced comparable results.",
-    example: `/evals/evaluations/${sample.evaluationId}/compare`,
+      "Use All datasets or choose a dataset, then filter for regressions, improvements, or results that are not comparable. Change cells open a modal with independent Earlier and This run Repetition dropdowns. Rows group repetitions. Older comparison pages remain readable; their cost deltas require fully priced comparable results.",
+    example: `/experiments/${sample.evaluationId}/compare`,
   },
   "eval-case-comparison": {
     title: "Conversation comparison",
     kind: "detail",
     overview:
-      "This comparison shows the recorded evidence for a conversation in two suite runs. Check the comparison context before treating different scores as an improvement or regression.",
+      "This comparison shows the recorded evidence for a conversation in two dataset executions. Check the comparison context before treating different scores as an improvement or regression.",
     content:
       "Compare inputs, observations, criteria, and grading reasons. Follow execution links to investigate the behavior behind each result.",
-    example: `/evals/runs/${sample.evalRunId}/compare?baseline=${sample.baselineEvalRunId}`,
+    example: `/experiments/runs/${sample.evalRunId}/compare?baseline=${sample.baselineEvalRunId}`,
   },
   diagnostic: {
     title: "Error diagnostic",
@@ -238,17 +239,24 @@ export function pageGuideId(path: string): PageGuideId {
   if (path === "/prompts" || path.startsWith("/prompts/categories/"))
     return "prompts";
   if (path.startsWith("/prompts/")) return "prompt";
-  if (/^\/evals\/cases\/[^/]+\/[^/]+\/compare$/.test(path))
+  if (/^\/experiments\/cases\/[^/]+\/[^/]+\/compare$/.test(path))
     return "eval-case-comparison";
-  if (/^\/evals\/cases\/[^/]+\/[^/]+\/[^/]+$/.test(path)) return "eval-case";
-  if (/^\/evals\/evaluations\/[^/]+\/compare$/.test(path))
+  if (/^\/experiments\/cases\/[^/]+\/[^/]+\/[^/]+$/.test(path))
+    return "eval-case";
+  if (/^\/experiments\/(?:runs\/)?[^/]+\/compare$/.test(path))
     return "eval-comparison";
-  if (/^\/evals\/runs\/[^/]+\/compare$/.test(path)) return "eval-comparison";
-  if (/^\/evals\/runs\/[^/]+$/.test(path)) return "eval-run";
-  if (/^\/evals\/evaluations\/[^/]+$/.test(path)) return "evaluation";
-  if (/^\/evals\/suites\/[^/]+\/[^/]+$/.test(path)) return "eval-suite";
-  if (path === "/evals/suites") return "eval-suites";
-  if (path.startsWith("/evals")) return "evals";
+  if (/^\/experiments\/runs\/[^/]+$/.test(path)) return "eval-run";
+  if (/^\/experiments\/[^/]+$/.test(path)) return "evaluation";
+  if (/^\/datasets\/[^/]+$/.test(path)) return "eval-suite";
+  if (path === "/datasets") return "eval-suites";
+  if (path.startsWith("/experiments/judges/")) return "eval-case";
+  if (
+    path === "/experiments" ||
+    path === "/experiments/cases" ||
+    path === "/evals" ||
+    path.startsWith("/evals/")
+  )
+    return "evals";
   if (path.startsWith("/diagnostics/")) return "diagnostic";
   if (
     path.startsWith("/settings") ||
@@ -378,8 +386,8 @@ export const PAGE_DOCUMENTATION = {
   "prompt-groups": studioHelp.prompts,
   "prompt-group": studioHelp.prompts,
   evals: studioHelp.evals,
-  "eval-suites": studioHelp.evals,
-  "eval-suite": studioHelp.evals,
+  "eval-suites": studioHelp.datasets,
+  "eval-suite": studioHelp.datasets,
   evaluation: studioHelp.evalResults,
   "eval-run": studioHelp.evalResults,
   "eval-case": studioHelp.evalResults,

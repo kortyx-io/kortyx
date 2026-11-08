@@ -107,8 +107,8 @@ export function EvalLiveRunPageClient({
               onBack={() =>
                 navigate(
                   current.detail?.evaluationId
-                    ? `/evals/evaluations/${current.detail.evaluationId}`
-                    : "/evals/runs",
+                    ? `/experiments/${current.detail.evaluationId}`
+                    : "/experiments",
                 )
               }
               canRun={canRun}
@@ -151,7 +151,7 @@ export function EvalLiveRunPageClient({
               </output>
               <Button
                 variant="secondary"
-                onClick={() => navigate("/evals/runs")}
+                onClick={() => navigate("/experiments")}
               >
                 Run history
               </Button>

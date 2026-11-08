@@ -128,9 +128,9 @@ export function EvaluationComparison({
   const columns: DataTableColumn<EvaluationComparisonRow>[] = [
     {
       key: "suite",
-      label: "Suite",
+      label: "Dataset",
       defaultWidth: 180,
-      filter: columnFilter("suite", "Suite", "text", (row) => row.suiteName),
+      filter: columnFilter("suite", "Dataset", "text", (row) => row.suiteName),
       render: (row) => <span className="text-xs">{row.suiteName}</span>,
     },
     {
@@ -310,21 +310,21 @@ export function EvaluationComparison({
   };
   return (
     <DetailPage
-      title="Compare evaluation runs"
-      description="Suite and conversation differences between saved evaluations"
+      title="Compare experiments"
+      description="Dataset and conversation differences between saved experiments"
     >
       <div
         className="flex h-full min-h-0 flex-col"
         data-tour-surface="evaluation-comparison"
       >
         <EvalDetailHeader
-          title="Compare evaluation runs"
+          title="Compare experiments"
           description={
             current
               ? `${current.targetName} · ${current.environment}`
               : "Loading saved evaluation"
           }
-          backLabel="Evaluation run"
+          backLabel="Experiment"
           onBack={() => router.push(evaluationHref(id))}
           actions={
             <Button
@@ -499,7 +499,7 @@ export function EvaluationComparison({
         ) : (
           <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
             <EvalSuiteNavigation
-              overviewLabel="All suites"
+              overviewLabel="All datasets"
               suites={[...suiteChoices].map(([suiteId, name]) => ({
                 id: suiteId,
                 name,
@@ -523,7 +523,7 @@ export function EvaluationComparison({
                 variant="inline"
                 search={{
                   label: "Search comparison conversations",
-                  placeholder: "Search suites or conversations…",
+                  placeholder: "Search datasets or conversations…",
                 }}
                 toolbarStart={
                   <EvalDropdown

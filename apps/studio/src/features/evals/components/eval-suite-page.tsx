@@ -1,16 +1,17 @@
 import { notFound } from "next/navigation";
-import { studioRouteId } from "@/lib/studio-routes";
 import { readEvalTargets } from "../api/server";
+import { parseDatasetId } from "../lib/navigation";
 import { EvalSuitePageClient } from "./eval-suite-page-client";
 
 export async function EvalSuitePage({
   params,
 }: {
-  params: Promise<{ targetId: string; suiteId: string }>;
+  params: Promise<{ datasetId: string }>;
 }) {
-  const { targetId: encodedTargetId, suiteId: encodedSuiteId } = await params;
-  const targetId = studioRouteId(encodedTargetId);
-  const suiteId = studioRouteId(encodedSuiteId);
+  const { datasetId } = await params;
+  const identity = parseDatasetId(datasetId);
+  if (!identity) notFound();
+  const [targetId, suiteId] = identity;
   const targets = await readEvalTargets();
   const target = targets.targets.find((t) => t.id === targetId);
   const suite = target?.manifest?.suites.find((s) => s.id === suiteId);

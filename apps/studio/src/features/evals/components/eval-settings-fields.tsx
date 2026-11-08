@@ -22,8 +22,8 @@ const fieldDefinitions = [
   },
   {
     key: "concurrency",
-    label: "Concurrent attempts across suites",
-    help: "How many test attempts can run at the same time across all suites. Lower this if your app or AI provider cannot handle more requests.",
+    label: "Concurrent attempts across datasets",
+    help: "How many test attempts can run at the same time across all datasets. Lower this if your app or AI provider cannot handle more requests.",
     unit: 1,
     max: 20,
   },

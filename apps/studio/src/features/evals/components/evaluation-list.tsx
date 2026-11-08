@@ -118,7 +118,7 @@ export function EvaluationList({
   const navigate = (run: StudioEvaluationSummary) =>
     router.push(
       evalNavigationHref(
-        run.legacy ? evalRunHref(run.id) : `/evals/evaluations/${run.id}`,
+        run.legacy ? evalRunHref(run.id) : `/experiments/${run.id}`,
         search,
       ),
     );
@@ -167,8 +167,8 @@ export function EvaluationList({
   const header = (
     <TablePageHeader
       help={studioHelp.evals}
-      title="Evaluation runs"
-      description="Results, costs and changes across saved evaluation runs"
+      title="Experiments"
+      description="Results, costs and changes across saved experiments"
       actions={
         <>
           <Button
@@ -176,7 +176,7 @@ export function EvaluationList({
             size="icon-sm"
             disabled={refreshing}
             onClick={() => void refresh()}
-            aria-label="Refresh evaluations"
+            aria-label="Refresh experiments"
           >
             <RefreshCw />
           </Button>
@@ -189,7 +189,7 @@ export function EvaluationList({
             onClick={() => open()}
           >
             <Play />
-            Run evaluations
+            Run experiment
           </Button>
           <LiveRefreshButton
             enabled={query.live}
@@ -239,7 +239,7 @@ export function EvaluationList({
           columns={columns}
           tableId="evaluations"
           search={{
-            label: "Search evaluation runs",
+            label: "Search experiments",
             placeholder: "Search runs, commits or environments…",
           }}
           filterResource="evaluations"
@@ -255,10 +255,10 @@ export function EvaluationList({
                 query.status !== "all" ||
                 query.application !== "all"
                   ? "No evaluations match these filters"
-                  : "No evaluation runs yet"}
+                  : "No experiments yet"}
               </h2>
               <p className="mt-2 text-xs text-muted-foreground">
-                Run all or selected suites to record one evaluation with its
+                Run all or selected datasets to record one evaluation with its
                 suite results.
               </p>
               {hasFilters ||
@@ -286,7 +286,7 @@ export function EvaluationList({
         />
       </div>
       <EvalChangeModal comparisons={changes} />
-      <EvalRunSetup targets={targets} matchPath="/evals/runs" />
+      <EvalRunSetup targets={targets} matchPath="/experiments" />
     </div>
   );
 }

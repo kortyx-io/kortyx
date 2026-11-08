@@ -32,7 +32,7 @@ export function EvaluationRunContext({ run }: { run: StudioEvaluationDetail }) {
           <dl className="text-xs">
             <KeyValue label="Run ID">{run.id}</KeyValue>
             <KeyValue label="Selection">
-              {run.selection === "all" ? "All suites" : "Selected suites"}
+              {run.selection === "all" ? "All datasets" : "Selected datasets"}
             </KeyValue>
             <KeyValue label="Created">{formatDateTime(run.createdAt)}</KeyValue>
             <KeyValue label="Duration">

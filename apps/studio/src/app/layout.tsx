@@ -99,13 +99,13 @@ export default async function RootLayout({
                       <DetailSlotPresence dismissPath="/prompts/groups">
                         {promptGroupDrawer}
                       </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/evals/suites">
+                      <DetailSlotPresence dismissPath="/datasets">
                         {evalSuiteDrawer}
                       </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/evals/judges">
+                      <DetailSlotPresence dismissPath="/experiments/judges">
                         {evalJudgeDrawer}
                       </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/evals/cases">
+                      <DetailSlotPresence dismissPath="/experiments/cases">
                         {evalCaseDrawer}
                       </DetailSlotPresence>
                       <DetailSlotPresence dismissPath="/sessions">

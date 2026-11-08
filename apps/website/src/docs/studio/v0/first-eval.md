@@ -243,7 +243,7 @@ In Cloud, open **Settings > Evaluations** for the intended project and register 
 
 For self-hosting, ask the operator to [register the application on the API service](/docs/self-hosting/configure-evaluations#register-applications-on-the-studio-api-server). This requires configuration on the API host, not your application host.
 
-Refresh suite discovery in **Evals**. The **Catalog lookup** suite should appear. Publishing workflow topology does not register evaluation suites.
+Refresh discovery in **Datasets**. The **Catalog lookup** dataset should appear. Publishing workflow topology does not register evaluation suites.
 
 ## 5. Configure one judge
 
@@ -269,7 +269,7 @@ A discovered suite confirms the endpoint answered discovery. A real run is still
 
 ## 7. Run and verify the actual workflow
 
-Open **Evals**, select **Catalog lookup**, choose Studio judge, and run the case once. Wait for its saved final result. A queued record means Studio accepted the request; execution and judging happen afterward.
+Open **Datasets**, select **Catalog lookup**, choose **Run experiment** and the Studio judge, and run the case once. Open **Experiments** to find the saved result. Wait for its saved final result. A queued record means Studio accepted the request; execution and judging happen afterward.
 
 Open the case and read the answer, criterion verdict, and supporting evidence. Reload the page and confirm the saved result remains available. A quality failure can show that the integration works and the application needs improvement. An authentication, provider, or execution error needs resolving before you can assess answer quality.
 

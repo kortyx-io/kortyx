@@ -7,11 +7,11 @@ for (const [path, id] of [
   ["/runs?range=All+time", "runs"],
   ["/sessions?range=All+time", "sessions"],
   ["/interrupts?range=All+time", "interrupts"],
-  ["/evals/runs", "evaluations"],
-  ["/evals/suites", "eval-suites"],
-  [`/evals/runs/${EVAL_FIXTURE.candidate}`, "eval-cases"],
+  ["/experiments", "evaluations"],
+  ["/datasets", "eval-suites"],
+  [`/experiments/runs/${EVAL_FIXTURE.candidate}`, "eval-cases"],
   [
-    `/evals/runs/${EVAL_FIXTURE.candidate}/compare?baseline=${EVAL_FIXTURE.baseline}`,
+    `/experiments/runs/${EVAL_FIXTURE.candidate}/compare?baseline=${EVAL_FIXTURE.baseline}`,
     "eval-comparison",
   ],
   ["/prompts", "prompts"],
@@ -337,7 +337,9 @@ test("response autocomplete uses the shared dropdown and accepts a selected valu
 test("embedded table search is independent of parent search, combines with filters and persists", async ({
   page,
 }) => {
-  await page.goto(`/evals/runs/${EVAL_FIXTURE.candidate}?q=parent-search`);
+  await page.goto(
+    `/experiments/runs/${EVAL_FIXTURE.candidate}?q=parent-search`,
+  );
   const controls = page.locator('[data-table-controls="eval-cases"]');
   const search = controls.getByRole("searchbox");
   await search.fill("human-choice");

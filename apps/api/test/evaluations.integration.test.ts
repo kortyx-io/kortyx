@@ -201,15 +201,18 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
     },
     ...extra,
   });
-  const start = (body: unknown) =>
-    api.request("/v1/studio/evals/evaluations", {
+  const start = (body: unknown, path = "/v1/studio/evals/evaluations") =>
+    api.request(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
   it("creates one parent atomically, deduplicates racing triggers, and rejects changed requests", async () => {
     const input = request({ idempotencyKey: `deploy-1-${target.id}` });
-    const responses = await Promise.all([start(input), start(input)]);
+    const responses = await Promise.all([
+      start(input),
+      start(input, "/v1/studio/experiments"),
+    ]);
     expect(
       responses.every((response) => [200, 202].includes(response.status)),
     ).toBe(true);
@@ -220,6 +223,17 @@ describe.skipIf(!url)("grouped evaluations on disposable PostgreSQL", () => {
     );
     expect(ids[0]!.id).toBe(ids[1]!.id);
     const saved = await getEvaluation(client.db, scope, ids[0]!.id);
+    const [legacy, canonical] = await Promise.all([
+      api.request(`/v1/studio/evals/evaluations/${saved.id}`),
+      api.request(`/v1/studio/experiments/${saved.id}`),
+    ]);
+    expect(canonical.status).toBe(200);
+    expect(await canonical.json()).toEqual(await legacy.json());
+    const discovery = await api.request("/v1/studio/datasets");
+    expect(discovery.status).toBe(200);
+    expect(await discovery.json()).toMatchObject({
+      targets: [{ id: target.id, manifest: { suites } }],
+    });
     expect(saved.suites).toHaveLength(2);
     expect(saved.metadata).toEqual(input.metadata);
     expect(saved.totalAttempts).toBe(2);

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { evalSuiteHref } from "../src/features/evals/lib/navigation";
 
-const evaluation =
-  "/sample/evals/evaluations/10000000-0000-4000-8000-000000000003";
+const evaluation = "/sample/experiments/10000000-0000-4000-8000-000000000003";
 
 test("conversation assessment has one flat disclosure with readable recorded checks", async ({
   page,
@@ -60,7 +60,7 @@ test("conversation assessment has one flat disclosure with readable recorded che
 test("comparison uses the same flat assessment details on both sides and opens failures", async ({
   page,
 }) => {
-  await page.goto("/sample/evals/runs");
+  await page.goto("/sample/experiments");
   await page
     .getByRole("button", {
       name: "Inspect changes for Support quality — recorded sample",
@@ -109,7 +109,7 @@ test("definition drawer shares the reading hierarchy without inventing recorded 
   page,
 }) => {
   await page.goto(
-    "/sample/evals/suites/sample-support/sample-support-quality?suiteCase=order-status",
+    `/sample${evalSuiteHref("sample-support", "sample-support-quality")}?suiteCase=order-status`,
   );
   const definition = page.getByRole("dialog", {
     name: "Shipment status and a follow-up",
@@ -176,7 +176,7 @@ test("definition header and footer dividers align with the main table", async ({
   page,
 }) => {
   await page.goto(
-    "/sample/evals/suites/sample-support/sample-support-quality?suiteCase=order-status",
+    `/sample${evalSuiteHref("sample-support", "sample-support-quality")}?suiteCase=order-status`,
   );
   const drawer = page.getByRole("dialog", {
     name: "Shipment status and a follow-up",
@@ -216,7 +216,7 @@ test("definition workflow action opens topology with the configured workflow sel
   page,
 }) => {
   await page.goto(
-    "/sample/evals/suites/sample-support/sample-support-quality?suiteCase=order-status",
+    `/sample${evalSuiteHref("sample-support", "sample-support-quality")}?suiteCase=order-status`,
   );
   await page
     .getByRole("dialog", {
@@ -248,7 +248,7 @@ test("comparison shares attached stats expansion and returns from judge instruct
     changeCase: JSON.stringify(["sample-support-quality", "order-status"]),
     changeBaseline: "10000000-0000-4000-8000-000000000003",
   });
-  await page.goto(`/sample/evals/runs?${query}`);
+  await page.goto(`/sample/experiments?${query}`);
   const modal = page.locator("[data-eval-comparison-modal]");
   const earlier = modal.locator('[data-comparison-side="Earlier"]');
   const current = modal.locator('[data-comparison-side="This run"]');
@@ -311,7 +311,7 @@ test("comparison shares attached stats expansion and returns from judge instruct
     .click();
   await expect(page).toHaveURL(
     (url) =>
-      url.pathname === "/sample/evals/runs" &&
+      url.pathname === "/sample/experiments" &&
       url.searchParams.get("changeCase") ===
         JSON.stringify(["sample-support-quality", "order-status"]),
   );

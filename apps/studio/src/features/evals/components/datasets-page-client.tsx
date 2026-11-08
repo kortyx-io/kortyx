@@ -28,12 +28,8 @@ import { studioHelp, withStudioColumnHelp } from "@/lib/studio-help";
 import { evalRequest } from "../api/client";
 import { useEvalReferenceTime } from "../hooks/use-eval-reference-time";
 import { useEvalSetup } from "../hooks/use-eval-setup";
-import {
-  evalNavigationHref,
-  evalRunHref,
-  evalSuiteHref,
-} from "../lib/navigation";
-import { displayName, isActive } from "../lib/presentation";
+import { evalNavigationHref, evalSuiteHref } from "../lib/navigation";
+import { displayName } from "../lib/presentation";
 import {
   type EvalHistory,
   EvalHistorySchema,
@@ -74,16 +70,14 @@ const parsers = {
   cursor: parseAsInteger.withDefault(0),
   pageSize: parseAsInteger.withDefault(20),
 };
-export function EvalsPageClient({
+export function DatasetsPageClient({
   initialTargets,
   initialHistory,
-  view,
   initialError = "",
   preferences,
 }: {
   initialTargets: EvalTargets;
   initialHistory: EvalHistory;
-  view: "runs" | "suites";
   initialError?: string;
   preferences?: Partial<ListTablePreferences<Sort, unknown>>;
 }) {
@@ -106,8 +100,6 @@ export function EvalsPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { open } = useEvalSetup(targets);
-  const navigate = (href: string) =>
-    router.push(evalNavigationHref(href, searchParams));
   const update = (values: Partial<typeof query>) => {
     void setQuery(values);
   };
@@ -116,7 +108,7 @@ export function EvalsPageClient({
     setError("");
     const result = await Promise.allSettled([
       evalRequest("targets"),
-      evalRequest(view === "suites" ? "runs?latestPerSuite=true" : "runs"),
+      evalRequest("runs?latestPerSuite=true"),
     ]);
     try {
       if (result[0].status === "fulfilled")
@@ -141,9 +133,7 @@ export function EvalsPageClient({
     refreshOnEnable: false,
     relatedResources: ["runs"],
     refresh: async () => {
-      const value = await evalRequest(
-        view === "suites" ? "runs?latestPerSuite=true" : "runs",
-      );
+      const value = await evalRequest("runs?latestPerSuite=true");
       setHistory(EvalHistorySchema.parse(value));
     },
   });
@@ -158,7 +148,7 @@ export function EvalsPageClient({
   const suiteRows = targets.targets.flatMap(
     (target) =>
       target.manifest?.suites.map((suite) => ({
-        id: `${target.id}:${suite.id}`,
+        id: evalSuiteHref(target.id, suite.id),
         target,
         suite,
         latest: history.runs.find(
@@ -180,152 +170,19 @@ export function EvalsPageClient({
       query.status !== "all" ||
       query.application !== "all",
   );
-  const chooseRun = (id: string) => navigate(evalRunHref(id));
-  const runColumns: DataTableColumn<EvalRunSummary, Sort>[] = [
-    {
-      key: "suite",
-      filter: [
-        columnFilter("suite", "Suite", "text", (r) => r.suiteName ?? r.suiteId),
-        columnFilter("id", "Run ID", "text", (r) => r.id),
-      ],
-      label: "Suite",
-      sortKey: "name",
-      defaultWidth: 260,
-      render: (r) => (
-        <div>
-          <Button
-            variant="link"
-            size="inline"
-            onClick={() => chooseRun(r.id)}
-            className="max-w-full justify-start"
-          >
-            <span className="line-clamp-2 whitespace-normal break-words">
-              {r.suiteName ?? displayName(r.suiteId)}
-            </span>
-          </Button>
-          <p className="line-clamp-2 whitespace-normal break-words font-mono text-[10px] text-muted-foreground">
-            {r.id.slice(0, 8)}
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: "status",
-      filter: columnFilter("status", "Status", "enum", (r) => r.status),
-      label: "Status",
-      sortKey: "status",
-      defaultWidth: 135,
-      render: (r) => (
-        <EvalStatus status={r.status} termination={r.termination} />
-      ),
-    },
-    {
-      key: "results",
-      filter: [
-        columnFilter("passed", "Passed", "number", (r) => r.counts?.passed),
-        columnFilter("failed", "Failed", "number", (r) => r.counts?.failed),
-        columnFilter("error", "Errors", "number", (r) => r.counts?.error),
-        columnFilter(
-          "cancelled",
-          "Cancelled",
-          "number",
-          (r) => r.counts?.cancelled,
-        ),
-      ],
-      label: "Results",
-      defaultWidth: 165,
-      render: (r) =>
-        r.counts ? (
-          <span className="text-xs">
-            <span className="font-mono">{r.counts.passed}</span> passed ·{" "}
-            <span className="font-mono">{r.counts.failed}</span> failed
-            {r.counts.error ? ` · ${r.counts.error} errors` : ""}
-            {r.counts.cancelled ? ` · ${r.counts.cancelled} cancelled` : ""}
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            {isActive(r.status) ? "In progress" : "No final summary"}
-          </span>
-        ),
-    },
-    {
-      key: "application",
-      filter: [
-        columnFilter(
-          "applicationId",
-          "Application ID",
-          "text",
-          (r) => r.targetId,
-        ),
-        columnFilter("application", "Application", "text", (r) => r.targetName),
-        columnFilter(
-          "environment",
-          "Environment",
-          "enum",
-          (r) => r.environment,
-        ),
-      ],
-      label: "Application",
-      defaultWidth: 240,
-      render: (r) => (
-        <div>
-          <p className="line-clamp-2 whitespace-normal break-words text-xs">
-            {r.targetName}
-          </p>
-          <p className="line-clamp-2 whitespace-normal break-words text-[11px] text-muted-foreground">
-            {r.environment}
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: "created",
-      filter: columnFilter("createdAt", "Created", "date", (r) => r.createdAt),
-      label: "Created",
-      sortKey: "created",
-      defaultWidth: 195,
-      render: (r) => (
-        <span className="font-mono text-[11px]">
-          {formatDateTime(r.createdAt)}
-        </span>
-      ),
-    },
-    {
-      key: "cost",
-      filter: columnFilter("cost", "Cost", "number", (r) =>
-        evalFilterCost(r.costs),
-      ),
-      label: "Cost",
-      defaultWidth: 110,
-      render: (r) => <EvalCost costs={r.costs} />,
-    },
-    {
-      key: "duration",
-      filter: columnFilter("duration", "Duration (ms)", "number", (r) =>
-        evalDurationMs(r, referenceTime ?? Date.now()),
-      ),
-      label: "Duration",
-      defaultWidth: 100,
-      render: (r) => (
-        <span className="font-mono text-xs">
-          <EvalDuration run={r} />
-        </span>
-      ),
-    },
-  ];
   const suiteColumns: DataTableColumn<SuiteRow, "suite">[] = [
     {
       key: "suite",
       filter: [
         columnFilter(
           "suite",
-          "Suite",
+          "Dataset",
           "text",
           (r) => r.suite.name ?? r.suite.id,
         ),
-        columnFilter("suiteId", "Suite ID", "text", (r) => r.suite.id),
+        columnFilter("suiteId", "Dataset ID", "text", (r) => r.suite.id),
       ],
-      label: "Suite",
+      label: "Dataset",
       sortKey: "suite",
       defaultWidth: 310,
       render: (r) => (
@@ -482,13 +339,9 @@ export function EvalsPageClient({
   ];
   const header = (
     <TablePageHeader
-      help={studioHelp.evals}
-      title={view === "runs" ? "Evaluation runs" : "Evaluation suites"}
-      description={
-        view === "runs"
-          ? "Results and costs from saved suite executions"
-          : "Browse suites and their conversation definitions"
-      }
+      help={studioHelp.datasets}
+      title="Datasets"
+      description="Browse code-managed datasets and their conversation definitions"
       actions={
         <>
           <LiveRefreshButton
@@ -499,7 +352,7 @@ export function EvalsPageClient({
           <Button
             variant="secondary"
             size="icon-sm"
-            aria-label="Refresh evals"
+            aria-label="Refresh datasets"
             disabled={refreshing}
             onClick={() => void refresh()}
           >
@@ -511,7 +364,7 @@ export function EvalsPageClient({
             onClick={() => startSetup()}
           >
             <Play />
-            Run evaluations
+            Run experiment
           </Button>
         </>
       }
@@ -528,20 +381,14 @@ export function EvalsPageClient({
     <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
       <FlaskConical className="mb-3 size-7 text-muted-foreground" />
       <h2 className="font-medium">
-        {filtered
-          ? "No evals match these filters"
-          : view === "runs"
-            ? "No eval runs yet"
-            : "No suites available"}
+        {filtered ? "No datasets match these filters" : "No datasets available"}
       </h2>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
         {filtered
           ? "Change your search or clear the filters."
-          : view === "runs"
-            ? "Run a conversation suite to record outcomes and grading evidence."
-            : targets.targets.length
-              ? "Reconnect the application and refresh to discover its registered suites."
-              : "Connect an application eval endpoint in your Studio API configuration."}
+          : targets.targets.length
+            ? "Reconnect the application and refresh to discover its registered datasets."
+            : "Connect an application eval endpoint in your Studio API configuration."}
       </p>
       {filtered ? (
         <Button
@@ -576,92 +423,44 @@ export function EvalsPageClient({
         </div>
       ) : null}
       <div className="min-h-0 flex-1">
-        {view === "runs" ? (
-          <DataTable
-            help={{ filters: studioHelp.filters, views: studioHelp.views }}
-            query={{
-              keys: {
-                q: "q",
-                sort: "sort",
-                dir: "dir",
-                cursor: "cursor",
-                pageSize: "pageSize",
-              },
-              defaults: {
-                sort: preferences?.sort ?? "created",
-                dir: preferences?.dir ?? "desc",
-                pageSize: preferences?.pageSize ?? 20,
-              },
-            }}
-            compatibility={{
-              aliases: {
-                status: "status",
-                application: "applicationId",
-                env: "environment",
-              },
-              ignoreValues: ["all", "All environments"],
-            }}
-            columns={withStudioColumnHelp(runColumns, "evals")}
-            initialLayout={preferences?.layout}
-            tableId="legacy-eval-runs"
-            search={{
-              label: "Search evals",
-              placeholder:
-                view === "runs"
-                  ? "Search suite, application, or run ID…"
-                  : "Search suites…",
-            }}
-            data={history.runs}
-            getRowKey={(r) => r.id}
-            onRowClick={(r) => chooseRun(r.id)}
-            rowTone={(r) =>
-              r.status === "failed" || r.status === "error"
-                ? "danger"
-                : undefined
-            }
-            header={header}
-            emptyState={empty}
-          />
-        ) : (
-          <DataTable
-            help={{ filters: studioHelp.filters, views: studioHelp.views }}
-            query={{
-              keys: {
-                q: "q",
-                sort: "sort",
-                dir: "dir",
-                cursor: "cursor",
-                pageSize: "pageSize",
-              },
-              defaults: {
-                sort: "suite",
-                dir: preferences?.dir ?? "desc",
-                pageSize: preferences?.pageSize ?? 20,
-              },
-            }}
-            compatibility={{
-              aliases: {
-                status: "status",
-                application: "applicationId",
-                env: "environment",
-              },
-              ignoreValues: ["all", "All environments"],
-            }}
-            columns={withStudioColumnHelp(suiteColumns, "evals")}
-            tableId="eval-suites"
-            search={{
-              label: "Search evals",
-              placeholder: "Search suites…",
-            }}
-            data={suiteRows}
-            getRowKey={(r) => r.id}
-            onRowClick={(r) => chooseSuite(r)}
-            header={header}
-            emptyState={empty}
-          />
-        )}
+        <DataTable
+          help={{ filters: studioHelp.filters, views: studioHelp.views }}
+          query={{
+            keys: {
+              q: "q",
+              sort: "sort",
+              dir: "dir",
+              cursor: "cursor",
+              pageSize: "pageSize",
+            },
+            defaults: {
+              sort: "suite",
+              dir: preferences?.dir ?? "desc",
+              pageSize: preferences?.pageSize ?? 20,
+            },
+          }}
+          compatibility={{
+            aliases: {
+              status: "status",
+              application: "applicationId",
+              env: "environment",
+            },
+            ignoreValues: ["all", "All environments"],
+          }}
+          columns={withStudioColumnHelp(suiteColumns, "evals")}
+          tableId="eval-suites"
+          search={{
+            label: "Search datasets",
+            placeholder: "Search datasets…",
+          }}
+          data={suiteRows}
+          getRowKey={(r) => r.id}
+          onRowClick={(r) => chooseSuite(r)}
+          header={header}
+          emptyState={empty}
+        />
       </div>
-      <EvalRunSetup targets={targets} matchPath={`/evals/${view}`} />
+      <EvalRunSetup targets={targets} matchPath="/datasets" />
     </div>
   );
 }

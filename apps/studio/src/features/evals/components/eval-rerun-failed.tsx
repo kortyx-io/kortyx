@@ -132,8 +132,8 @@ export function EvalRerunFailed({
           matchPath={
             matchPath ??
             ("suites" in run
-              ? `/evals/evaluations/${run.id}`
-              : `/evals/runs/${run.id}`)
+              ? `/experiments/${run.id}`
+              : `/experiments/runs/${run.id}`)
           }
         />
       ) : null}

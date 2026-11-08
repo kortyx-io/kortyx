@@ -3,9 +3,7 @@
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "@/components/scoped-link";
-import { Separator } from "@/components/ui/separator";
 import { usePathname, useSearchParams } from "@/lib/scoped-navigation";
-import { cn } from "@/lib/utils";
 import { useWorkspaceLabels } from "./workspace-labels";
 
 const labels: Record<string, string> = {
@@ -13,8 +11,8 @@ const labels: Record<string, string> = {
   sessions: "Sessions",
   workflows: "Workflows",
   interrupts: "Interrupts",
-  evals: "Evals",
-  suites: "Suites",
+  datasets: "Datasets",
+  experiments: "Experiments",
   judges: "Judge instructions",
   cases: "Cases",
   compare: "Compare",
@@ -58,11 +56,20 @@ export function WorkspaceNavigation({
   const params = useSearchParams();
   const workspaceLabels = useWorkspaceLabels();
   const segments = pathname.split("/").filter(Boolean);
-  const instructionReader = segments[0] === "evals" && segments[1] === "judges";
-  const breadcrumbs = instructionReader ? segments.slice(0, 2) : segments;
+  const experiments = segments[0] === "experiments";
+  const reader = experiments && ["judges", "cases"].includes(segments[1]);
+  const breadcrumbs = segments
+    .map((segment, index) => ({
+      segment,
+      index,
+      path: `/${segments.slice(0, index + 1).join("/")}`,
+    }))
+    .filter(({ index }) =>
+      reader
+        ? index <= 1
+        : !(experiments && segments[1] === "runs" && index === 1),
+    );
   const environment = params.get("env");
-  const evaluationRun =
-    segments[0] === "evals" && segments[1] === "evaluations";
   return (
     <div className="flex min-w-0 flex-1 items-center gap-3 overflow-x-auto">
       <nav
@@ -88,18 +95,16 @@ export function WorkspaceNavigation({
             </span>
           ))}
         <ol className="flex min-w-0 items-center gap-2 overflow-hidden">
-          {breadcrumbs.map((segment, index) => {
-            const last = index === breadcrumbs.length - 1;
-            const path =
-              evaluationRun && index === 1
-                ? "/evals/runs"
-                : `/${segments.slice(0, index + 1).join("/")}`;
+          {breadcrumbs.map(({ segment, index, path }, position) => {
+            const last = position === breadcrumbs.length - 1;
             const text =
               workspaceLabels?.[path]?.title ??
-              (evaluationRun && index === 1
-                ? "Runs"
-                : evaluationRun && index === 2
-                  ? "Evaluation run"
+              (segments[0] === "datasets" && index === 1
+                ? "Dataset"
+                : experiments &&
+                    index === (segments[1] === "runs" ? 2 : 1) &&
+                    !reader
+                  ? "Experiment"
                   : segments[0] === "prompts" && index === 1 && !labels[segment]
                     ? "Prompt"
                     : undefined) ??
@@ -138,44 +143,6 @@ export function WorkspaceNavigation({
           })}
         </ol>
       </nav>
-      {segments[0] === "evals" && (
-        <>
-          <Separator
-            orientation="vertical"
-            className="h-5! shrink-0 self-center"
-          />
-          <nav
-            aria-label="Eval navigation"
-            className="flex shrink-0 items-center gap-1 rounded-lg border bg-muted/50 p-0.5"
-          >
-            {(["runs", "suites"] as const).map((view) => {
-              const active =
-                view ===
-                (segments[1] === "suites" ||
-                (instructionReader && segments[2] === "target")
-                  ? "suites"
-                  : "runs");
-              const href = `/evals/${view}${environment ? `?env=${encodeURIComponent(environment)}` : ""}`;
-              return (
-                <Link
-                  key={view}
-                  href={href}
-                  prefetch={false}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "rounded-md px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    active
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-background/50 hover:text-foreground",
-                  )}
-                >
-                  {view === "runs" ? "Runs" : "Suites"}
-                </Link>
-              );
-            })}
-          </nav>
-        </>
-      )}
     </div>
   );
 }

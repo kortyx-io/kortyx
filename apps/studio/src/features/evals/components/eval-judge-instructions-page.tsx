@@ -4,7 +4,11 @@ import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailPage } from "@/components/detail/detail-page";
 import { studioRouteId } from "@/lib/studio-routes";
 import { readEvalCase, readEvalDetail, readEvalTargets } from "../api/server";
-import { evalCaseHref, evalSuiteHref } from "../lib/navigation";
+import {
+  evalCaseHref,
+  evalSuiteHref,
+  legacyEvalDetailHref,
+} from "../lib/navigation";
 import type { EvalDetail } from "../schema";
 import { EvalJudgeInstructionsReader } from "./eval-judge-instructions-reader";
 import { EvalSavedJudgeInstructionsReader } from "./eval-saved-judge-instructions-reader";
@@ -59,11 +63,17 @@ export async function EvalJudgeInstructionsPage({
     savedRun = run;
     selection = caseId ? { caseId, repetition } : undefined;
     context = `${run.suite.name ?? run.suiteId} · Saved execution`;
-    backHref = caseId ? evalCaseHref(id, caseId, repetition) : "/evals/runs";
+    backHref = caseId ? evalCaseHref(id, caseId, repetition) : "/experiments";
   } else notFound();
   const returnPath = value("judgeReturn");
-  if (returnPath && /^\/evals\/(runs|evaluations\/[^/?#]+)$/.test(returnPath))
+  if (returnPath && /^\/experiments(?:\/[a-f0-9-]{36})?$/.test(returnPath))
     backHref = returnPath;
+  else if (
+    returnPath &&
+    /^\/evals\/(runs|evaluations\/[a-f0-9-]{36})$/.test(returnPath)
+  )
+    backHref =
+      legacyEvalDetailHref(returnPath.split("/").slice(2), {}) ?? backHref;
   const backQuery = new URLSearchParams(
     Object.entries(query).flatMap(([key, value]) =>
       typeof value === "string" && key !== "detailView" && key !== "judgeReturn"
@@ -89,8 +99,8 @@ export async function EvalJudgeInstructionsPage({
   );
   return drawer ? (
     <DetailDrawer
-      matchPath={`/evals/judges/${source}/${encodeURIComponent(id)}`}
-      dismissPath={source === "run" ? "/evals/cases" : "/evals/suites"}
+      matchPath={`/experiments/judges/${source}/${encodeURIComponent(id)}`}
+      dismissPath={source === "run" ? "/experiments/cases" : "/datasets"}
       title="Judge instructions"
       description={context}
     >

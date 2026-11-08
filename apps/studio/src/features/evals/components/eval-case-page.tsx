@@ -55,7 +55,7 @@ export async function EvalCasePage({
   return drawer ? (
     <DetailDrawer
       matchPath={evalCaseHref(evalRunId, caseId, Number(repetition))}
-      dismissPath="/evals/cases"
+      dismissPath="/experiments/cases"
       title={row.name}
       description={caseId}
     >

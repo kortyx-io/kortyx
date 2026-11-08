@@ -39,14 +39,18 @@ function reader(execute = false, environment?: string) {
 }
 describe("grouped evaluation authorization", () => {
   it.each([
-    "settings",
-    "evaluations",
-    "evaluations/11111111-1111-4111-8111-111111111111/cancel",
+    "evals/settings",
+    "evals/evaluations",
+    "evals/evaluations/11111111-1111-4111-8111-111111111111/cancel",
+    "experiments",
+    "experiments/11111111-1111-4111-8111-111111111111/cancel",
+    "experiments/runs",
+    "experiments/runs/11111111-1111-4111-8111-111111111111/cancel",
   ])("requires execution permission before %s touches the database", async (path) => {
     const { app, work } = reader();
     expect(
       (
-        await app.request(`/v1/studio/evals/${path}`, {
+        await app.request(`/v1/studio/${path}`, {
           method: "POST",
           body: "{}",
           headers: { "content-type": "application/json" },

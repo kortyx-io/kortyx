@@ -9,11 +9,11 @@ for (const scope of ["all", "selected"] as const) {
   }) => {
     // This full journey includes launch, two reloads and multiple cold routes.
     test.setTimeout(60_000);
-    await page.goto("/evals/runs");
+    await page.goto("/experiments");
     await page
-      .getByRole("button", { name: "Run evaluations", exact: true })
+      .getByRole("button", { name: "Run experiment", exact: true })
       .click();
-    const drawer = page.getByRole("dialog", { name: "Run evaluations" });
+    const drawer = page.getByRole("dialog", { name: "Run experiment" });
     await expect(
       drawer.getByRole("button", { name: "Judge", exact: true }),
     ).toContainText("App judge");
@@ -29,17 +29,17 @@ for (const scope of ["all", "selected"] as const) {
       )
       .toEqual({ right: 4, bottom: 4 });
     await expect(
-      drawer.getByRole("radio", { name: "All suites (3)", exact: true }),
+      drawer.getByRole("radio", { name: "All datasets (3)", exact: true }),
     ).toBeChecked();
     await expect(
       drawer.getByRole("button", { name: "Review conversation definitions" }),
     ).toHaveCount(0);
     if (scope === "selected") {
       await setUrlSelection(
-        drawer.getByRole("radio", { name: "Selected suites", exact: true }),
+        drawer.getByRole("radio", { name: "Selected datasets", exact: true }),
       );
       await expect(
-        drawer.getByRole("button", { name: "Run evaluations", exact: true }),
+        drawer.getByRole("button", { name: "Run experiment", exact: true }),
       ).toBeDisabled();
       await setUrlSelection(
         drawer.getByRole("checkbox", { name: /E2E job conversations/ }),
@@ -88,19 +88,19 @@ for (const scope of ["all", "selected"] as const) {
       .click();
     await drawer.getByText("Execution settings", { exact: true }).click();
     const concurrency = drawer.getByRole("spinbutton", {
-      name: "Concurrent attempts across suites",
+      name: "Concurrent attempts across datasets",
     });
     await expect(concurrency).toHaveAttribute("max", "20");
     await concurrency.fill("21");
     await expect(
-      drawer.getByRole("button", { name: "Run evaluations", exact: true }),
+      drawer.getByRole("button", { name: "Run experiment", exact: true }),
     ).toBeDisabled();
     await concurrency.fill("20");
     await drawer
-      .getByRole("button", { name: "Run evaluations", exact: true })
+      .getByRole("button", { name: "Run experiment", exact: true })
       .click();
     // A shard may compile each destination for the first time here.
-    await expect(page).toHaveURL(/\/evals\/evaluations\/[0-9a-f-]+$/, {
+    await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]+$/, {
       timeout: 16_000,
     });
     const parentPath = new URL(page.url()).pathname;
@@ -126,7 +126,7 @@ for (const scope of ["all", "selected"] as const) {
     ).toHaveCount(2);
     await expect(
       page
-        .getByRole("navigation", { name: "Evaluation suites" })
+        .getByRole("navigation", { name: "Experiment datasets" })
         .getByRole("button", { name: /^Opaque suite identifiers/ }),
     ).toBeVisible();
     await expect(
@@ -134,7 +134,7 @@ for (const scope of ["all", "selected"] as const) {
     ).toBeVisible({ timeout: 20000 });
     await page.reload();
     await page
-      .getByRole("navigation", { name: "Evaluation suites" })
+      .getByRole("navigation", { name: "Experiment datasets" })
       .getByRole("button", { name: /^E2E job conversations/ })
       .click();
     await expect(page).toHaveURL(
@@ -155,12 +155,12 @@ for (const scope of ["all", "selected"] as const) {
     });
     await page.goto(parentPath);
     await page
-      .getByRole("button", { name: "Back to evaluation runs", exact: true })
+      .getByRole("button", { name: "Back to experiments", exact: true })
       .click();
     const id = parentPath.split("/").at(-1)!;
     await expect(page.locator(`[data-row-key="${id}"]`)).toHaveCount(1);
     await expect(page.locator(`[data-row-key="${id}"]`)).toContainText(
-      `${suiteCount} suites`,
+      `${suiteCount} datasets`,
     );
     await page.locator(`[data-row-key="${id}"]`).click();
     await expect(page).toHaveURL(new RegExp(parentPath));
@@ -170,13 +170,13 @@ for (const scope of ["all", "selected"] as const) {
 test("selects conversations independently across suites and persists mixed checkbox states", async ({
   page,
 }) => {
-  await page.goto("/evals/runs");
+  await page.goto("/experiments");
   await page
-    .getByRole("button", { name: "Run evaluations", exact: true })
+    .getByRole("button", { name: "Run experiment", exact: true })
     .click();
-  const drawer = page.getByRole("dialog", { name: "Run evaluations" });
+  const drawer = page.getByRole("dialog", { name: "Run experiment" });
   await setUrlSelection(
-    drawer.getByRole("radio", { name: "Selected suites", exact: true }),
+    drawer.getByRole("radio", { name: "Selected datasets", exact: true }),
   );
   for (const suite of [EVAL_SUITE, EVAL_OPAQUE_SUITE]) {
     await drawer
@@ -257,15 +257,15 @@ test("selects conversations independently across suites and persists mixed check
     ).toBeChecked();
   }
   await expect(
-    drawer.getByText("2 suites · 2 conversations · 2 executions", {
+    drawer.getByText("2 datasets · 2 conversations · 2 executions", {
       exact: true,
     }),
   ).toBeVisible();
   await drawer
-    .getByRole("button", { name: "Run evaluations", exact: true })
+    .getByRole("button", { name: "Run experiment", exact: true })
     .click();
   await expect(page).toHaveURL(
-    (url) => /^\/evals\/evaluations\/[0-9a-f-]+$/.test(url.pathname),
+    (url) => /^\/experiments\/[0-9a-f-]+$/.test(url.pathname),
     { timeout: 15000 },
   );
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
@@ -321,17 +321,17 @@ test("defaults to an available judge and permits switching back when both are av
       },
     });
   });
-  await page.goto("/evals/runs");
+  await page.goto("/experiments");
   await Promise.all([
     page.waitForResponse("**/api/studio/evals/targets"),
     page
-      .getByRole("button", { name: "Refresh evaluations", exact: true })
+      .getByRole("button", { name: "Refresh experiments", exact: true })
       .click(),
   ]);
   await page
-    .getByRole("button", { name: "Run evaluations", exact: true })
+    .getByRole("button", { name: "Run experiment", exact: true })
     .click();
-  const drawer = page.getByRole("dialog", { name: "Run evaluations" });
+  const drawer = page.getByRole("dialog", { name: "Run experiment" });
   const judge = drawer.getByRole("button", { name: "Judge", exact: true });
   await expect(judge).toContainText("Studio judge");
   await judge.click();
@@ -373,6 +373,6 @@ test("defaults to an available judge and permits switching back when both are av
     ),
   ).toBeVisible();
   await expect(
-    drawer.getByRole("button", { name: "Run evaluations", exact: true }),
+    drawer.getByRole("button", { name: "Run experiment", exact: true }),
   ).toBeDisabled();
 });
