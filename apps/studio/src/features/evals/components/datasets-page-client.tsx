@@ -344,11 +344,6 @@ export function DatasetsPageClient({
       description="Browse code-managed datasets and their conversation definitions"
       actions={
         <>
-          <LiveRefreshButton
-            enabled={query.live}
-            status={live.status}
-            onToggle={() => update({ live: !query.live })}
-          />
           <Button
             variant="secondary"
             size="icon-sm"
@@ -366,6 +361,11 @@ export function DatasetsPageClient({
             <Play />
             Run experiment
           </Button>
+          <LiveRefreshButton
+            enabled={query.live}
+            status={live.status}
+            onToggle={() => update({ live: !query.live })}
+          />
         </>
       }
     >

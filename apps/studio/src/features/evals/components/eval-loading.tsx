@@ -128,9 +128,9 @@ export function EvalListSkeleton({ view }: { view: "runs" | "suites" }) {
           }
           actions={
             <div className="flex items-center gap-2">
-              <Skeleton className="h-8 w-12" />
               <Skeleton className="size-8" />
               <Skeleton className="h-8 w-36" />
+              <Skeleton className="h-8 w-12" />
             </div>
           }
         />
