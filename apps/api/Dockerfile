@@ -12,7 +12,7 @@ WORKDIR /src
 ADD https://github.com/docker/compose.git#42f48072bbf92ee9b0e43f9fdf2008d03546e7ca /src
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go get golang.org/x/net@v0.60.0 \
+    go get golang.org/x/net@v0.62.0 \
     && go mod verify \
     && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
       -mod=readonly -trimpath -tags=e2e \
