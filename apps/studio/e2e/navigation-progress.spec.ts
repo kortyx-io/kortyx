@@ -90,7 +90,12 @@ for (const clickTarget of ["row", "button"] as const) {
       const started = Date.now();
       // Production can commit a loading boundary or the cached detail from
       // the earlier visit while the navigation request is still in flight.
-      const loading = page.getByRole("region", { name: "Loading dataset run" });
+      const loading = page
+        .getByRole("region", {
+          name: /^(Loading dataset run|Loading evaluation table)$/,
+        })
+        .filter({ visible: true })
+        .first();
       const result = page.getByRole("link", {
         name: "Ambiguous role",
         exact: true,

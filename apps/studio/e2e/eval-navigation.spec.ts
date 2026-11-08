@@ -51,7 +51,7 @@ test.describe("Eval route and drawer navigation", () => {
     await expect(page).toHaveURL(
       `${evalSuiteHref(target, suite)}?env=development`,
     );
-    await expect(page.locator("[data-eval-suite-id]")).toHaveAttribute(
+    await expect(page.locator("[data-eval-suite-id]:visible")).toHaveAttribute(
       "data-eval-suite-id",
       suite,
     );
