@@ -560,7 +560,7 @@ test("evaluation metrics stay on one scrollable row with and without interrupted
   test.setTimeout(60_000);
   await page.goto(evaluationPath);
   await expect(
-    page.locator('[data-tour-surface="evaluation-metrics"]'),
+    page.locator('[data-tour-surface="evaluation-metrics"]:visible'),
   ).toContainText("Execution settings");
   const sql = postgres(
     process.env.DATABASE_URL ??
@@ -575,7 +575,9 @@ test("evaluation metrics stay on one scrollable row with and without interrupted
       select organization_id,project_id,${id},environment,'e2e-ktx25-eval',target_name,suite_id,suite_revision,suite,request,'e2e','error','Evaluation interrupted',now(),now() from eval_runs where id=${EVAL_FIXTURE.candidate}`;
     for (const interrupted of [false, true]) {
       await page.goto(interrupted ? `/experiments/${id}` : evaluationPath);
-      const metrics = page.locator('[data-tour-surface="evaluation-metrics"]');
+      const metrics = page.locator(
+        '[data-tour-surface="evaluation-metrics"]:visible',
+      );
       await expect(metrics).toContainText("Execution settings");
       await expect(
         metrics.getByText("Datasets interrupted", { exact: true }),

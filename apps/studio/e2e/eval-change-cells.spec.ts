@@ -264,11 +264,12 @@ test("explained eval headers can be dragged and still open their help", async ({
 }) => {
   for (const path of ["/sample/experiments", evaluation]) {
     await page.goto(path);
-    await expect(page.locator("[data-row-key]").first()).toBeVisible();
-    const header = page.locator(
+    const table = page.locator('[data-table-ready="true"][aria-busy="false"]');
+    await expect(table.locator("[data-row-key]").first()).toBeVisible();
+    const header = table.locator(
       `th[data-column="${path === evaluation ? "change" : "changes"}"]`,
     );
-    const before = await page
+    const before = await table
       .locator("th[data-column]")
       .evaluateAll((headers) =>
         headers.map((header) => header.getAttribute("data-column")),
@@ -284,7 +285,7 @@ test("explained eval headers can be dragged and still open their help", async ({
     if (!box) throw new Error("Missing header");
     await page.mouse.move(box.x + 8, box.y + box.height / 2);
     await page.mouse.down();
-    const destination = await page
+    const destination = await table
       .locator(
         `th[data-column="${path === evaluation ? "status" : "results"}"]`,
       )
@@ -299,7 +300,7 @@ test("explained eval headers can be dragged and still open their help", async ({
     await page.mouse.up();
     await expect
       .poll(() =>
-        page
+        table
           .locator("th[data-column]")
           .evaluateAll((headers) =>
             headers.map((header) => header.getAttribute("data-column")),

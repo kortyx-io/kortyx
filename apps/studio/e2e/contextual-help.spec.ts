@@ -228,7 +228,8 @@ test("header help overlays the label without shifting it and preserves sorting",
   await sort.press("Enter");
   await expect(header).toHaveAttribute("aria-sort", "ascending");
   await expect(header).not.toHaveAttribute("data-column-dragging", "true");
-  await sort.press(" ");
+  await expect(page).toHaveURL(/sort=status&dir=asc/);
+  await sort.press("Space");
   await expect(header).toHaveAttribute("aria-sort", "descending");
   await expect(header).not.toHaveAttribute("data-column-dragging", "true");
 
@@ -391,7 +392,13 @@ test("touch help fits a narrow screen and can be dismissed outside", async ({
     .filter({ hasText: /^Status$/ })
     .locator("span")
     .tap();
-  await expect(page).toHaveURL(/sort=status/);
+  await expect(header).toHaveAttribute("aria-sort", "descending");
+  await expect
+    .poll(() => {
+      const query = new URL(page.url()).searchParams;
+      return [query.get("sort"), query.get("dir") ?? "desc"];
+    })
+    .toEqual(["status", "desc"]);
   const sorted = page.url();
   await header.getByRole("button", { name: "About Status", exact: true }).tap();
   expect(page.url()).toBe(sorted);

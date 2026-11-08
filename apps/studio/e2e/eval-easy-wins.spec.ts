@@ -49,7 +49,7 @@ test("shows assessed mixed outcomes and reruns the failed case as a fresh evalua
   expect(fullResultReads).toBe(0);
   await expect(
     drawer.getByText(
-      "This creates a new run using current deployed suite definitions",
+      "This creates a new run using current deployed dataset definitions",
       { exact: false },
     ),
   ).toBeVisible();

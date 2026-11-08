@@ -21,7 +21,9 @@ for (const [path, id] of [
     page,
   }) => {
     await page.goto(path);
-    const controls = page.locator(`[data-table-controls="${id}"]`);
+    const controls = page
+      .locator('[data-table-ready="true"]')
+      .locator(`[data-table-controls="${id}"]`);
     await expect(controls).toBeVisible();
     await expect(
       controls.getByRole("button", { name: /^(Filters|Columns|Views)$/ }),
@@ -31,7 +33,7 @@ for (const [path, id] of [
     await expect(page.locator("[data-table-footer]")).toHaveCount(1);
     await expect(
       page
-        .locator("[data-table-footer]")
+        .locator("[data-table-footer]:visible")
         .getByRole("combobox", { name: "Rows per page" }),
     ).toBeVisible();
     if (id === "runs") {
@@ -213,7 +215,9 @@ test("prompt-linked tables always expose controls and filter empty datasets", as
       await page.goto(
         `/prompts/${id}?tab=${tab}&q=parent-search&prompt${tab}Search=linked-search&prompt${tab}Page=20`,
       );
-      const controls = page.locator(`[data-table-controls="${tableId}"]`);
+      const controls = page
+        .locator('[data-table-ready="true"]')
+        .locator(`[data-table-controls="${tableId}"]`);
       await expect(controls).toBeVisible();
       await expect(
         controls.getByRole("button", { name: /^(Filters|Columns|Views)$/ }),

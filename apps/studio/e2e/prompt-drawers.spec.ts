@@ -2296,7 +2296,7 @@ test.describe("Prompt detail drawers", () => {
         evals.locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`),
       ).toBeVisible();
       await expect(
-        evals.getByRole("columnheader", { name: /^Evaluation run / }),
+        evals.getByRole("columnheader", { name: /^Experiment / }),
       ).toBeVisible();
       await expect(
         evals.getByRole("columnheader", { name: /^Progress / }),

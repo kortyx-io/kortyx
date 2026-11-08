@@ -7,7 +7,7 @@ const runPath = `/experiments/runs/${EVAL_FIXTURE.candidate}`;
 test("standard Next links show progress while a suite workspace response is delayed", async ({
   page,
 }) => {
-  const suitePath = `${evalSuiteHref(EVAL_FIXTURE.targetId, EVAL_FIXTURE.suiteId)}`;
+  const suitePath = evalSuiteHref(EVAL_FIXTURE.targetId, EVAL_FIXTURE.suiteId);
   await page.goto("/datasets?live=false");
   await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
   let release = () => {};
@@ -53,8 +53,11 @@ for (const clickTarget of ["row", "button"] as const) {
       await page.goto(`/experiments?live=false&q=${EVAL_FIXTURE.candidate}`);
     }
     await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
-    const row = page.locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`);
+    const row = page
+      .locator('[data-table-ready="true"]')
+      .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`);
     await expect(row).toBeVisible();
+    await expect(page.locator(".bprogress")).toHaveCount(0);
     let release!: () => void;
     const blocked = new Promise<void>((resolve) => {
       release = resolve;
@@ -85,11 +88,20 @@ for (const clickTarget of ["row", "button"] as const) {
         )
         .toBeGreaterThan(0);
       const started = Date.now();
-      // Keep the response blocked beyond the previous route's completion delay.
+      // Production can commit a loading boundary or the cached detail from
+      // the earlier visit while the navigation request is still in flight.
+      const loading = page.getByRole("region", { name: "Loading dataset run" });
+      const result = page.getByRole("link", {
+        name: "Ambiguous role",
+        exact: true,
+      });
       await expect
         .poll(
           async () =>
-            Date.now() - started >= 700 && (await progress.isVisible()),
+            Date.now() - started >= 700 &&
+            ((await progress.isVisible()) ||
+              (await loading.isVisible()) ||
+              (await result.isVisible())),
         )
         .toBe(true);
     } finally {
@@ -129,6 +141,7 @@ test("a newer navigation wins while an eval row navigation is still pending", as
   );
   try {
     await page
+      .locator('[data-table-ready="true"]')
       .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`)
       .locator('td[data-column="results"]')
       .click();
@@ -169,6 +182,7 @@ test("returning to the current list cancels pending detail navigation and clears
   );
   try {
     await page
+      .locator('[data-table-ready="true"]')
       .locator(`[data-row-key="${EVAL_FIXTURE.candidate}"]`)
       .locator('td[data-column="results"]')
       .click();
