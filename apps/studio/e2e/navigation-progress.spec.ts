@@ -4,6 +4,69 @@ import { EVAL_FIXTURE } from "./support/eval-fixture";
 
 const runPath = `/experiments/runs/${EVAL_FIXTURE.candidate}`;
 
+for (const [name, path] of [
+  ["Datasets", "/datasets"],
+  ["Experiments", "/experiments"],
+] as const) {
+  test(`${name} keeps the current page visible while navigating`, async ({
+    page,
+  }) => {
+    await page.goto("/sessions");
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+    await page.evaluate(() => {
+      const audit = new MutationObserver(() => {
+        if (document.querySelector('[aria-label="Loading evaluation table"]')) {
+          document.documentElement.dataset.e2eEvalListSkeleton = "true";
+          audit.disconnect();
+        }
+      });
+      audit.observe(document.body, { childList: true, subtree: true });
+    });
+
+    let release = () => {};
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let requested = false;
+    await page.route(
+      (url) => url.pathname === path && url.searchParams.has("_rsc"),
+      async (route) => {
+        const headers = route.request().headers();
+        if (
+          !headers["next-router-prefetch"] &&
+          !headers["next-router-segment-prefetch"]
+        ) {
+          requested = true;
+          await blocked;
+        }
+        await route.continue();
+      },
+    );
+    try {
+      await page
+        .locator('[data-sidebar="sidebar"]')
+        .getByRole("link", { name, exact: true })
+        .click();
+      await expect.poll(() => requested).toBe(true);
+      await expect(page.locator(".bprogress .bar")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Sessions" }),
+      ).toBeVisible();
+    } finally {
+      release();
+    }
+
+    await expect(page).toHaveURL(path);
+    await expect(page.getByRole("heading", { name })).toBeVisible();
+    await expect(page.locator('[data-table-ready="true"]')).toBeVisible();
+    await expect(page.locator(".bprogress")).toHaveCount(0);
+    await expect(page.locator("html")).not.toHaveAttribute(
+      "data-e2e-eval-list-skeleton",
+      "true",
+    );
+  });
+}
+
 test("standard Next links show progress while a suite workspace response is delayed", async ({
   page,
 }) => {

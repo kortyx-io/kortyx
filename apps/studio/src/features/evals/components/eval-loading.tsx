@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
-import { TablePageHeader } from "@/components/data-table/table-page-header";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailDrawerLoading } from "@/components/detail/detail-drawer-loading";
 import { DetailPage } from "@/components/detail/detail-page";
@@ -22,7 +21,6 @@ import {
   EvalTranscriptSkeleton,
 } from "./eval-evidence-skeleton";
 import { EvalSuiteNavigation } from "./eval-suite-navigation";
-import { createEvaluationColumns } from "./evaluation-table-columns";
 
 const noop = () => {};
 const line = <Skeleton className="h-4 w-24 max-w-full" />;
@@ -76,66 +74,6 @@ export function EvalTableSkeleton({
         variant={embedded ? "inline" : "standalone"}
       />
     </section>
-  );
-}
-
-export function EvalListSkeleton({ view }: { view: "runs" | "suites" }) {
-  const runs = createEvaluationColumns(noop, 0);
-  const columns =
-    view === "runs"
-      ? [
-          ...runs.slice(0, 4),
-          { key: "changes", label: "Changes", defaultWidth: 290 },
-          ...runs.slice(4),
-        ]
-      : [
-          { key: "suite", label: "Dataset", defaultWidth: 310 },
-          { key: "application", label: "Application", defaultWidth: 240 },
-          { key: "cases", label: "Conversations", defaultWidth: 130 },
-          { key: "latest", label: "Latest run", defaultWidth: 150 },
-          { key: "latestCost", label: "Latest cost", defaultWidth: 160 },
-          { key: "latestAt", label: "Latest run date", defaultWidth: 160 },
-          {
-            key: "latestPassRate",
-            label: "Latest pass rate (%)",
-            defaultWidth: 160,
-          },
-          {
-            key: "latestDuration",
-            label: "Latest duration (ms)",
-            defaultWidth: 160,
-          },
-          { key: "run", label: "Execute", defaultWidth: 110 },
-        ];
-  return (
-    <EvalTableSkeleton
-      rowHeight={view === "runs" ? 71 : 69}
-      searchPlaceholder={
-        view === "runs"
-          ? "Search runs, commits or environments…"
-          : "Search datasets…"
-      }
-      tableId={view === "runs" ? "evaluations" : "eval-suites"}
-      columns={columns}
-      header={
-        <TablePageHeader
-          help={view === "runs" ? studioHelp.evals : studioHelp.datasets}
-          title={view === "runs" ? "Experiments" : "Datasets"}
-          description={
-            view === "runs"
-              ? "Results, costs and changes across saved experiments"
-              : "Browse code-managed datasets and their conversation definitions"
-          }
-          actions={
-            <div className="flex items-center gap-2">
-              <Skeleton className="size-8" />
-              <Skeleton className="h-8 w-36" />
-              <Skeleton className="h-8 w-12" />
-            </div>
-          }
-        />
-      }
-    />
   );
 }
 
