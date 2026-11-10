@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.27.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.4...studio-v0.27.0) (2026-11-10)
+
+
+### Features
+
+* **studio:** separate Datasets and Experiments ([#425](https://github.com/kortyx-io/kortyx/issues/425)) ([ede7d40](https://github.com/kortyx-io/kortyx/commit/ede7d406db5b1b08c42a3f54f08b1222a68fe3a8))
+
+
+### Bug Fixes
+
+* **studio:** prevent evaluation list navigation flicker ([#427](https://github.com/kortyx-io/kortyx/issues/427)) ([ac7e00c](https://github.com/kortyx-io/kortyx/commit/ac7e00c7e708e87c79c5351229d34cc0bb310d29))
+* **studio:** support a single project picker ([#424](https://github.com/kortyx-io/kortyx/issues/424)) ([cf6474a](https://github.com/kortyx-io/kortyx/commit/cf6474aa28402dbc4ea7b405df4121677cdca108))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * kortyx bumped to 0.35.3
+
 ## [0.26.4](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.3...studio-v0.26.4) (2026-11-06)
 
 
