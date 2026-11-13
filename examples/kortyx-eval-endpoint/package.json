@@ -15,7 +15,7 @@
   "dependencies": {
     "@hono/node-server": "^2.1.3",
     "@kortyx/openrouter": "workspace:*",
-    "hono": "^4.13.12",
+    "hono": "^4.13.16",
     "kortyx": "workspace:*",
     "zod": "catalog:"
   },
