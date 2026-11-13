@@ -30,7 +30,7 @@
     "@kortyx/telemetry-contracts": "workspace:*",
     "@kortyx/telemetry-db": "workspace:*",
     "@kortyx/usage-telemetry": "workspace:*",
-    "hono": "^4.13.12",
+    "hono": "^4.13.16",
     "zod": "catalog:"
   },
   "devDependencies": {
