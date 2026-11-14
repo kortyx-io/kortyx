@@ -47,7 +47,7 @@
     "@kortyx/core": "workspace:*",
     "@kortyx/prompts": "workspace:*",
     "@kortyx/telemetry-contracts": "workspace:*",
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "diff": "^9.0.0",
     "execa": "^9.6.1",
     "tsx": "^4.21.0",
