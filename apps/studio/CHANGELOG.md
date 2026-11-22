@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.27.0](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.4...studio-v0.27.0) (2026-11-22)
+
+
+### Features
+
+* **studio:** add versioned judges and score groups ([#432](https://github.com/kortyx-io/kortyx/issues/432)) ([8cf51e3](https://github.com/kortyx-io/kortyx/commit/8cf51e3837715765b7e899e60afe95aaa13fc327))
+* **studio:** separate Datasets and Experiments ([#425](https://github.com/kortyx-io/kortyx/issues/425)) ([ede7d40](https://github.com/kortyx-io/kortyx/commit/ede7d406db5b1b08c42a3f54f08b1222a68fe3a8))
+
+
+### Bug Fixes
+
+* **studio:** prevent evaluation list navigation flicker ([#427](https://github.com/kortyx-io/kortyx/issues/427)) ([ac7e00c](https://github.com/kortyx-io/kortyx/commit/ac7e00c7e708e87c79c5351229d34cc0bb310d29))
+* **studio:** support a single project picker ([#424](https://github.com/kortyx-io/kortyx/issues/424)) ([cf6474a](https://github.com/kortyx-io/kortyx/commit/cf6474aa28402dbc4ea7b405df4121677cdca108))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.3.4
+    * @kortyx/telemetry-contracts bumped to 0.21.0
+    * @kortyx/usage-telemetry bumped to 0.7.0
+  * devDependencies
+    * @kortyx/agent bumped to 0.44.3
+    * @kortyx/telemetry bumped to 0.17.10
+    * kortyx bumped to 0.35.3
+
 ## [0.26.4](https://github.com/kortyx-io/kortyx/compare/studio-v0.26.3...studio-v0.26.4) (2026-11-06)
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.21.0](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.5...telemetry-contracts-v0.21.0) (2026-11-22)
+
+
+### Features
+
+* **studio:** add versioned judges and score groups ([#432](https://github.com/kortyx-io/kortyx/issues/432)) ([8cf51e3](https://github.com/kortyx-io/kortyx/commit/8cf51e3837715765b7e899e60afe95aaa13fc327))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @kortyx/prompts bumped to 0.3.4
+
 ## [0.20.5](https://github.com/kortyx-io/kortyx/compare/telemetry-contracts-v0.20.4...telemetry-contracts-v0.20.5) (2026-11-06)
 
 

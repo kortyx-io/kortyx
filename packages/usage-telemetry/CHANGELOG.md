@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.6.2...usage-telemetry-v0.7.0) (2026-11-22)
+
+
+### Features
+
+* **studio:** add versioned judges and score groups ([#432](https://github.com/kortyx-io/kortyx/issues/432)) ([8cf51e3](https://github.com/kortyx-io/kortyx/commit/8cf51e3837715765b7e899e60afe95aaa13fc327))
+
 ## [0.6.2](https://github.com/kortyx-io/kortyx/compare/usage-telemetry-v0.6.1...usage-telemetry-v0.6.2) (2026-10-26)
 
 

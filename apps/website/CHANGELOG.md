@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.58.0](https://github.com/kortyx-io/kortyx/compare/website-v0.57.2...website-v0.58.0) (2026-11-22)
+
+
+### Features
+
+* **studio:** add versioned judges and score groups ([#432](https://github.com/kortyx-io/kortyx/issues/432)) ([8cf51e3](https://github.com/kortyx-io/kortyx/commit/8cf51e3837715765b7e899e60afe95aaa13fc327))
+* **studio:** separate Datasets and Experiments ([#425](https://github.com/kortyx-io/kortyx/issues/425)) ([ede7d40](https://github.com/kortyx-io/kortyx/commit/ede7d406db5b1b08c42a3f54f08b1222a68fe3a8))
+
+
+### Bug Fixes
+
+* **studio:** support a single project picker ([#424](https://github.com/kortyx-io/kortyx/issues/424)) ([cf6474a](https://github.com/kortyx-io/kortyx/commit/cf6474aa28402dbc4ea7b405df4121677cdca108))
+
 ## [0.57.2](https://github.com/kortyx-io/kortyx/compare/website-v0.57.1...website-v0.57.2) (2026-11-06)
 
 
