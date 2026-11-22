@@ -20,6 +20,7 @@ export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
   tabs,
   queryKey = "tab",
   helpByTab,
+  actions,
 }: {
   family?: F;
   tabs: (Omit<DetailTab, "id"> & {
@@ -27,6 +28,7 @@ export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
   })[];
   queryKey?: string;
   helpByTab?: Record<string, HelpDefinition>;
+  actions?: ReactNode;
 }) {
   const pathname = usePathname();
   const initialTab = tabs[0]?.id ?? "";
@@ -129,6 +131,9 @@ export function DetailTabs<F extends DetailTabFamily | undefined = undefined>({
             </button>
           ))}
         </div>
+        {actions && (
+          <div className="flex shrink-0 items-center pl-2">{actions}</div>
+        )}
         {selected && helpByTab?.[selected.id] && (
           <div className="ml-auto flex shrink-0 items-center pl-2">
             <HelpCircle help={helpByTab[selected.id]} />

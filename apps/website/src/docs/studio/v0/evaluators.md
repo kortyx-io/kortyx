@@ -11,13 +11,13 @@ The Evaluators library contains specialized judges. Each judge owns its instruct
 
 ## Write judge instructions
 
-Open **Evaluators → New judge**. Enter a name and description, then write the instructions with the same editor used for Prompts. Explain how the judge should assess the response, which evidence matters, and how to handle missing facts. Select the configured backend model and evidence scope under Configuration.
+Open **Evaluators → New judge**. Write the instructions with the same editor used for Prompts. Use the header’s **Rename judge** action to set its name and description; these fields stay outside Content. Saving an unnamed draft opens the naming dialog. Explain how the judge should assess the response, which evidence matters, and how to handle missing facts. Select the configured backend model and evidence scope under Configuration.
 
-**Save draft** preserves work without changing saved versions. **Save version** freezes the current instructions, context and configuration. Select a version from the history to read it, or use **New version** to edit a draft. Concurrent edits require reloading the current revision.
+**Save draft** preserves work without changing saved versions. **Save version** freezes the current instructions, context and configuration. Content has the same collapsible version history pattern as Prompts, with a version picker on smaller screens. Select a version to read it, or use **New version** to edit a draft. Version history is shown only on Content; Preview uses the full workspace. Concurrent edits require reloading the current revision.
 
 ## Evaluation context
 
-The collapsed **Evaluation context** section supplies the runtime variables. Its initial template includes criterion, input, observation, reference facts and preceding conversation. **Insert variable** lists supported inputs and descriptions. Unknown variable paths and ordinary Prompt inclusions are rejected.
+The always-visible **Evaluation context** editor supplies the runtime variables. Its initial template includes criterion, input, observation, reference facts and preceding conversation. **Insert variable** lists supported inputs and descriptions. Unknown variable paths and ordinary Prompt inclusions are rejected.
 
 | Variable | Meaning |
 | --- | --- |

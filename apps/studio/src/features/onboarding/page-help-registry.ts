@@ -382,7 +382,7 @@ export const DETAIL_TAB_HELP = {
   },
   evaluators: {
     content:
-      "Judge instructions define how to assess evidence. Evaluation context is a collapsible template whose variables are filled from the selected case or recording. Version history keeps saved instructions separate from the editable draft. The model and evidence scope are in Configuration.",
+      "Judge instructions define how to assess evidence. Evaluation context is an always-visible template whose variables are filled from the selected case or recording. Content-only version history keeps saved instructions separate from the editable draft. The header action menu edits the judge name and description. The model and evidence scope are in Configuration.",
     preview:
       "Select a recording, inspect the filled variables and rendered request, then run the saved judge version or draft. Inspecting evidence makes no model call. Run preview consumes model usage and shows the verdict, reason, supporting evidence and reported cost.",
   },

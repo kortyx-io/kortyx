@@ -107,6 +107,10 @@ export const EvaluatorDefinitionSchema = z
     evidence: z.enum(["response", "trajectory"]).default("trajectory"),
   })
   .strict();
+export const EvaluatorMetadataSchema = EvaluatorDefinitionSchema.pick({
+  name: true,
+  description: true,
+});
 export const EvaluatorSchema = z.object({
   id: z.uuid(),
   revision: version,

@@ -12,6 +12,7 @@ import {
   type EvaluatorExecution,
   EvaluatorExecutionSchema,
   EvaluatorExecutionSummarySchema,
+  EvaluatorMetadataSchema,
   type EvaluatorReference,
   EvaluatorSchema,
   type EvaluatorTarget,
@@ -187,6 +188,39 @@ export async function saveEvaluator(
     throw new PromptError(
       "EVALUATOR_REVISION_CONFLICT",
       "Evaluator changed. Reload before saving.",
+      409,
+    );
+  return evaluatorRow(row);
+}
+/** Rename the asset without saving local instruction edits or rewriting versions. */
+export async function updateEvaluatorMetadata(
+  db: TelemetryDb,
+  scope: EvaluatorScope,
+  id: string,
+  revision: number,
+  input: { name: string; description: string },
+) {
+  const metadata = EvaluatorMetadataSchema.parse(input);
+  const [row] = await db
+    .update(definitions)
+    .set({
+      draft: sql`${definitions.draft} || ${JSON.stringify(metadata)}::jsonb`,
+      revision: sql`${definitions.revision}+1`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        scopeWhere(definitions, scope),
+        eq(definitions.id, id),
+        eq(definitions.revision, revision),
+        eq(definitions.archived, false),
+      ),
+    )
+    .returning();
+  if (!row)
+    throw new PromptError(
+      "EVALUATOR_REVISION_CONFLICT",
+      "Judge changed. Reload before renaming.",
       409,
     );
   return evaluatorRow(row);

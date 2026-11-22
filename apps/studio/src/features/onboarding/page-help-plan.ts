@@ -284,13 +284,13 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       add(
         "tabs",
         "Write and preview a judge",
-        "Content holds judge-owned instructions and the evaluation context. Preview uses a recorded case or run. The version history selects saved versions or the current draft.",
+        "Content holds judge-owned instructions and the evaluation context. Preview uses a recorded case or run. Content-only version history selects saved versions or the current draft. Preview uses the full workspace.",
         find('[data-page-help="tabs"]'),
       );
       add(
         "content",
         "Judge instructions and context",
-        "Use the same editor as Prompts to write the judging instructions. Expand Evaluation context to inspect or customize the known Kortyx variables. Save a version to freeze the instructions and model configuration.",
+        "Use the same editor as Prompts to write the judging instructions. Evaluation context is always visible for inspecting or customizing the known Kortyx variables. Rename judge in the header menu edits its name and description. Save a version to freeze the instructions and model configuration.",
         find("[data-judge-instructions]", "[data-judge-context]"),
       );
       add(
