@@ -1,5 +1,5 @@
 import { SAMPLE_PROJECT } from "@kortyx/telemetry-contracts";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { evalSuiteHref } from "../src/features/evals/lib/navigation";
 import { EVAL_FIXTURE } from "./support/eval-fixture";
 import { EVAL_OPAQUE_CASES, EVAL_SUITE } from "./support/eval-plan";
@@ -12,6 +12,17 @@ const repeatComparePath = `/experiments/runs/${EVAL_FIXTURE.repeatedCandidate}/c
 const casePath = `/experiments/cases/${EVAL_FIXTURE.candidate}/${EVAL_FIXTURE.caseId}/1`;
 const comparisonCasePath = `/experiments/cases/${EVAL_FIXTURE.candidate}/${EVAL_FIXTURE.caseId}/compare`;
 const workflowPath = `/runs/${DRAWER_FIXTURE.runId}`;
+async function expectCoveredParent(page: Page, parent: Locator) {
+  // Both surfaces stay mounted, but only the active drawer is exposed to
+  // keyboard and assistive technology while the backdrop covers its parent.
+  await expect(page.getByRole("dialog", { includeHidden: true })).toHaveCount(
+    2,
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(1);
+  await expect(parent).toHaveAttribute("inert", "");
+  await expect(parent).toHaveAttribute("aria-hidden", "true");
+}
+
 test.describe("Eval route and drawer navigation", () => {
   test("redirects the old list and navigates between separate sidebar destinations", async ({
     page,
@@ -122,7 +133,7 @@ test.describe("Eval route and drawer navigation", () => {
     ).toBeVisible({ timeout: 16_000 });
     expect(await node?.evaluate((el) => el.isConnected)).toBe(true);
     await expect(page).toHaveURL(/baseline=/);
-    await expect(page.getByRole("dialog")).toHaveCount(2);
+    await expectCoveredParent(page, comparisonDrawer);
     await drawer
       .getByRole("button", { name: "Close detail", exact: true })
       .click();
@@ -154,7 +165,7 @@ test.describe("Eval route and drawer navigation", () => {
     await expect(
       workflow.getByRole("button", { name: "Overview", exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole("dialog")).toHaveCount(2);
+    await expectCoveredParent(page, inspector);
     await expect(inspector).toHaveAttribute("data-state", "open");
     await workflow
       .getByRole("button", { name: "Close detail", exact: true })
@@ -475,7 +486,7 @@ test.describe("Eval drawer hardening", () => {
         await expect(
           child.getByRole("button", { name: "Overview", exact: true }),
         ).toBeVisible();
-        await expect(page.getByRole("dialog")).toHaveCount(2);
+        await expectCoveredParent(page, parent);
         await expect(page.locator("[data-detail-backdrop]")).toHaveCount(1);
         if (dismissal === "Escape") await page.keyboard.press("Escape");
         else {
@@ -941,7 +952,7 @@ test.describe("Eval adversarial state transitions", () => {
       return values;
     });
     expect(states).toEqual(Array(8).fill(true));
-    await expect(page.getByRole("dialog")).toHaveCount(2);
+    await expectCoveredParent(page, parent);
     await child
       .getByRole("button", { name: "Close detail", exact: true })
       .click();

@@ -1,7 +1,7 @@
 ---
 id: "v0-studio-evaluators"
 title: "Judges"
-description: "Author versioned judge instructions with Kortyx-aware context and preview recorded evidence."
+description: "Author versioned judges with Kortyx-aware context, define typed score groups and preview results against recorded evidence."
 sidebar_label: "Judges"
 section: "evaluations"
 ---

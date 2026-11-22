@@ -35,7 +35,12 @@ test.describe("Studio detail drawer stack", () => {
         exact: true,
       }),
     ).toBeVisible();
-    await expect(page.getByRole("dialog")).toHaveCount(2);
+    await expect(page.getByRole("dialog", { includeHidden: true })).toHaveCount(
+      2,
+    );
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await expect(session).toHaveAttribute("inert", "");
+    await expect(session).toHaveAttribute("aria-hidden", "true");
     expect(await sessionNode?.evaluate((node) => node.isConnected)).toBe(true);
     expect(await listNode?.evaluate((node) => node.isConnected)).toBe(true);
     await expectAncestorReveal(session, drawer(page, runPath));
@@ -286,7 +291,10 @@ test.describe("Studio detail drawer stack", () => {
     );
     await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
     await expect(inspector(page)).toBeVisible();
-    await expect(page.getByRole("dialog")).toHaveCount(3);
+    await expect(page.getByRole("dialog", { includeHidden: true })).toHaveCount(
+      3,
+    );
+    await expect(drawer(page, sessionPath)).toHaveAttribute("inert", "");
     await expectBackdropActive(page);
 
     const inspectorExit = await observeClosedState(inspector(page));
@@ -422,7 +430,7 @@ test.describe("Studio detail drawer stack", () => {
     await expect(drawer(page, runPath)).toHaveCount(1);
   });
 
-  test("clicking the visible Session ancestor closes Run and its inspector but preserves Session", async ({
+  test("clicking the covered Session area peels the inspector then Run and restores Session", async ({
     page,
   }) => {
     await openSessionDrawer(page);
@@ -432,11 +440,25 @@ test.describe("Studio detail drawer stack", () => {
     const session = drawer(page, sessionPath);
     await expectAncestorReveal(session, drawer(page, runPath));
 
-    await session.click({ position: { x: 8, y: 100 } });
+    await expect(session).toHaveAttribute("inert", "");
+    const bounds = await session.boundingBox();
+    if (!bounds) throw Error("Missing Session bounds");
+    const clickCoveredArea = () =>
+      page.mouse.click(bounds.x + 8, bounds.y + 100);
+    await clickCoveredArea();
+    await expect(inspector(page)).toHaveCount(0);
+    await expect(drawer(page, runPath)).toHaveAttribute("data-state", "open");
+    await expect(session).toHaveAttribute("inert", "");
+    await clickCoveredArea();
 
     await expect(page).toHaveURL(new RegExp(`${escapeRegExp(sessionPath)}\\?`));
     await expect(inspector(page)).toHaveCount(0);
     await expect(drawer(page, runPath)).toHaveCount(0);
+    await expect(session).not.toHaveAttribute("inert", "");
+    await expect(session).toHaveAttribute("aria-hidden", "false");
+    await expect(
+      session.getByRole("button", { name: /^Runs \d+$/ }),
+    ).toBeEnabled();
     await expect(drawer(page, sessionPath)).toHaveAttribute(
       "data-state",
       "open",
