@@ -65,9 +65,10 @@ export function ScoreGroupFields({
   const index = value.fields[active] ? active : 0;
   const field = value.fields[index];
   if (!field) return null;
-  const requiredAssessment =
-    field.id === "assessment" &&
-    index === value.fields.findIndex((item) => item.id === "assessment");
+  const assessmentIndex = value.fields.findIndex(
+    (item) => item.id === "assessment",
+  );
+  const requiredAssessment = index === assessmentIndex;
   const kind = fieldKind(field);
   const type = FIELD_TYPES[kind];
   const choose = (index: number) => {
@@ -90,17 +91,21 @@ export function ScoreGroupFields({
   const choices = value.fields.map((field, index) => ({
     index,
     label: field.label || "Unnamed field",
-    kind: fieldKind(field),
+    field,
+    required: index === assessmentIndex,
   }));
   return (
     <div
       className="@container/score-fields flex h-full min-h-0 flex-col bg-muted/15"
       data-score-group-fields
     >
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b bg-background px-5 py-4">
+      <header className="flex h-10 shrink-0 items-center justify-between gap-3 border-b bg-background px-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Output fields</h2>
-          <Badge variant="secondary" className="text-[10px] tabular-nums">
+          <Badge
+            variant="secondary"
+            className="h-5 px-1.5 py-0 text-[10px] tabular-nums"
+          >
             {editing ? `${value.fields.length}/20` : value.fields.length}
           </Badge>
         </div>
@@ -158,7 +163,10 @@ export function ScoreGroupFields({
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-60 shrink-0 flex-col border-r bg-background @[780px]/score-fields:flex">
           <ScrollArea className="min-h-0 flex-1">
-            <nav aria-label="Output fields" className="flex flex-col gap-1 p-3">
+            <nav
+              aria-label="Output fields"
+              className="flex flex-col gap-0.5 p-2"
+            >
               {value.fields.map((item, position) => (
                 <button
                   // biome-ignore lint/suspicious/noArrayIndexKey: Field keys are editable and these navigation rows have no local state.
@@ -168,40 +176,16 @@ export function ScoreGroupFields({
                   aria-controls={panelId}
                   onClick={() => choose(position)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left outline-none transition-colors hover:bg-muted/65 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none transition-colors hover:bg-muted/65 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
                     position === index &&
                       "bg-muted ring-1 ring-inset ring-border",
                   )}
                 >
-                  <ScoreFieldMark kind={fieldKind(item)} small />
-                  <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="truncate text-xs font-medium"
-                        title={item.label}
-                      >
-                        {item.label || "Unnamed field"}
-                      </span>
-                      {item.id === "assessment" &&
-                        position ===
-                          value.fields.findIndex(
-                            (item) => item.id === "assessment",
-                          ) && (
-                          <LockKeyhole
-                            className="size-3 shrink-0 text-muted-foreground"
-                            aria-label="Required field"
-                          />
-                        )}
-                    </span>
-                    <span className="truncate text-[10px] text-muted-foreground">
-                      {scoreFieldLabel(item)}
-                    </span>
-                    {editing && !item.description.trim() && (
-                      <span className="text-[10px] text-muted-foreground">
-                        Needs grading guidance
-                      </span>
-                    )}
-                  </span>
+                  <ScoreFieldOption
+                    field={item}
+                    required={position === assessmentIndex}
+                    needsGuidance={editing && !item.description.trim()}
+                  />
                 </button>
               ))}
             </nav>
@@ -213,7 +197,7 @@ export function ScoreGroupFields({
           </p>
         </aside>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="shrink-0 border-b bg-background px-5 py-3 @[780px]/score-fields:hidden">
+          <div className="shrink-0 border-b bg-background px-4 py-2 @[780px]/score-fields:hidden">
             <Combobox<(typeof choices)[number]>
               items={choices}
               value={choices[index]}
@@ -231,16 +215,19 @@ export function ScoreGroupFields({
               />
               <ComboboxContent>
                 <ComboboxEmpty>No matching field.</ComboboxEmpty>
-                <ComboboxList aria-label="Output fields">
+                <ComboboxList
+                  aria-label="Output fields"
+                  className="max-h-[min(24rem,var(--available-height))]"
+                >
                   {(item: (typeof choices)[number]) => (
                     <ComboboxItem key={item.index} value={item}>
-                      <ScoreFieldMark kind={item.kind} small />
-                      <span className="flex min-w-0 flex-col gap-1">
-                        <span className="truncate text-xs">{item.label}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {FIELD_TYPES[item.kind].label}
-                        </span>
-                      </span>
+                      <ScoreFieldOption
+                        field={item.field}
+                        required={item.required}
+                        needsGuidance={
+                          editing && !item.field.description.trim()
+                        }
+                      />
                     </ComboboxItem>
                   )}
                 </ComboboxList>
@@ -365,6 +352,41 @@ export function ScoreGroupFields({
     </div>
   );
 }
+function ScoreFieldOption({
+  field,
+  required,
+  needsGuidance,
+}: {
+  field: ScoreField;
+  required: boolean;
+  needsGuidance: boolean;
+}) {
+  return (
+    <>
+      <ScoreFieldMark kind={fieldKind(field)} small />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex h-4 min-w-0 items-center gap-1.5">
+          <span
+            className="truncate text-xs font-medium leading-4"
+            title={field.label}
+          >
+            {field.label || "Unnamed field"}
+          </span>
+          {required && (
+            <LockKeyhole
+              className="size-3 shrink-0 text-muted-foreground"
+              aria-label="Required field"
+            />
+          )}
+        </span>
+        <span className="truncate text-[10px] leading-3.5 text-muted-foreground">
+          {needsGuidance ? "Needs grading guidance" : scoreFieldLabel(field)}
+        </span>
+      </span>
+    </>
+  );
+}
+
 function ScoreFieldDetails({ field }: { field: ScoreField }) {
   return (
     <div className="flex flex-col gap-6">

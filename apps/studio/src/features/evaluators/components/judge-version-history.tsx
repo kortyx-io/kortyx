@@ -67,7 +67,7 @@ export function JudgeVersionHistory({
           className="min-h-0 flex-1"
           viewportClassName="overscroll-contain"
         >
-          <div className="flex flex-col gap-1 px-2 pb-2">
+          <div className="flex flex-col gap-0.5 px-2 pb-2">
             {hasDraft && (
               <button
                 type="button"
@@ -75,7 +75,7 @@ export function JudgeVersionHistory({
                 aria-label="Open draft in history"
                 aria-pressed={editing || !versions.length}
                 onClick={() => onSelect(null)}
-                className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-3 text-left text-xs hover:bg-muted/50 aria-pressed:bg-muted"
+                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted/50 aria-pressed:bg-muted"
               >
                 <span className="text-muted-foreground">
                   {dirty
@@ -97,16 +97,9 @@ export function JudgeVersionHistory({
                 aria-label={`Open ${assetName} version ${version.version}`}
                 aria-pressed={!editing && selectedVersion === version.version}
                 onClick={() => onSelect(version.version)}
-                className="flex w-full min-w-0 flex-col gap-1 rounded-md px-2 py-3 text-left hover:bg-muted/50 aria-pressed:bg-muted"
+                className="flex w-full min-w-0 rounded-md px-2 py-1.5 text-left hover:bg-muted/50 aria-pressed:bg-muted"
               >
-                <span className="text-xs font-medium">v{version.version}</span>
-                <span className="block max-w-full truncate text-[11px] text-muted-foreground">
-                  {version.definition.model ??
-                    `${version.definition.fields?.length ?? 0} fields`}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  {formatDateTime(version.createdAt)}
-                </span>
+                <VersionDetails version={version} />
               </button>
             ))}
           </div>
@@ -177,25 +170,42 @@ export function JudgeVersionPicker({
                 key={version.version}
                 value={String(version.version)}
                 disabled={disabled}
-                className="items-start py-2"
+                className="items-center py-1.5"
               >
-                <span className="flex min-w-0 flex-col gap-1">
-                  <span className="text-xs font-medium">
-                    v{version.version}
-                  </span>
-                  <span className="truncate text-[11px] text-muted-foreground">
-                    {version.definition.model ??
-                      `${version.definition.fields?.length ?? 0} fields`}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {formatDateTime(version.createdAt)}
-                  </span>
-                </span>
+                <VersionDetails version={version} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+  );
+}
+
+function VersionDetails({
+  version,
+}: {
+  version: JudgeHistoryProps["versions"][number];
+}) {
+  const description =
+    version.definition.model ??
+    `${version.definition.fields?.length ?? 0} fields`;
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="shrink-0 text-xs font-medium leading-4">
+          v{version.version}
+        </span>
+        <span
+          className="min-w-0 truncate text-[10px] leading-4 text-muted-foreground"
+          title={description}
+        >
+          {description}
+        </span>
+      </span>
+      <span className="text-[10px] leading-3.5 text-muted-foreground">
+        {formatDateTime(version.createdAt)}
+      </span>
+    </span>
   );
 }
