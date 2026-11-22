@@ -51,6 +51,7 @@ import {
 } from "./judge-version-history";
 import { useScoreGroupBridge } from "./score-group-bridge";
 import { ScoreGroupFields } from "./score-group-fields";
+import { ScoreGroupJson } from "./score-group-json";
 
 type Props = {
   initial: ScoreGroupDetail | null;
@@ -531,21 +532,25 @@ function ScoreGroupEditorBody({
                       real results. All fields are validated together.
                     </p>
                   </div>
-                  <pre className="overflow-auto whitespace-pre-wrap break-words rounded-md border bg-muted/20 p-4 text-xs leading-5">
-                    {JSON.stringify(sample, null, 2)}
-                  </pre>
+                  <ScoreGroupJson
+                    label="Example judge output JSON"
+                    value={JSON.stringify(sample, null, 2)}
+                  />
                   <details>
                     <summary className="cursor-pointer text-xs">
                       Structured output schema
                     </summary>
                     {valid.success ? (
-                      <pre className="mt-3 overflow-auto whitespace-pre-wrap break-words text-xs">
-                        {JSON.stringify(
-                          z.toJSONSchema(scoreGroupOutputSchema(valid.data)),
-                          null,
-                          2,
-                        )}
-                      </pre>
+                      <div className="mt-3">
+                        <ScoreGroupJson
+                          label="Structured output JSON schema"
+                          value={JSON.stringify(
+                            z.toJSONSchema(scoreGroupOutputSchema(valid.data)),
+                            null,
+                            2,
+                          )}
+                        />
+                      </div>
                     ) : (
                       <p className="mt-3 text-xs text-muted-foreground">
                         Complete field settings to preview the schema.
