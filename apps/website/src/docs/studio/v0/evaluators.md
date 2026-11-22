@@ -9,9 +9,13 @@ section: "evaluations"
 
 The Evaluators library contains specialized judges. Each judge owns its instructions, evaluation-context template and model configuration. Judge content is independent of the ordinary Prompts library.
 
+Select a judge to open it in the shared detail drawer while keeping the library visible. Use **Expand detail** for the full workspace or **Close detail** to return to the library. Browser Back/Forward follows drawer navigation. Opening a judge URL directly or refreshing shows its full page, as with Prompts.
+
 ## Write judge instructions
 
 Open **Evaluators → New judge**. Write the instructions with the same editor used for Prompts. Use the header’s **Rename judge** action to set its name and description; these fields stay outside Content. Saving an unnamed draft opens the naming dialog. Explain how the judge should assess the response, which evidence matters, and how to handle missing facts. Select the configured backend model and evidence scope under Configuration.
+
+**What the judge sees** has two choices. **Final response only** uses the recorded final response without tool calls or intermediate event history. **Full event evidence** also includes retained public execution events, such as tool calls, results and human pauses. Missing final responses remain explicit; neither option invents an answer.
 
 **Save draft** preserves work without changing saved versions. **Save version** freezes the current instructions, context and configuration. Content has the same collapsible version history pattern as Prompts, with a version picker on smaller screens. Select a version to read it, or use **New version** to edit a draft. Version history is shown only on Content; Preview uses the full workspace. Concurrent edits require reloading the current revision.
 
@@ -37,7 +41,7 @@ Instructions and context are rendered as separate message roles internally. The 
 
 ## Preview recorded evidence
 
-Save the draft or select a saved version, then open **Preview**. Choose a recorded run or saved experiment case. **Inspect evidence** shows the filled variables, selected recording and exact request without invoking a model. For multi-step cases, inspect the recording to choose a step and criterion.
+Save the draft or select a saved version, then open **Preview**. The **Recording** picker searches recent runs and saved experiment cases. Paste a full run ID to look up an older run. Each result shows its environment, which is carried with the selection; no separate environment input is needed. **Inspect evidence** shows the filled variables, selected recording and exact request without invoking a model. For multi-step cases, inspect the recording to choose a step and criterion.
 
 **Run preview** invokes the configured judge model and can incur a charge. It assesses retained evidence without rerunning the application or its tools. The preview shows the existing experiment-style verdict: passed, reason and supporting excerpts, together with tokens and reported cost. Rate-card costs are labeled estimates; unavailable pricing remains explicit. The runtime supplies this response contract independently of the reusable rubric.
 

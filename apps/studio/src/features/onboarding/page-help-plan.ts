@@ -290,13 +290,13 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       add(
         "content",
         "Judge instructions and context",
-        "Use the same editor as Prompts to write the judging instructions. Evaluation context is always visible for inspecting or customizing the known Kortyx variables. Rename judge in the header menu edits its name and description. Save a version to freeze the instructions and model configuration.",
+        "Use the same editor as Prompts to write the judging instructions. Evaluation context is always visible for inspecting or customizing the known Kortyx variables. What the judge sees chooses Final response only or Full event evidence. Rename judge in the header menu edits its name and description. Save a version to freeze the instructions and model configuration.",
         find("[data-judge-instructions]", "[data-judge-context]"),
       );
       add(
         "records",
         "Inspect a preview",
-        "Review filled variables and rendered messages before invoking the model. A preview shows the verdict and reason with reported usage. Missing evidence remains explicit.",
+        "Search the Recording picker or paste a full run ID. Its result carries the environment automatically. Review filled variables and rendered messages before invoking the model. A preview shows the verdict and reason with reported usage. Missing evidence remains explicit.",
         find('[aria-label="Judge result"]', '[aria-label="Preview evidence"]'),
       );
     }

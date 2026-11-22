@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Maximize2, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { Button } from "@/components/ui/button";
 import { HelpCircle } from "@/components/ui/info-tooltip";
 import { studioHelp } from "@/lib/studio-help";
@@ -14,9 +15,11 @@ export function EvaluatorDetailHeader({
 }: {
   title: string;
   status: string;
-  onBack: () => void;
-  children: ReactNode;
+  onBack?: () => void;
+  children?: ReactNode;
 }) {
+  const { navigation } = useDetailDrawer();
+  const canExpand = navigation?.canExpand;
   return (
     <header
       data-responsive-surface="detail-header"
@@ -25,10 +28,10 @@ export function EvaluatorDetailHeader({
       <Button
         size="icon-sm"
         variant="ghost"
-        aria-label="Back to judge library"
-        onClick={onBack}
+        aria-label={canExpand ? "Expand detail" : "Back to judge library"}
+        onClick={canExpand ? navigation.expand : (navigation?.close ?? onBack)}
       >
-        <ArrowLeft />
+        {canExpand ? <Maximize2 /> : <ArrowLeft />}
       </Button>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -42,6 +45,16 @@ export function EvaluatorDetailHeader({
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">{children}</div>
+      {navigation?.isTop && !navigation.expanded && (
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Close detail"
+          onClick={navigation.close}
+        >
+          <X />
+        </Button>
+      )}
     </header>
   );
 }

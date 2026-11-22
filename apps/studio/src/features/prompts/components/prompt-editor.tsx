@@ -37,6 +37,7 @@ import {
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { promptRequest } from "../api/client";
 import {
+  PromptMessageText,
   promptMessageClassName,
   promptVariableClassName,
   promptVariablePattern,
@@ -553,7 +554,42 @@ export function PromptEditor({
       {description && (
         <p className="text-xs leading-5 text-muted-foreground">{description}</p>
       )}
-      <EditorContent editor={editor} />
+      {editor ? (
+        <EditorContent editor={editor} />
+      ) : (
+        <section id={id} aria-label={label} className={promptMessageClassName}>
+          {documentFor(value, dependencies, names).content?.map(
+            (line, index) => (
+              // Paragraph positions stay stable until TipTap takes ownership.
+              // biome-ignore lint/suspicious/noArrayIndexKey: static initial document
+              <p key={index}>
+                {line.content?.length ? (
+                  line.content.map((node, position) =>
+                    node.type === "mention" ? (
+                      <span
+                        // biome-ignore lint/suspicious/noArrayIndexKey: static initial document
+                        key={position}
+                        data-prompt-reference="true"
+                        className="rounded bg-violet-500/10 px-1 py-0.5 text-violet-700 dark:text-violet-300"
+                      >
+                        {`#${node.attrs?.label ?? node.attrs?.id}@v${node.attrs?.version}`}
+                      </span>
+                    ) : (
+                      <PromptMessageText
+                        // biome-ignore lint/suspicious/noArrayIndexKey: static initial document
+                        key={position}
+                        value={node.text ?? ""}
+                      />
+                    ),
+                  )
+                ) : (
+                  <br />
+                )}
+              </p>
+            ),
+          )}
+        </section>
+      )}
       {!disabled && variables.length > 0 && (
         <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>Variables are filled from the selected recording.</span>

@@ -434,14 +434,9 @@ export async function captureEvaluatorEvidence(
       .limit(501);
     const selected = events
       .slice(0, 500)
-      .filter(
-        (e) =>
-          mode === "trajectory" ||
-          e.payload.name === "kortyx.run" ||
-          /output|response|interrupt/.test(e.type),
-      );
+      .filter((e) => mode === "trajectory" || e.payload.name === "kortyx.run");
     eventIds = selected.map((e) => String(e.eventId));
-    captured = {
+    const recorded = {
       status: run.status,
       events: selected.map((e) => ({
         id: String(e.eventId),
@@ -450,6 +445,21 @@ export async function captureEvaluatorEvidence(
         payload: safeEvidence(e.payload),
       })),
     };
+    if (mode === "response") {
+      const start = selected.find((event) => event.type === "span.started");
+      const end = [...selected]
+        .reverse()
+        .find((event) => event.type === "span.ended");
+      captured = {
+        status: run.status,
+        input: safeEvidence(start?.payload.input ?? null),
+        output: safeEvidence(end?.payload.output ?? null),
+        events: [],
+      };
+      omitted.push(
+        "Tool calls and intermediate events are excluded by Final response only.",
+      );
+    } else captured = recorded;
     if (events.length > 500)
       omitted.push("Events after the first 500 are omitted.");
   } else {
@@ -484,7 +494,7 @@ export async function captureEvaluatorEvidence(
         reference: s.reference,
         observation: {
           ...s.observation,
-          ...(mode === "response" ? { events: [] } : {}),
+          ...(mode === "response" ? { events: [], interrupt: null } : {}),
         },
       })),
     });
@@ -534,6 +544,8 @@ export function evaluatorVariables(evidence: EvaluatorEvidence) {
   const captured = evidence.captured as {
     steps?: JudgeStep[];
     status?: string;
+    input?: unknown;
+    output?: unknown;
     events?: { type: string; payload: Record<string, unknown> }[];
   };
   if (captured?.steps?.length) {
@@ -588,16 +600,23 @@ export function evaluatorVariables(evidence: EvaluatorEvidence) {
       (event) =>
         event.type === "span.ended" && event.payload.name === "kortyx.run",
     );
-  const output = end?.payload.output;
+  const output = Object.hasOwn(captured ?? {}, "output")
+    ? captured.output
+    : end?.payload.output;
   const interrupt = [...events]
     .reverse()
     .find((event) => event.type === "interrupt.created");
-  const structured = events
-    .filter(
-      (event) =>
-        event.type === "output.emitted" && Object.hasOwn(event.payload, "data"),
-    )
-    .map((event) => event.payload.data);
+  const structured = Object.hasOwn(captured ?? {}, "output")
+    ? output !== null && typeof output === "object"
+      ? [output]
+      : []
+    : events
+        .filter(
+          (event) =>
+            event.type === "output.emitted" &&
+            Object.hasOwn(event.payload, "data"),
+        )
+        .map((event) => event.payload.data);
   const text =
     typeof output === "string"
       ? output
@@ -609,7 +628,7 @@ export function evaluatorVariables(evidence: EvaluatorEvidence) {
         : "";
   return {
     criterion: null,
-    input: start?.payload.input ?? null,
+    input: captured?.input ?? start?.payload.input ?? null,
     observation: {
       type:
         captured?.status === "interrupted"
@@ -935,6 +954,7 @@ export async function finishEvaluatorExecution(
 export async function listEvaluatorRecordings(
   db: TelemetryDb,
   scope: EvaluatorScope,
+  runId?: string,
 ) {
   const [runs, saved] = await Promise.all([
     db
@@ -943,6 +963,7 @@ export async function listEvaluatorRecordings(
       .where(
         and(
           scopeWhere(studioRuns, scope),
+          runId ? eq(studioRuns.runId, runId) : undefined,
           scope.environment
             ? eq(studioRuns.environment, scope.environment)
             : undefined,
@@ -950,20 +971,22 @@ export async function listEvaluatorRecordings(
       )
       .orderBy(desc(studioRuns.updatedAt))
       .limit(20),
-    db
-      .select()
-      .from(evalRuns)
-      .where(
-        and(
-          scopeWhere(evalRuns, scope),
-          scope.environment
-            ? eq(evalRuns.environment, scope.environment)
-            : undefined,
-          sql`${evalRuns.result} is not null`,
-        ),
-      )
-      .orderBy(desc(evalRuns.updatedAt))
-      .limit(10),
+    runId
+      ? []
+      : db
+          .select()
+          .from(evalRuns)
+          .where(
+            and(
+              scopeWhere(evalRuns, scope),
+              scope.environment
+                ? eq(evalRuns.environment, scope.environment)
+                : undefined,
+              sql`${evalRuns.result} is not null`,
+            ),
+          )
+          .orderBy(desc(evalRuns.updatedAt))
+          .limit(10),
   ]);
   return [
     ...runs.map((run) => ({

@@ -26,13 +26,11 @@ function highlight(text: string, offset: number, matches: [number, number][]) {
   return parts;
 }
 
-/** Read-only message content using the same visual tokens as the prompt editor. */
-export function PromptMessagePreview({
-  label,
+/** Shared text rendering for previews and the editor's server-rendered content. */
+export function PromptMessageText({
   value,
   search = "",
 }: {
-  label: string;
   value: string;
   search?: string;
 }) {
@@ -64,6 +62,19 @@ export function PromptMessagePreview({
     position = match.index + match[0].length;
   }
   parts.push(highlight(value.slice(position), position, matches));
+  return <>{parts}</>;
+}
+
+/** Read-only message content using the same visual tokens as the prompt editor. */
+export function PromptMessagePreview({
+  label,
+  value,
+  search = "",
+}: {
+  label: string;
+  value: string;
+  search?: string;
+}) {
   return (
     <section
       data-prompt-message
@@ -72,7 +83,7 @@ export function PromptMessagePreview({
     >
       <h3 className="text-xs font-medium">{label}</h3>
       <pre className={`${promptMessageClassName} [overflow-wrap:anywhere]`}>
-        {parts}
+        <PromptMessageText value={value} search={search} />
       </pre>
     </section>
   );

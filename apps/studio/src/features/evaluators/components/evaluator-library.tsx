@@ -3,8 +3,10 @@ import type { EvaluatorLibrary } from "@kortyx/telemetry-contracts";
 import { Plus } from "lucide-react";
 import { DataTable, type DataTableColumn } from "@/components/data-table";
 import { TablePageHeader } from "@/components/data-table/table-page-header";
+import { DetailLink } from "@/components/detail/detail-link";
 import Link from "@/components/scoped-link";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/format";
 import { studioHelp } from "@/lib/studio-help";
 export function EvaluatorLibraryView({
   library,
@@ -20,12 +22,12 @@ export function EvaluatorLibraryView({
       label: "Judge",
       help: studioHelp.evaluators,
       render: (r) => (
-        <Link
+        <DetailLink
           className="font-medium hover:underline"
           href={`/evaluators/${r.id}`}
         >
           {r.draft.name}
-        </Link>
+        </DetailLink>
       ),
     },
     {
@@ -52,7 +54,7 @@ export function EvaluatorLibraryView({
       defaultWidth: 220,
       key: "updated",
       label: "Updated",
-      render: (r) => new Date(r.updatedAt).toLocaleDateString(),
+      render: (r) => formatDateTime(r.updatedAt),
     },
   ];
   return (

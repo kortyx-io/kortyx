@@ -68,13 +68,21 @@ export function registerEvaluatorRoutes(
       201,
     );
   });
-  app.get(`${root}/recordings`, async (c) =>
-    c.json({
+  app.get(`${root}/recordings`, async (c) => {
+    const runId = z
+      .string()
+      .trim()
+      .min(1)
+      .max(512)
+      .optional()
+      .safeParse(c.req.query("runId"));
+    if (!runId.success) return c.json({ error: "Invalid run ID." }, 400);
+    return c.json({
       recordings: await c.get("withTenantDatabase")((db) =>
-        listEvaluatorRecordings(db, c.get("principal")),
+        listEvaluatorRecordings(db, c.get("principal"), runId.data),
       ),
-    }),
-  );
+    });
+  });
   app.get(`${root}/executions/:executionId`, async (c) => {
     const id = z.uuid().safeParse(c.req.param("executionId"));
     if (!id.success) return c.json({ error: "Invalid preview ID." }, 400);

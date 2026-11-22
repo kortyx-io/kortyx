@@ -3,26 +3,17 @@ import {
   type EvaluatorExecution,
   EvaluatorExecutionSchema,
   type EvaluatorTarget,
-  EvaluatorTargetSchema,
 } from "@kortyx/telemetry-contracts";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { evaluatorRequest } from "../api/client";
-import { EditorField, EditorSelect } from "./editor-fields";
+import type { EvaluatorPreviewData } from "../schema";
+import { EditorSelect } from "./editor-fields";
 import { ExecutionResult } from "./execution-result";
 import { PreviewEvidence } from "./preview-evidence";
+import { RecordingPicker } from "./recording-picker";
 
-const RecordingsSchema = z.object({
-  recordings: z.array(
-    z.object({
-      target: EvaluatorTargetSchema,
-      label: z.string(),
-      environment: z.string(),
-    }),
-  ),
-});
 const EvidenceSchema = z.object({
   evidence: z.object({ captured: z.unknown() }),
   variables: z.record(z.string(), z.unknown()),
@@ -43,51 +34,29 @@ export function EvaluatorPreview({
   revision,
   version,
   disabled,
-  initialExecutionId,
+  initial,
 }: {
   id: string;
   revision: number;
   version?: number;
   disabled: boolean;
-  initialExecutionId?: string;
+  initial: EvaluatorPreviewData;
 }) {
-  const [recordings, setRecordings] = useState<
-    z.infer<typeof RecordingsSchema>["recordings"]
-  >([]);
+  const recordings = initial.recordings;
   const [target, setTarget] = useState<EvaluatorTarget>({
     type: "run",
     runId: "",
   });
-  const [execution, setExecution] = useState<EvaluatorExecution | null>(null);
+  const [execution, setExecution] = useState<EvaluatorExecution | null>(
+    initial.execution,
+  );
   const [evidence, setEvidence] = useState<unknown>(null),
-    [error, setError] = useState(""),
+    [error, setError] = useState(initial.error),
     [busy, setBusy] = useState(false);
   const [choices, setChoices] = useState<
     z.infer<typeof ChoicesSchema>["steps"]
   >([]);
   const requestIdentity = useRef<string | null>(null);
-  useEffect(() => {
-    if (!initialExecutionId) return;
-    const abort = new AbortController();
-    void evaluatorRequest(
-      `executions/${initialExecutionId}`,
-      undefined,
-      abort.signal,
-    )
-      .then((value) => setExecution(EvaluatorExecutionSchema.parse(value)))
-      .catch(() => {});
-    return () => abort.abort();
-  }, [initialExecutionId]);
-
-  useEffect(() => {
-    const abort = new AbortController();
-    void evaluatorRequest("recordings", undefined, abort.signal)
-      .then((value) => setRecordings(RecordingsSchema.parse(value).recordings))
-      .catch((cause) => {
-        if (!abort.signal.aborted) setError(cause.message);
-      });
-    return () => abort.abort();
-  }, []);
   const executionId = execution?.id,
     executionStatus = execution?.status;
   useEffect(() => {
@@ -145,52 +114,14 @@ export function EvaluatorPreview({
             Run preview uses the configured model and may incur a charge.
           </p>
         </div>
-        <EditorSelect
-          id="judge-recording"
-          label="Recent recordings"
-          value={String(
-            recordings.findIndex(
-              (record) =>
-                JSON.stringify(record.target) === JSON.stringify(target),
-            ),
-          )}
-          options={recordings.map((record, index) => ({
-            value: String(index),
-            label: `${record.label} · ${record.environment}`,
-          }))}
+        <RecordingPicker
+          recordings={recordings}
+          disabled={busy}
           onChange={(value) => {
-            const record = recordings[Number(value)];
-            if (record) {
-              changeTarget(record.target);
-              setChoices([]);
-            }
+            changeTarget(value ?? { type: "run", runId: "" });
+            setChoices([]);
           }}
         />
-        <EditorField id="preview-run-id" label="Or enter a run ID">
-          <Input
-            id="preview-run-id"
-            value={target.type === "run" ? target.runId : ""}
-            onChange={(event) => {
-              changeTarget({ type: "run", runId: event.target.value });
-              setChoices([]);
-            }}
-          />
-        </EditorField>
-        {target.type === "run" && (
-          <EditorField id="preview-environment" label="Run environment">
-            <Input
-              id="preview-environment"
-              value={target.environment ?? ""}
-              placeholder="Required for run IDs shared across environments"
-              onChange={(event) =>
-                changeTarget({
-                  ...target,
-                  environment: event.target.value || undefined,
-                })
-              }
-            />
-          </EditorField>
-        )}
         {target.type === "case" && choices.length > 1 && (
           <EditorSelect
             id="preview-step"
@@ -225,7 +156,9 @@ export function EvaluatorPreview({
           <Button
             size="sm"
             variant="secondary"
-            disabled={busy || disabled}
+            disabled={
+              busy || disabled || (target.type === "run" && !target.runId)
+            }
             onClick={async () => {
               setBusy(true);
               setError("");
@@ -257,6 +190,7 @@ export function EvaluatorPreview({
             disabled={
               busy ||
               disabled ||
+              (target.type === "run" && !target.runId) ||
               ["queued", "running"].includes(executionStatus ?? "")
             }
             onClick={async () => {

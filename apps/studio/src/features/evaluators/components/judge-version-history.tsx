@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { formatDateTime } from "@/lib/format";
 
 export type JudgeHistoryProps = {
   versions: EvaluatorDetail["versions"];
@@ -94,7 +95,7 @@ export function JudgeVersionHistory({
                   {version.definition.model}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
-                  {new Date(version.createdAt).toLocaleDateString()}
+                  {formatDateTime(version.createdAt)}
                 </span>
               </button>
             ))}
@@ -176,7 +177,7 @@ export function JudgeVersionPicker({
                     {version.definition.model}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    {new Date(version.createdAt).toLocaleDateString()}
+                    {formatDateTime(version.createdAt)}
                   </span>
                 </span>
               </DropdownMenuRadioItem>

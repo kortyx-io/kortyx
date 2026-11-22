@@ -96,13 +96,18 @@ export function JudgeContentEditor({
           )}
           <EditorSelect
             id="judge-evidence"
-            label="Evidence scope"
+            label="What the judge sees"
             disabled={disabled}
             value={value.evidence}
             options={[
-              { value: "trajectory", label: "Execution trajectory" },
-              { value: "response", label: "Recorded response" },
+              { value: "response", label: "Final response only" },
+              { value: "trajectory", label: "Full event evidence" },
             ]}
+            description={
+              value.evidence === "trajectory"
+                ? "Includes the response, captured tool calls and results, public events and human pauses."
+                : "Uses the recorded final response, without tool calls or intermediate event history."
+            }
             onChange={(evidence) =>
               change({
                 evidence: evidence === "response" ? "response" : "trajectory",
@@ -111,9 +116,8 @@ export function JudgeContentEditor({
           />
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          The model connection stays on the backend. Trajectory includes
-          selected public execution events. Each saved version owns these
-          instructions and this configuration.
+          The model connection stays on the backend. Each saved version owns
+          these instructions and this configuration.
         </p>
       </section>
     </div>

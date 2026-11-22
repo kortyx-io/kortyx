@@ -42,6 +42,7 @@ export default async function RootLayout({
   evalJudgeDrawer,
   evalSuiteDrawer,
   promptDrawer,
+  evaluatorDrawer,
   promptGroupDrawer,
   promptGroupsDrawer,
 }: Readonly<{
@@ -53,6 +54,7 @@ export default async function RootLayout({
   evalJudgeDrawer: React.ReactNode;
   evalSuiteDrawer: React.ReactNode;
   promptDrawer: React.ReactNode;
+  evaluatorDrawer: React.ReactNode;
   promptGroupDrawer: React.ReactNode;
   promptGroupsDrawer: React.ReactNode;
 }>) {
@@ -84,6 +86,9 @@ export default async function RootLayout({
                 <SidebarLayout
                   detailSlots={
                     <DetailDrawerHost>
+                      <DetailSlotPresence dismissPath="/evaluators">
+                        {evaluatorDrawer}
+                      </DetailSlotPresence>
                       <DetailSlotPresence
                         dismissPath="/prompts"
                         slotKey="prompt-details"
