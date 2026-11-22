@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM docker:29-cli AS docker-cli
+FROM docker:29.10.0-cli AS docker-cli
 
 # Compose v5.6.0's upstream binary still embeds Go 1.26.8. Rebuild the same
 # immutable source with the security-patched toolchain and x/net dependency for

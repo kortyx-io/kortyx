@@ -1493,6 +1493,7 @@ export const evaluatorDefinitions = pgTable(
       t.id,
     ),
     foreignKey({
+      name: "evaluator_definitions_project_fk",
       columns: [t.organizationId, t.projectId],
       foreignColumns: [projects.organizationId, projects.id],
     }).onDelete("cascade"),
@@ -1516,6 +1517,7 @@ export const evaluatorVersions = pgTable(
       t.version,
     ),
     foreignKey({
+      name: "evaluator_versions_definition_fk",
       columns: [t.organizationId, t.projectId, t.evaluatorId],
       foreignColumns: [
         evaluatorDefinitions.organizationId,
@@ -1542,6 +1544,7 @@ export const evaluatorScoreGroups = pgTable(
       t.version,
     ),
     foreignKey({
+      name: "evaluator_score_groups_project_fk",
       columns: [t.organizationId, t.projectId],
       foreignColumns: [projects.organizationId, projects.id],
     }).onDelete("cascade"),
@@ -1562,6 +1565,7 @@ export const evaluatorRules = pgTable(
   },
   (t) => [
     foreignKey({
+      name: "evaluator_rules_definition_fk",
       columns: [t.organizationId, t.projectId, t.evaluatorId],
       foreignColumns: [
         evaluatorDefinitions.organizationId,
@@ -1589,6 +1593,7 @@ export const evaluatorDatasetBindings = pgTable(
       t.evaluatorId,
     ),
     foreignKey({
+      name: "evaluator_dataset_bindings_version_fk",
       columns: [
         t.organizationId,
         t.projectId,
@@ -1646,6 +1651,7 @@ export const evaluatorExecutions = pgTable(
     ),
     index("evaluator_execution_queue").on(t.status, t.createdAt),
     foreignKey({
+      name: "evaluator_executions_definition_fk",
       columns: [t.organizationId, t.projectId, t.evaluatorId],
       foreignColumns: [
         evaluatorDefinitions.organizationId,
