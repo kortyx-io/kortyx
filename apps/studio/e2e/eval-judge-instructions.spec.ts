@@ -61,7 +61,7 @@ test("definition instructions stack above the conversation, search, expand and r
   await page.goForward();
   await expect(reader).toBeInViewport();
   // Forward restores the expanded presentation, which fully covers its parent.
-  // Return through its visible navigation before testing the stacked hit target.
+  // Return through its visible navigation before testing the covering backdrop.
   await expect(page).toHaveURL(
     (url) => url.searchParams.get("detailView") === "expanded",
   );
@@ -77,11 +77,27 @@ test("definition instructions stack above the conversation, search, expand and r
     .click();
   await expect(reader).toBeInViewport();
   await expect(page).not.toHaveURL(/detailView=expanded/);
-  await definition.click({ position: { x: 12, y: 35 } });
+  await expect
+    .poll(() =>
+      reader.evaluate((el) =>
+        el
+          .getAnimations()
+          .some((animation) => animation.playState === "running"),
+      ),
+    )
+    .toBe(false);
+  const coveredBounds = await definition.boundingBox();
+  if (!coveredBounds) throw new Error("Missing covered definition bounds");
+  // A real pointer click must hit the backdrop above the retained definition.
+  await page.mouse.click(coveredBounds.x + 12, coveredBounds.y + 35);
+  await expect(reader).toHaveCount(0);
   await expect(page).toHaveURL(
     (url) =>
       url.pathname === suite && url.searchParams.get("definitionStep") === "1",
   );
+  await expect(
+    definition.getByRole("link", { name: "Judge instructions", exact: true }),
+  ).toBeVisible();
 });
 
 test("expanded judge history never expands its retained conversation", async ({
