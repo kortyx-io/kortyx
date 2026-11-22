@@ -503,6 +503,11 @@ export const publicCatalog: UsageCatalog = {
       "change",
     ],
     tab: [
+      "configuration",
+      "preview",
+      "rules",
+      "executions",
+      "datasets",
       "overview",
       "trace",
       "events",

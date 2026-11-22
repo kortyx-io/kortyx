@@ -21,7 +21,9 @@ export function EditorField({
 }) {
   return (
     <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id} className="text-xs">
+        {label}
+      </FieldLabel>
       {children}
       {description && (
         <p id={`${id}-description`} className="text-xs text-muted-foreground">
@@ -61,7 +63,7 @@ export function EditorSelect({
       >
         <SelectTrigger
           id={id}
-          className="w-full"
+          className="h-8 w-full text-xs"
           aria-describedby={description ? `${id}-description` : undefined}
         >
           <SelectValue placeholder={`Select ${label.toLowerCase()}`}>

@@ -30,11 +30,7 @@ export function ScoreGroupEditor({
   const update = (index: number, field: ScoreGroup["fields"][number]) =>
     setFields((old) => old.map((f, i) => (i === index ? field : f)));
   return (
-    <section
-      aria-label="Create score group"
-      className="flex flex-col gap-4 rounded-lg border p-4"
-    >
-      <h3 className="font-medium">Create score group</h3>
+    <section aria-label="Score group fields" className="flex flex-col gap-4">
       <EditorField id="group-name" label="Group name">
         <Input
           id="group-name"

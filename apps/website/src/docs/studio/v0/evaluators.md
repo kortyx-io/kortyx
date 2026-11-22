@@ -11,15 +11,15 @@ Evaluators assess recorded application evidence using a versioned prompt, a serv
 
 ## Create and publish a judge
 
-Open **Evaluators → New evaluator**. Enter a name, select a saved prompt and exact version, choose the judge model, and select response or trajectory evidence. Create a prompt inline when needed. The prompt is saved in the shared Prompts library. Its `evidence` variable contains the selected recording and omissions. Prompts can include pinned prompt dependencies.
+Open **Evaluators → New evaluator**. Enter a name, select a saved prompt and exact version, choose the judge model, and select response or trajectory evidence. Use **Create judge prompt** to open a focused dialog when needed. The prompt is saved in the shared Prompts library. Its `evidence` variable contains the selected recording and omissions. Prompts can include pinned prompt dependencies.
 
-**Save draft** preserves the editable configuration. **Publish version** freezes the prompt and its dependencies, model configuration, evidence policy, and score-group schema. Existing rules, queued jobs, and experiments retain their selected published versions. Concurrent edits require reloading the current revision.
+The editor uses Studio’s standard detail surface and tabs. **Save draft** preserves the editable configuration. **Publish version** freezes the prompt and its dependencies, model configuration, evidence policy, and score-group schema. Existing rules, queued jobs, and experiments retain their selected published versions. Concurrent edits require reloading the current revision.
 
 ## Score groups
 
-**Assessment** is selected initially. Its required text field contains the judge's conclusion and limitations. Create a richer group inline to add boolean, numeric, categorical, or additional text fields. Numeric fields require a range and direction. Categories define allowed labels. Additional fields may allow `insufficient_evidence` or `not_applicable`.
+**Assessment** is selected initially. Its required text field contains the judge's conclusion and limitations. Use **Create score group** to add boolean, numeric, categorical, or additional text fields. Numeric fields require a range and direction. Categories define allowed labels. Additional fields may allow `insufficient_evidence` or `not_applicable`.
 
-The judge returns every field in one response. An invalid or missing required field makes the execution an error. An accepted value of `false` or zero remains a quality result. Assessment text has no numeric average. Customize Assessment to create your own group. For an existing custom group, Create next group version preserves earlier definitions. Historical results retain the selected group version.
+The judge returns every field in one response. An invalid or missing required field makes the execution an error. An accepted value of `false` or zero remains a quality result. Assessment text has no numeric average. Customize Assessment to create your own group. For an existing custom group, Create next group version preserves earlier definitions. Historical results retain the selected group version. The Configuration side pane previews output fields and contains collapsed published-version history.
 
 ## Preview a recording
 
@@ -52,5 +52,7 @@ Assessment evidence is retained independently of the original telemetry. Archivi
 Each worker processes one judge request at a time, with a 60-second inference deadline and a 4,096-token output limit. Graceful shutdown waits for active requests. Expired claims become visible errors and require an explicit new assessment, avoiding an automatic repeat of a potentially billable model call. A failed response retains reported usage and publishes no partial score group.
 
 Cloud integrations must supply an authorized worker lifecycle through the shared scoped worker operations. Worker availability is explicit. An installation without an active evaluator worker can author drafts but cannot run assessments or activate rules.
+
+The header’s action menu contains **Archive evaluator**. Archiving requires confirmation, disables rules and removes dataset defaults while preserving history.
 
 The sample project includes a fictional, read-only published evaluator and assessment. Its controls do not invoke a provider or modify your project.

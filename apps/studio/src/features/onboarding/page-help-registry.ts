@@ -380,6 +380,18 @@ export const DETAIL_TAB_HELP = {
     context:
       "Context correlates the diagnostic with its run, session, workflow, and trace when recorded. Follow those links to inspect execution order and the surrounding evidence.",
   },
+  evaluators: {
+    configuration:
+      "Select a pinned prompt, model, evidence scope and score group. Output fields explain the response schema. Create prompts and groups in their focused dialogs, then save the draft before previewing. Published version history is available beside the configuration.",
+    preview:
+      "Choose a saved recording, inspect its evidence and rendered request, then run the judge. A preview consumes model usage. Typed fields and missing evidence remain explicit alongside the source recording.",
+    rules:
+      "Select or create a rule, choose its environment, run stage, sampling percentage and daily admission limit. Preview matches without calling the judge. Rules start disabled and assess future recorded evidence after activation.",
+    executions:
+      "Choose an execution from the history to inspect its accepted fields, supporting evidence, usage and safe errors. Preview jobs remain identifiable. Judge completion is separate from the quality values it returns.",
+    datasets:
+      "Connect a published evaluator version to an application dataset. Future experiments freeze these defaults and assess saved case results. Experiment setup can explicitly override the defaults.",
+  },
 } satisfies DetailTabCopy;
 
 /** Documentation follows the feature being explained, independently of tour progress. */

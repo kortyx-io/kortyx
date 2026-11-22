@@ -285,7 +285,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
         "tabs",
         "Configure, preview and connect",
         "Configuration saves a draft. Preview inspects recorded evidence and invokes the judge when requested. Rules selects production traffic. Executions preserves usage, failures and accepted fields. Datasets selects defaults for future experiments.",
-        find('[aria-label="Evaluator sections"]'),
+        find('[data-page-help="tabs"]', '[aria-label="Evaluator sections"]'),
       );
       add(
         "content",

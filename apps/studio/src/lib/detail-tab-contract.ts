@@ -12,6 +12,7 @@ export const DETAIL_TAB_IDS = {
   ],
   session: ["activity", "runs", "state", "metadata"],
   interrupt: ["decision", "timeline", "payload"],
+  evaluators: ["configuration", "preview", "rules", "executions", "datasets"],
   prompt: ["content", "evals", "runs", "reviews", "activity"],
   "eval-run": ["cases", "context", "definition"],
   "eval-case-comparison": ["both", "candidate", "baseline"],
