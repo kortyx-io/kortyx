@@ -26,6 +26,7 @@ const repo = vi.hoisted(() => ({
   clearReview: vi.fn(),
   environments: vi.fn(),
   workflows: vi.fn(),
+  scoreGroups: vi.fn(),
 }));
 vi.mock("@kortyx/telemetry-db", async (original) => ({
   ...(await original<typeof import("@kortyx/telemetry-db")>()),
@@ -36,6 +37,7 @@ vi.mock("@kortyx/telemetry-db", async (original) => ({
   clearRunScore: repo.clearReview,
   ensureProjectEnvironmentAllowed: repo.environments,
   listStudioWorkflows: repo.workflows,
+  listJudgeScoreGroups: repo.scoreGroups,
 }));
 
 const root = {} as TelemetryDb;
@@ -410,5 +412,39 @@ describe("API extension boundaries", () => {
         root.transaction(async (tx) => work(tx)),
     };
     expect(adapter.withPrincipal).toBeTypeOf("function");
+  });
+});
+
+describe("score-group authorization", () => {
+  it("reads only the authenticated tenant and reports read-only capabilities", async () => {
+    repo.scoreGroups.mockResolvedValue([]);
+    const { app } = setup();
+    const response = await app.request(
+      request("/v1/studio/evaluators/score-groups"),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ groups: [], canEdit: false });
+    expect(repo.scoreGroups).toHaveBeenCalledWith(scoped, human);
+  });
+  it.each([
+    "",
+    "/00000000-0000-4000-8000-000000000020",
+    "/00000000-0000-4000-8000-000000000020/publish",
+    "/00000000-0000-4000-8000-000000000020/archive",
+    "/00000000-0000-4000-8000-000000000020/metadata",
+  ])("denies writes for a read-only operator: %s", async (suffix) => {
+    const { app } = setup();
+    expect(
+      (
+        await app.request(
+          request(
+            `/v1/studio/evaluators/score-groups${suffix}`,
+            "alice",
+            "POST",
+            {},
+          ),
+        )
+      ).status,
+    ).toBe(403);
   });
 });

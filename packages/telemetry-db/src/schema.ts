@@ -873,6 +873,19 @@ export const evaluationRuns = pgTable(
 export const evalRuns = pgTable(
   "eval_runs",
   {
+    evaluatorSnapshots: jsonb("evaluator_snapshots")
+      .$type<
+        {
+          id: string;
+          version: number;
+          snapshot: import("./repositories/evaluators").EvaluatorSnapshot;
+        }[]
+      >()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    evaluatorsScheduled: boolean("evaluators_scheduled")
+      .notNull()
+      .default(false),
     liveProjection:
       jsonb("live_projection").$type<
         import("./repositories/eval-live-projection").EvalLiveProjection
@@ -1454,5 +1467,414 @@ export const studioTableViews = pgTable(
       t.preferenceId,
       t.id,
     ),
+  ],
+);
+
+// Evaluator assets are project-owned. Published dependencies are immutable snapshots.
+const evaluatorScopeColumns = () => ({
+  organizationId: uuid("organization_id").notNull(),
+  projectId: uuid("project_id").notNull(),
+});
+export const evaluatorDefinitions = pgTable(
+  "evaluator_definitions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...evaluatorScopeColumns(),
+    revision: integer("revision").notNull().default(1),
+    publishedVersion: integer("published_version").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+    draft: jsonb("draft").$type<unknown>().notNull(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("evaluator_definitions_scope_id").on(
+      t.organizationId,
+      t.projectId,
+      t.id,
+    ),
+    foreignKey({
+      name: "evaluator_definitions_project_fk",
+      columns: [t.organizationId, t.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+    }).onDelete("cascade"),
+  ],
+);
+export const evaluatorVersions = pgTable(
+  "evaluator_versions",
+  {
+    ...evaluatorScopeColumns(),
+    evaluatorId: uuid("evaluator_id").notNull(),
+    version: integer("version").notNull(),
+    definition: jsonb("definition").$type<unknown>().notNull(),
+    snapshot: jsonb("snapshot").$type<unknown>().notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("evaluator_versions_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.evaluatorId,
+      t.version,
+    ),
+    foreignKey({
+      name: "evaluator_versions_definition_fk",
+      columns: [t.organizationId, t.projectId, t.evaluatorId],
+      foreignColumns: [
+        evaluatorDefinitions.organizationId,
+        evaluatorDefinitions.projectId,
+        evaluatorDefinitions.id,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+export const evaluatorScoreGroups = pgTable(
+  "evaluator_score_groups",
+  {
+    ...evaluatorScopeColumns(),
+    id: uuid("id").notNull(),
+    version: integer("version").notNull(),
+    definition: jsonb("definition").$type<unknown>().notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("evaluator_score_groups_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.id,
+      t.version,
+    ),
+    foreignKey({
+      name: "evaluator_score_groups_project_fk",
+      columns: [t.organizationId, t.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+    }).onDelete("cascade"),
+  ],
+);
+export const evaluatorRules = pgTable(
+  "evaluator_rules",
+  {
+    ...evaluatorScopeColumns(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    evaluatorId: uuid("evaluator_id").notNull(),
+    revision: integer("revision").notNull().default(1),
+    definition: jsonb("definition").$type<unknown>().notNull(),
+    scanAt: timestampWithTimezone("scan_at"),
+    scanId: uuid("scan_id"),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "evaluator_rules_definition_fk",
+      columns: [t.organizationId, t.projectId, t.evaluatorId],
+      foreignColumns: [
+        evaluatorDefinitions.organizationId,
+        evaluatorDefinitions.projectId,
+        evaluatorDefinitions.id,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+export const evaluatorDatasetBindings = pgTable(
+  "evaluator_dataset_bindings",
+  {
+    ...evaluatorScopeColumns(),
+    targetId: text("target_id").notNull(),
+    suiteId: text("suite_id").notNull(),
+    evaluatorId: uuid("evaluator_id").notNull(),
+    evaluatorVersion: integer("evaluator_version").notNull(),
+  },
+  (t) => [
+    uniqueIndex("evaluator_dataset_binding_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.targetId,
+      t.suiteId,
+      t.evaluatorId,
+    ),
+    foreignKey({
+      name: "evaluator_dataset_bindings_version_fk",
+      columns: [
+        t.organizationId,
+        t.projectId,
+        t.evaluatorId,
+        t.evaluatorVersion,
+      ],
+      foreignColumns: [
+        evaluatorVersions.organizationId,
+        evaluatorVersions.projectId,
+        evaluatorVersions.evaluatorId,
+        evaluatorVersions.version,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+export const evaluatorExecutions = pgTable(
+  "evaluator_executions",
+  {
+    ...evaluatorScopeColumns(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    evaluatorId: uuid("evaluator_id").notNull(),
+    evaluatorVersion: integer("evaluator_version").notNull(),
+    environment: text("environment").notNull(),
+    target: jsonb("target").$type<unknown>().notNull(),
+    source: text("source").$type<string>().notNull(),
+    status: text("status").$type<string>().notNull().default("queued"),
+    requestKey: text("request_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    ruleId: uuid("rule_id"),
+    snapshot: jsonb("snapshot").$type<unknown>().notNull(),
+    evidence: jsonb("evidence")
+      .$type<import("./repositories/evaluators").EvaluatorEvidence>()
+      .notNull(),
+    renderedMessages: jsonb("rendered_messages")
+      .$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["renderedMessages"]
+      >()
+      .notNull(),
+    scores: jsonb("scores").$type<unknown>(),
+    usage:
+      jsonb("usage").$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["usage"]
+      >(),
+    error: text("error"),
+    leaseOwner: uuid("lease_owner"),
+    leaseExpiresAt: timestampWithTimezone("lease_expires_at"),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    endedAt: timestampWithTimezone("ended_at"),
+  },
+  (t) => [
+    uniqueIndex("evaluator_execution_request").on(
+      t.organizationId,
+      t.projectId,
+      t.requestKey,
+    ),
+    index("evaluator_execution_queue").on(t.status, t.createdAt),
+    foreignKey({
+      name: "evaluator_executions_definition_fk",
+      columns: [t.organizationId, t.projectId, t.evaluatorId],
+      foreignColumns: [
+        evaluatorDefinitions.organizationId,
+        evaluatorDefinitions.projectId,
+        evaluatorDefinitions.id,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+
+// Dedicated judge authoring. Legacy evaluator tables above retain earlier review data;
+// they are not used by the judge APIs, preview worker or dataset association path.
+export const judgeDefinitions = pgTable(
+  "judge_definitions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...evaluatorScopeColumns(),
+    revision: integer("revision").notNull().default(1),
+    publishedVersion: integer("published_version").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+    draft: jsonb("draft")
+      .$type<import("@kortyx/telemetry-contracts").EvaluatorDefinition>()
+      .notNull(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("judge_definitions_scope_id").on(
+      t.organizationId,
+      t.projectId,
+      t.id,
+    ),
+    foreignKey({
+      name: "judge_definitions_project_fk",
+      columns: [t.organizationId, t.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+    }).onDelete("cascade"),
+  ],
+);
+export const judgeVersions = pgTable(
+  "judge_versions",
+  {
+    ...evaluatorScopeColumns(),
+    evaluatorId: uuid("judge_id").notNull(),
+    version: integer("version").notNull(),
+    definition: jsonb("definition")
+      .$type<import("@kortyx/telemetry-contracts").EvaluatorDefinition>()
+      .notNull(),
+    snapshot: jsonb("snapshot")
+      .$type<import("./repositories/evaluators").EvaluatorSnapshot>()
+      .notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("judge_versions_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.evaluatorId,
+      t.version,
+    ),
+    foreignKey({
+      name: "judge_versions_definition_fk",
+      columns: [t.organizationId, t.projectId, t.evaluatorId],
+      foreignColumns: [
+        judgeDefinitions.organizationId,
+        judgeDefinitions.projectId,
+        judgeDefinitions.id,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+export const datasetJudgeBindings = pgTable(
+  "dataset_judge_bindings",
+  {
+    ...evaluatorScopeColumns(),
+    targetId: text("target_id").notNull(),
+    suiteId: text("suite_id").notNull(),
+    evaluatorId: uuid("judge_id").notNull(),
+    evaluatorVersion: integer("judge_version").notNull(),
+  },
+  (t) => [
+    uniqueIndex("dataset_judge_binding_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.targetId,
+      t.suiteId,
+      t.evaluatorId,
+    ),
+    foreignKey({
+      name: "dataset_judge_bindings_version_fk",
+      columns: [
+        t.organizationId,
+        t.projectId,
+        t.evaluatorId,
+        t.evaluatorVersion,
+      ],
+      foreignColumns: [
+        judgeVersions.organizationId,
+        judgeVersions.projectId,
+        judgeVersions.evaluatorId,
+        judgeVersions.version,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+export const judgeScoreGroups = pgTable(
+  "judge_score_groups",
+  {
+    ...evaluatorScopeColumns(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    revision: integer("revision").notNull().default(1),
+    publishedVersion: integer("published_version").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+    draft: jsonb("draft")
+      .$type<import("@kortyx/telemetry-contracts").ScoreGroupDefinition>()
+      .notNull(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("judge_score_groups_scope_id").on(
+      t.organizationId,
+      t.projectId,
+      t.id,
+    ),
+    foreignKey({
+      name: "judge_score_groups_project_fk",
+      columns: [t.organizationId, t.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+    }).onDelete("cascade"),
+  ],
+);
+export const judgeScoreGroupVersions = pgTable(
+  "judge_score_group_versions",
+  {
+    ...evaluatorScopeColumns(),
+    groupId: uuid("group_id").notNull(),
+    version: integer("version").notNull(),
+    definition: jsonb("definition")
+      .$type<import("@kortyx/telemetry-contracts").ScoreGroupDefinition>()
+      .notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("judge_score_group_versions_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.groupId,
+      t.version,
+    ),
+    foreignKey({
+      name: "judge_score_group_versions_group_fk",
+      columns: [t.organizationId, t.projectId, t.groupId],
+      foreignColumns: [
+        judgeScoreGroups.organizationId,
+        judgeScoreGroups.projectId,
+        judgeScoreGroups.id,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+export const judgePreviews = pgTable(
+  "judge_previews",
+  {
+    ...evaluatorScopeColumns(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    evaluatorId: uuid("judge_id").notNull(),
+    evaluatorVersion: integer("judge_version").notNull(),
+    environment: text("environment").notNull(),
+    target: jsonb("target")
+      .$type<import("@kortyx/telemetry-contracts").EvaluatorTarget>()
+      .notNull(),
+    source: text("source").$type<"preview">().notNull().default("preview"),
+    status: text("status")
+      .$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["status"]
+      >()
+      .notNull()
+      .default("queued"),
+    requestKey: text("request_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    snapshot: jsonb("snapshot")
+      .$type<import("./repositories/evaluators").EvaluatorSnapshot>()
+      .notNull(),
+    evidence: jsonb("evidence")
+      .$type<import("./repositories/evaluators").EvaluatorEvidence>()
+      .notNull(),
+    renderedMessages: jsonb("rendered_messages")
+      .$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["renderedMessages"]
+      >()
+      .notNull(),
+    verdict:
+      jsonb("verdict").$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["verdict"]
+      >(),
+    result:
+      jsonb("score_result").$type<
+        import("@kortyx/telemetry-contracts").ScoreGroupResult
+      >(),
+    usage:
+      jsonb("usage").$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["usage"]
+      >(),
+    error: text("error"),
+    leaseOwner: uuid("lease_owner"),
+    leaseExpiresAt: timestampWithTimezone("lease_expires_at"),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    endedAt: timestampWithTimezone("ended_at"),
+  },
+  (t) => [
+    uniqueIndex("judge_preview_request").on(
+      t.organizationId,
+      t.projectId,
+      t.requestKey,
+    ),
+    index("judge_preview_queue").on(t.status, t.createdAt),
+    foreignKey({
+      name: "judge_previews_definition_fk",
+      columns: [t.organizationId, t.projectId, t.evaluatorId],
+      foreignColumns: [
+        judgeDefinitions.organizationId,
+        judgeDefinitions.projectId,
+        judgeDefinitions.id,
+      ],
+    }).onDelete("cascade"),
   ],
 );

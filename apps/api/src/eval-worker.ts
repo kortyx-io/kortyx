@@ -6,6 +6,8 @@ import { loadStudioEvalJudge } from "./evals/judge";
 import { loadEvalTargets } from "./evals/targets";
 import { createEvalWorker } from "./evals/worker";
 import { reportWorkerRetirementFailure } from "./evals/worker-retirement";
+import { loadEvaluatorModels } from "./evaluators/model";
+import { createEvaluatorWorker } from "./evaluators/worker";
 import { createApiLifecycle, registerApiSignals } from "./lifecycle";
 import { drainServer } from "./shutdown";
 
@@ -16,14 +18,20 @@ const config = loadEvalWorkerConfig();
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required.");
 const targets = loadEvalTargets();
-if (!targets.length)
-  throw new Error("Standalone worker requires eval targets.");
+const evaluatorModels = loadEvaluatorModels();
+if (!targets.length && !evaluatorModels)
+  throw new Error(
+    "Standalone worker requires evaluation targets or an evaluator model connection.",
+  );
 const judge = loadStudioEvalJudge();
 const database = createTelemetryDbClient(databaseUrl);
 await database.sql`SELECT 1 FROM eval_runs LIMIT 1`;
 const worker = createEvalWorker(database.db, targets, judge, {
   maxConcurrentEvaluations: config.evalMaxConcurrentEvaluations,
 });
+const evaluatorWorker = evaluatorModels
+  ? createEvaluatorWorker(database.db, evaluatorModels)
+  : undefined;
 // This listener exposes only health, never ingestion or tenant operations.
 const server = serve({
   hostname: process.env.API_HOST ?? "0.0.0.0",
@@ -61,7 +69,14 @@ const server = serve({
 });
 let retirementFailed = false;
 const lifecycle = createApiLifecycle({
-  worker,
+  worker: {
+    drain: async () => {
+      await Promise.all([worker.drain(), evaluatorWorker?.drain()]);
+    },
+    stop: async () => {
+      await Promise.all([worker.stop(), evaluatorWorker?.stop()]);
+    },
+  },
   markNotReady: () => undefined,
   drainHttp: () => drainServer(server, 25_000),
   closeResources: async () => {
@@ -82,4 +97,5 @@ registerApiSignals(process, lifecycle, (error) => {
   void reportWorkerRetirementFailure(database.db, targets, error);
 });
 worker.start();
+evaluatorWorker?.start();
 console.log("Kortyx standalone evaluation worker started.");

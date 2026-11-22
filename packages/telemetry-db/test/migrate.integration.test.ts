@@ -172,6 +172,8 @@ async function customerRows(sql: postgres.Sql, prefix: number) {
               issue: _issue,
               termination: _termination,
               live_projection: _liveProjection,
+              evaluator_snapshots: _evaluatorSnapshots,
+              evaluators_scheduled: _evaluatorsScheduled,
               ...legacy
             } = row;
             return legacy;
@@ -312,8 +314,17 @@ integration("native Drizzle migration cutover", () => {
           { eval_defaults: {} },
         ]);
         expect([
-          ...(await sql`SELECT issue, termination, live_projection FROM eval_runs`),
-        ]).toEqual([{ issue: null, termination: null, live_projection: null }]);
+          ...(await sql`SELECT issue, termination, live_projection,
+            evaluator_snapshots, evaluators_scheduled FROM eval_runs`),
+        ]).toEqual([
+          {
+            issue: null,
+            termination: null,
+            live_projection: null,
+            evaluator_snapshots: [],
+            evaluators_scheduled: false,
+          },
+        ]);
         await migrate(url, productionDir);
         expect(await rows()).toEqual(before);
         expect(

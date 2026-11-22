@@ -877,3 +877,22 @@ Schema mismatch errors include safe field paths, issue codes, request IDs and
 client/server versions, with received values omitted.
 
 To compare two repetitions of one case, use `evals compare ID ID --suite SUITE_ID --case CASE_ID --repetition 1 --other-repetition 2`. Saved model/prompt usage identities appear when captured; fixture and context fingerprints identify changes without exposing transcripts.
+
+## Studio-authored judges
+
+The Evaluators page owns judge instructions, a typed evaluation-context template, model selection, drafts and immutable saved versions. It reuses the prompt editor and template compiler without referencing an ordinary managed Prompt asset. Known context includes criterion, input, observation (text, structured output, public events and human pause), reference facts and preceding conversation. Preview inspects the exact filled request and can make an explicitly requested model call against retained evidence. New judge versions pin a shared score-group version. The built-in Assessment group returns required written assessment text; custom groups can add boolean, bounded numeric (0–1 score, integer rating or custom range), single/multiple category and text fields. Each field includes grading guidance and optional explicit abstention states. Preview returns all typed fields together, reasons and evidence; invalid output is an execution error with retained reported usage. Earlier saved judges retain pass/reason/evidence.
+
+Dataset association storage is separate from judge authoring. The judge’s Score group tab uses an Active indicator and a row actions menu; group names open a nested editor drawer. Publish a group version, choose Score with this group from its row menu or Use this version in the drawer, then save the judge version to freeze the selection. Selection automatically opens a judge draft and preserves existing draft instructions. Editing a group does not alter previous judges or results. The group header’s Rename score group action edits its name and description in a modal without publishing a version or saving local field edits. Dataset selection UI, automatic experiment scoring and production rules are not exposed in this pass. Existing code-managed suites, criteria, checks and App/Studio judging continue working unchanged.
+
+In Configuration, **Final response only** omits tool calls and intermediate events; **Full event evidence** includes the retained public trajectory. Preview uses one searchable Recording picker for recent recordings or a full run ID. Selecting a result also selects its environment; the UI does not require a separate environment field.
+
+Recording selection loads captured input and response before a judge call. Input
+and output telemetry capture remain opt-in. Final-response previews reject a
+recording with no response content before queuing inference. Enabling capture
+affects new runs only; do not reconstruct omitted input from model guesses or
+unrelated storage. The `kortyx-prompts` example supports
+`KORTYX_TELEMETRY_CAPTURE_CONTENT=true` for local review recordings.
+
+In a score group’s Fields tab, select a field from the list (or searchable picker in a narrow drawer), then edit its grading guidance and type-specific settings. Add field explains the supported types. The colored example output is illustrative; use the judge’s Preview for model-generated results. Advanced contains stable output/category keys and text-length limits. Required Assessment cannot be removed.
+
+Score groups are Studio authoring assets, not a new SDK scorer API. They do not change application suite declarations or existing code-managed grading. Custom backend model services receive the requested structured-output schema as an optional fifth argument to `invoke`; hosts must honor it to support new score-group previews. Provider credentials remain server-owned.

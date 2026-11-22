@@ -354,3 +354,7 @@ Server eval read failures use the existing maintainer usage telemetry/PostHog
 path with safe failure codes; customer payloads and raw errors are excluded.
 
 The Judge instructions view prefers the final execution's saved judge prompt or legacy instructions. If that snapshot is unavailable, it exposes exact messages from recorded grading requests, labelled **Recorded grading request**, with their case, attempt, step and criterion. Multiple grading calls remain separate. Completed step/case progress is sufficient even while a run is unfinished or after it is interrupted; final grading records supersede duplicate progress copies. An unfinished run without either source shows a pending snapshot message, while a terminal historical execution without either source shows **Instructions not recorded**. Neither the current configured judge nor queued configuration replaces missing execution evidence.
+
+## Studio-authored judges
+
+The Evaluators library authors specialized judges with their own versioned instructions and evaluation context. Its draft and preview workflow is independent of ordinary managed Prompts. Current code-managed suite criteria and experiment grading retain their existing behavior. Dataset-to-judge association storage is available as a foundation; a dataset selector, scoring and production rules are outside this authoring pass.

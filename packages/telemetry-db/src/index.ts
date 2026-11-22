@@ -65,6 +65,8 @@ export {
   getEvaluation,
   listEvaluations,
 } from "./repositories/evaluations";
+export * from "./repositories/evaluators";
+export * from "./repositories/judge-score-groups";
 export {
   listApplicableModelRateCards,
   seedDefaultModelRateCards,

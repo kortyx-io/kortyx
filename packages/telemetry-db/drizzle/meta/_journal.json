@@ -120,6 +120,41 @@
       "when": 1792857265457,
       "tag": "0016_eval_projection_search_path",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795343007394,
+      "tag": "0017_evaluators",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795343209234,
+      "tag": "0018_evaluator_scheduling",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795351041250,
+      "tag": "0019_judge_authoring",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795356533491,
+      "tag": "0020_judge_score_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795366044660,
+      "tag": "0021_evaluator_constraint_names",
+      "breakpoints": true
     }
   ]
 }

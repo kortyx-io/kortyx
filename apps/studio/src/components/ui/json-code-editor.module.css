@@ -1,19 +1,43 @@
-.root {
+.root,
+.viewer {
   --json-key: #075985;
   --json-string: #166534;
   --json-number: #92400e;
   --json-literal: #7e22ce;
   --json-selection: #dbeafe;
+}
 
+.root {
   min-width: 0;
   min-height: 8rem;
   overflow: hidden;
 }
 
-:global(.dark) .root {
+:global(.dark) .root,
+:global(.dark) .viewer {
   --json-key: #7dd3fc;
   --json-string: #86efac;
   --json-number: #fcd34d;
   --json-literal: #d8b4fe;
   --json-selection: #1e3a5f;
+}
+
+.property {
+  color: var(--json-key);
+}
+
+.string {
+  color: var(--json-string);
+}
+
+.number {
+  color: var(--json-number);
+}
+
+.literal {
+  color: var(--json-literal);
+}
+
+.punctuation {
+  color: var(--muted-foreground);
 }

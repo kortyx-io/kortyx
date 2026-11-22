@@ -15,6 +15,7 @@ import type { ApiTenantDatabaseAdapter } from "./database/contracts";
 import { apiErrorHandler } from "./errors";
 import type { EvalTargetAdapter } from "./evals/contracts";
 import type { EvalTarget } from "./evals/targets";
+import type { EvaluatorModelService } from "./evaluators/model";
 import { apiSecurity } from "./middleware/security";
 import {
   createNoopStudioChangeBus,
@@ -23,6 +24,7 @@ import {
 import { registerDiagnosticRoutes } from "./routes/diagnostics";
 import { registerEvalJudgeRoutes } from "./routes/eval-judge";
 import { registerEvalRoutes } from "./routes/evals";
+import { registerEvaluatorRoutes } from "./routes/evaluators";
 import { registerHealthRoutes } from "./routes/health";
 import { registerPromptRoutes } from "./routes/prompts";
 import {
@@ -42,6 +44,8 @@ export type CreateApiAppOptions = {
   evalTargets?: readonly EvalTarget[];
   evalTargetAdapter?: EvalTargetAdapter;
   evalJudge?: EvalJudge;
+  evaluatorModels?: EvaluatorModelService;
+  evaluatorWorkerAvailable?: boolean;
   apiKeyPepper: string;
   studioChangeBus?: StudioChangeBus;
   readiness?: () => Promise<void>;
@@ -112,8 +116,11 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     getUsageTelemetry("api", packageJson.version, "oss_studio");
   app.use("/v1/*", async (c, next) => {
     const segment = c.req.path.split("/")[2];
-    const operation =
-      segment === "telemetry"
+    const evaluatorResource = c.req.path.split("/")[3];
+    const evaluatorRequest = evaluatorResource === "evaluators";
+    const operation = evaluatorRequest
+      ? "studio.evaluator"
+      : segment === "telemetry"
         ? "studio.ingest"
         : segment === "prompts"
           ? "studio.prompt"
@@ -174,6 +181,10 @@ export const createApiApp = (options: CreateApiAppOptions) => {
     options.evalTargetAdapter,
   );
   registerEvalJudgeRoutes(app, options.evalJudge);
+  registerEvaluatorRoutes(app, {
+    models: options.evaluatorModels,
+    workerAvailable: options.evaluatorWorkerAvailable ?? false,
+  });
   registerStudioReviewRoutes(app);
   registerStudioChangeRoutes(
     app,

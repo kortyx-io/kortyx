@@ -23,6 +23,13 @@ candidate from Studio before making it live. Once promoted,
 live prompt and sends generation identity to Studio. The example chat route is
 local demonstration code; production applications retain their own authentication.
 
+To preview these recordings with a Studio-authored judge, set
+`KORTYX_TELEMETRY_CAPTURE_CONTENT=true` before starting this example, then send
+new chat requests. This explicitly enables input and output capture for the
+example; content is excluded by default. Existing recordings created without
+capture cannot recover that content. The support and sales requests above create
+fresh recordings that can be selected in Evaluators → Preview.
+
 By default the fixture provider returns deterministic labels to test the complete
 integration without paid credentials. To evaluate real model behavior, set
 `OPENROUTER_API_KEY`, `WORKFLOW_MODEL`, optional `ACCURATE_MODEL`, and

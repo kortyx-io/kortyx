@@ -6,6 +6,8 @@ import { loadStudioEvalJudge } from "./evals/judge";
 import { loadEvalTargets } from "./evals/targets";
 import { createEvalWorker } from "./evals/worker";
 import { reportWorkerRetirementFailure } from "./evals/worker-retirement";
+import { loadEvaluatorModels } from "./evaluators/model";
+import { createEvaluatorWorker } from "./evaluators/worker";
 import { API_KEEP_ALIVE_TIMEOUT_MS, startApiHttpServer } from "./http-server";
 import { createApiLifecycle, registerApiSignals } from "./lifecycle";
 import { createPostgresStudioChangeBus } from "./realtime/studio-change-bus";
@@ -16,11 +18,25 @@ const dbClient = createTelemetryDbClient(config.databaseUrl);
 const studioChangeBus = createPostgresStudioChangeBus(dbClient.sql);
 const evalTargets = loadEvalTargets();
 const evalJudge = loadStudioEvalJudge();
+const evaluatorModels = loadEvaluatorModels();
+const evaluatorWorkerMode =
+  process.env.KORTYX_EVALUATOR_WORKER_MODE ??
+  (config.evalWorkerEnabled ? "embedded" : "disabled");
+if (!["embedded", "external", "disabled"].includes(evaluatorWorkerMode))
+  throw new Error(
+    "KORTYX_EVALUATOR_WORKER_MODE must be embedded, external, or disabled.",
+  );
 let acceptingTraffic = true;
 const app = createApiApp({
   db: dbClient.db,
   evalTargets,
   ...(evalJudge ? { evalJudge } : {}),
+  ...(evaluatorModels ? { evaluatorModels } : {}),
+  evaluatorWorkerAvailable: Boolean(
+    evaluatorModels &&
+      config.deployment === "self-hosted" &&
+      evaluatorWorkerMode !== "disabled",
+  ),
   apiKeyPepper: config.apiKeyPepper,
   deployment: config.deployment,
   studioChangeBus,
@@ -43,8 +59,15 @@ const evalWorker =
         maxConcurrentEvaluations: config.evalMaxConcurrentEvaluations,
       })
     : undefined;
+const evaluatorWorker =
+  config.deployment === "self-hosted" &&
+  evaluatorWorkerMode === "embedded" &&
+  evaluatorModels
+    ? createEvaluatorWorker(dbClient.db, evaluatorModels)
+    : undefined;
 await studioChangeBus.start();
 evalWorker?.start();
+evaluatorWorker?.start();
 
 const server = startApiHttpServer({
   fetch: app.fetch,
@@ -58,7 +81,14 @@ console.log(
 
 let retirementFailed = false;
 const lifecycle = createApiLifecycle({
-  worker: evalWorker,
+  worker: {
+    drain: async () => {
+      await Promise.all([evalWorker?.drain(), evaluatorWorker?.drain()]);
+    },
+    stop: async () => {
+      await Promise.all([evalWorker?.stop(), evaluatorWorker?.stop()]);
+    },
+  },
   markNotReady: () => {
     acceptingTraffic = false;
   },

@@ -24,6 +24,7 @@ import {
 } from "@kortyx/telemetry-contracts";
 import { sampleEvaluationComparison } from "./comparison";
 import { readSampleDataset } from "./data";
+import { sampleEvaluatorResponse } from "./evaluators";
 import { samplePath } from "./routing";
 
 type Row = Record<string, unknown>;
@@ -189,6 +190,8 @@ export function sampleResponse(path: string, method = "GET"): Response {
     path,
     "http://sample.local",
   );
+  const evaluatorSample = sampleEvaluatorResponse(pathname);
+  if (evaluatorSample !== undefined) return json(evaluatorSample);
   const data = readSampleDataset();
   const parts = pathname.replace(/^\/v1\/studio\/?/, "").split("/");
   const [resource, encodedId] = parts;

@@ -92,7 +92,8 @@ response after Presence has already removed the closing surface.
   keyboard effects install, or is handled by the departing drawer;
 - Browser Back removes a drawer before its exit state is observable;
 - the backdrop disappears between layers or closes more than one layer;
-- the backdrop sits above ancestor drawers and blocks their visible slivers;
+- a covered ancestor escapes the backdrop or remains keyboard/assistive-technology interactive;
+- clicking a covered ancestor area skips levels instead of dismissing only the top inspector/drawer;
 - Trace/Event selection history reopens Run during an intentional close;
 - reopening the same Trace remounts its portal or replays its exit animation;
 - a closing inspector resets its final position before Presence removes it;

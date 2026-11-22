@@ -30,6 +30,8 @@ it("renders saved theme state without a theme script element", async () => {
     evalJudgeDrawer: null,
     evalSuiteDrawer: null,
     promptDrawer: null,
+    evaluatorDrawer: null,
+    scoreGroupDrawer: null,
     promptGroupDrawer: null,
     promptGroupsDrawer: null,
   });

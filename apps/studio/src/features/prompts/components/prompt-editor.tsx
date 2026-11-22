@@ -20,6 +20,7 @@ import type { SuggestionProps } from "@tiptap/suggestion";
 import { exitSuggestion } from "@tiptap/suggestion";
 import {
   forwardRef,
+  type ReactNode,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -27,9 +28,16 @@ import {
 } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { promptRequest } from "../api/client";
 import {
+  PromptMessageText,
   promptMessageClassName,
   promptVariableClassName,
   promptVariablePattern,
@@ -186,7 +194,7 @@ export function PromptEditor({
   id,
   label,
   value,
-  role,
+  messageRole: role,
   dependencies,
   names,
   ownKey,
@@ -194,14 +202,22 @@ export function PromptEditor({
   onChange,
   onInclude,
   onValidityChange,
+  references = true,
+  variables = [],
+  heading,
+  description,
 }: {
   id: string;
   label: string;
   value: string;
-  role: PromptContent["messages"][number]["role"];
+  messageRole: PromptContent["messages"][number]["role"];
   dependencies: PromptContent["dependencies"];
   names: Record<string, string>;
   ownKey?: string;
+  references?: boolean;
+  heading?: ReactNode;
+  description?: string;
+  variables?: readonly { path: string; label: string; description: string }[];
   disabled: boolean;
   onChange: (text: string, references: PromptContent["dependencies"]) => void;
   onValidityChange?: (valid: boolean) => void;
@@ -226,6 +242,7 @@ export function PromptEditor({
     role,
   };
   const [error, setError] = useState("");
+  const insertedVariable = useRef(false);
   const editor = useEditor({
     immediatelyRender: false,
     editable: !disabled,
@@ -271,6 +288,7 @@ export function PromptEditor({
         ],
         suggestion: {
           char: "#",
+          allow: () => references,
           allowedPrefixes: null,
           allowSpaces: true,
           debounce: 150,
@@ -484,10 +502,101 @@ export function PromptEditor({
         emitUpdate: false,
       });
   }, [editor, value, dependencies, names]);
+  const variablePicker =
+    !disabled && variables.length > 0 ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" size="xs" variant="ghost">
+            Insert variable
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="max-h-80 w-80 overflow-y-auto"
+          onCloseAutoFocus={(event) => {
+            if (insertedVariable.current) {
+              event.preventDefault();
+              insertedVariable.current = false;
+              editor?.commands.focus();
+            }
+          }}
+        >
+          {variables.map((variable) => (
+            <DropdownMenuItem
+              key={variable.path}
+              onSelect={() => {
+                insertedVariable.current = true;
+                editor
+                  ?.chain()
+                  .focus()
+                  .insertContent(`{{${variable.path}}}`)
+                  .run();
+              }}
+              className="flex-col items-start gap-1 py-2"
+            >
+              <span className="font-mono text-xs">{`{{${variable.path}}}`}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {variable.description}
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null;
   return (
-    <div className="space-y-2">
-      <EditorContent editor={editor} />
-      {!disabled && (
+    <div className="flex min-w-0 flex-col gap-2">
+      {heading && (
+        <div className="flex min-h-6 items-center justify-between gap-3">
+          <div className="min-w-0">{heading}</div>
+          {variablePicker}
+        </div>
+      )}
+      {description && (
+        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+      )}
+      {editor ? (
+        <EditorContent editor={editor} />
+      ) : (
+        <section id={id} aria-label={label} className={promptMessageClassName}>
+          {documentFor(value, dependencies, names).content?.map(
+            (line, index) => (
+              // Paragraph positions stay stable until TipTap takes ownership.
+              // biome-ignore lint/suspicious/noArrayIndexKey: static initial document
+              <p key={index}>
+                {line.content?.length ? (
+                  line.content.map((node, position) =>
+                    node.type === "mention" ? (
+                      <span
+                        // biome-ignore lint/suspicious/noArrayIndexKey: static initial document
+                        key={position}
+                        data-prompt-reference="true"
+                        className="rounded bg-violet-500/10 px-1 py-0.5 text-violet-700 dark:text-violet-300"
+                      >
+                        {`#${node.attrs?.label ?? node.attrs?.id}@v${node.attrs?.version}`}
+                      </span>
+                    ) : (
+                      <PromptMessageText
+                        // biome-ignore lint/suspicious/noArrayIndexKey: static initial document
+                        key={position}
+                        value={node.text ?? ""}
+                      />
+                    ),
+                  )
+                ) : (
+                  <br />
+                )}
+              </p>
+            ),
+          )}
+        </section>
+      )}
+      {!disabled && variables.length > 0 && (
+        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span>Variables are filled from the selected recording.</span>
+          {!heading && variablePicker}
+        </div>
+      )}
+      {!disabled && references && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>
             <span className="text-sky-700 dark:text-sky-300">
