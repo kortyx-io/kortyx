@@ -184,17 +184,17 @@ describe("detail stack transitions", () => {
       activeCount: 2,
       topActiveExpanded: true,
       topIndex: 1,
-      zIndex: 45,
+      zIndex: 65,
     });
   });
 
-  it("keeps the shared backdrop behind every interactive drawer layer", () => {
+  it("dims the parent drawer while keeping its active child above the backdrop", () => {
     const layers = registerDetailLayer(registerDetailLayer([], session), run);
 
     expect(getDetailBackdropState(layers)).toMatchObject({
       activeCount: 2,
       topIndex: 1,
-      zIndex: 45,
+      zIndex: 65,
     });
   });
 });

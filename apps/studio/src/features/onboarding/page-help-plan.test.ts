@@ -326,9 +326,22 @@ it("explains the instruction reader without reading instruction content", () => 
 it("explains an evaluator editor directly without asking for example records", () => {
   const result = plan(
     "/evaluators/new",
-    '<div data-evaluator-editor="true"><nav aria-label="Evaluator sections"></nav><fieldset><input id="evaluator-name" /></fieldset></div>',
+    '<div data-evaluator-editor="true"><nav data-page-help="tabs"></nav><div data-detail-tab-content="content" aria-hidden="false"><section data-judge-instructions>private rubric</section></div></div>',
   );
   expect(result.id).toBe("evaluators");
   expect(result.empty).toBe(false);
   expect(result.steps.map((step) => step.id)).toContain("content");
+});
+
+it("explains score-group fields without reading field guidance or treating them as missing records", () => {
+  const result = plan(
+    "/evaluators/score-groups/new",
+    '<section data-score-group-editor><nav data-page-help="tabs"></nav><div data-detail-tab-content="fields" aria-hidden="false"><section data-score-group-fields>private field guidance</section></div></section>',
+  );
+  expect(result.id).toBe("score-group");
+  expect(result.empty).toBe(false);
+  expect(result.steps.map((step) => step.id)).toContain("content");
+  expect(
+    JSON.stringify(result.steps.map(({ content }) => content)),
+  ).not.toContain("private field guidance");
 });

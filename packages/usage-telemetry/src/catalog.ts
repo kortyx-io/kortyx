@@ -98,6 +98,7 @@ export const publicCatalog: UsageCatalog = {
       "example_cancel",
     ],
     help_page: [
+      "score-group",
       "runs",
       "run",
       "sessions",
@@ -435,6 +436,7 @@ export const publicCatalog: UsageCatalog = {
     ],
     evaluator_source: ["preview"],
     resource: [
+      "score_groups",
       "runs",
       "sessions",
       "interrupts",
@@ -498,6 +500,9 @@ export const publicCatalog: UsageCatalog = {
       "change",
     ],
     tab: [
+      "score-group",
+      "fields",
+      "output",
       "preview",
       "overview",
       "trace",

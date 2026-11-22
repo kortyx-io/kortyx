@@ -7,6 +7,7 @@ import { DetailSlotPresence } from "@/components/detail/detail-slot-presence";
 import { SidebarLayout } from "@/components/layouts/sidebar-layout";
 import { StudioQueryAdapter } from "@/components/studio-query-adapter";
 import { ThemeProvider } from "@/components/theme-toggle";
+import { ScoreGroupBridge } from "@/features/evaluators/components/score-group-bridge";
 import {
   parseResolvedTheme,
   parseThemePreference,
@@ -43,6 +44,7 @@ export default async function RootLayout({
   evalSuiteDrawer,
   promptDrawer,
   evaluatorDrawer,
+  scoreGroupDrawer,
   promptGroupDrawer,
   promptGroupsDrawer,
 }: Readonly<{
@@ -55,6 +57,7 @@ export default async function RootLayout({
   evalSuiteDrawer: React.ReactNode;
   promptDrawer: React.ReactNode;
   evaluatorDrawer: React.ReactNode;
+  scoreGroupDrawer: React.ReactNode;
   promptGroupDrawer: React.ReactNode;
   promptGroupsDrawer: React.ReactNode;
 }>) {
@@ -83,50 +86,58 @@ export default async function RootLayout({
           <Providers>
             <ThemeProvider initialTheme={theme}>
               <StudioQueryAdapter>
-                <SidebarLayout
-                  detailSlots={
-                    <DetailDrawerHost>
-                      <DetailSlotPresence dismissPath="/evaluators">
-                        {evaluatorDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence
-                        dismissPath="/prompts"
-                        slotKey="prompt-details"
-                      >
-                        {promptDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence
-                        dismissPath="/prompts"
-                        slotKey="prompt-groups-list"
-                      >
-                        {promptGroupsDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/prompts/groups">
-                        {promptGroupDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/datasets">
-                        {evalSuiteDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/experiments/judges">
-                        {evalJudgeDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/experiments/cases">
-                        {evalCaseDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/sessions">
-                        {sessionDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/runs">
-                        {runDrawer}
-                      </DetailSlotPresence>
-                      <DetailSlotPresence dismissPath="/interrupts">
-                        {interruptDrawer}
-                      </DetailSlotPresence>
-                    </DetailDrawerHost>
-                  }
-                >
-                  {children}
-                </SidebarLayout>
+                <ScoreGroupBridge>
+                  <SidebarLayout
+                    detailSlots={
+                      <DetailDrawerHost>
+                        <DetailSlotPresence
+                          dismissPath="/evaluators/score-groups"
+                          slotKey="score-group-details"
+                        >
+                          {scoreGroupDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence dismissPath="/evaluators">
+                          {evaluatorDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence
+                          dismissPath="/prompts"
+                          slotKey="prompt-details"
+                        >
+                          {promptDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence
+                          dismissPath="/prompts"
+                          slotKey="prompt-groups-list"
+                        >
+                          {promptGroupsDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence dismissPath="/prompts/groups">
+                          {promptGroupDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence dismissPath="/datasets">
+                          {evalSuiteDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence dismissPath="/experiments/judges">
+                          {evalJudgeDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence dismissPath="/experiments/cases">
+                          {evalCaseDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence dismissPath="/sessions">
+                          {sessionDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence dismissPath="/runs">
+                          {runDrawer}
+                        </DetailSlotPresence>
+                        <DetailSlotPresence dismissPath="/interrupts">
+                          {interruptDrawer}
+                        </DetailSlotPresence>
+                      </DetailDrawerHost>
+                    }
+                  >
+                    {children}
+                  </SidebarLayout>
+                </ScoreGroupBridge>
               </StudioQueryAdapter>
             </ThemeProvider>
           </Providers>

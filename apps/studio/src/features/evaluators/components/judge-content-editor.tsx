@@ -19,11 +19,15 @@ export function JudgeContentEditor({
   models,
   mode,
   onChange,
+  scoreGroupSummary,
+  onScoreGroup,
 }: {
   value: EvaluatorDefinition;
   models: readonly string[];
   mode: "reading" | "editing" | "saving";
   onChange: (next: EvaluatorDefinition) => void;
+  scoreGroupSummary: string;
+  onScoreGroup: () => void;
 }) {
   const editing = mode !== "reading";
   const disabled = mode !== "editing";
@@ -75,6 +79,13 @@ export function JudgeContentEditor({
       </section>
       <section className="flex flex-col gap-3" data-judge-configuration>
         <h2 className="text-xs font-medium">Configuration</h2>
+        <button
+          type="button"
+          onClick={onScoreGroup}
+          className="self-start text-xs text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Output: {scoreGroupSummary}
+        </button>
         <div className="grid items-start gap-4 @xl:grid-cols-2">
           {models.length ? (
             <EditorSelect

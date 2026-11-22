@@ -29,12 +29,12 @@ export function detailDrawerZIndex(index: number) {
 }
 
 export function detailInspectorZIndex(drawerZIndex: number, pageOwned = false) {
-  // A page-owned parent must stay clickable above the shared route backdrop,
-  // while the first child drawer still covers it.
+  // A page-owned inspector covers its page. A route child dims both through
+  // the shared backdrop while retaining the inspector underneath.
   if (pageOwned)
     return {
-      backdrop: OVERLAY_LAYERS.detailBackdrop - 1,
-      surface: OVERLAY_LAYERS.detailBackdrop + 1,
+      backdrop: OVERLAY_LAYERS.detailBackdrop - 2,
+      surface: OVERLAY_LAYERS.detailBackdrop - 1,
     };
   return {
     backdrop: drawerZIndex + OVERLAY_LAYERS.inspectorBackdropOffset,

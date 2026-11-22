@@ -13,6 +13,7 @@ const labels: Record<string, string> = {
   interrupts: "Interrupts",
   datasets: "Datasets",
   evaluators: "Evaluators",
+  "score-groups": "Score groups",
   new: "New evaluator",
   experiments: "Experiments",
   judges: "Judge instructions",

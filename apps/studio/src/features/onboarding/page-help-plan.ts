@@ -40,9 +40,9 @@ export interface PageHelpPlan {
 
 /** Capture only element references and authored copy. Never read customer content. */
 export function createPageHelpPlan(url: URL): PageHelpPlan {
-  const instructions = document.querySelector<HTMLElement>(
-    "[data-judge-instructions]",
-  );
+  const instructions = document
+    .querySelector<HTMLElement>("[data-judge-instructions-context]")
+    ?.closest<HTMLElement>("[data-judge-instructions]");
   if (instructions && isLessonTargetAvailable(instructions)) {
     const targets: [PageHelpStepId, string, string, string][] = [
       [
@@ -284,7 +284,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       add(
         "tabs",
         "Write and preview a judge",
-        "Content holds judge-owned instructions and the evaluation context. Preview uses a recorded case or run. Content-only version history selects saved versions or the current draft. Preview uses the full workspace.",
+        "Content holds judge-owned instructions and the evaluation context. Score group selects the versioned output fields. Preview uses a recorded case or run. Version history belongs only to Content; the other tabs use the full workspace.",
         find('[data-page-help="tabs"]'),
       );
       add(
@@ -296,8 +296,16 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       add(
         "records",
         "Inspect a preview",
-        "Search the Recording picker or paste a full run ID. Its result carries the environment and loads captured input and response automatically. Missing content is explicit; Final response only needs captured output. Review filled variables and rendered messages before invoking the model. A preview shows the verdict and reason with reported usage.",
+        "Search the Recording picker or paste a full run ID. Its result carries the environment and loads captured input and response automatically. Missing content is explicit; Final response only needs captured output. Review filled variables and rendered messages before invoking the model. A preview shows the selected group’s typed values, reasons and evidence with reported usage.",
         find('[aria-label="Judge result"]', '[aria-label="Preview evidence"]'),
+      );
+    }
+    if (id === "score-group") {
+      add(
+        "tabs",
+        "Define and inspect output",
+        "Fields configures the score group. Output shows an illustrative response and generated schema; it does not invoke a model.",
+        find('[data-page-help="tabs"]'),
       );
     }
     const content = find(
@@ -341,7 +349,10 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       cases: "Conversations and repetitions",
       context: id === "diagnostic" ? "Execution context" : "Configuration",
       definition: "Saved suite definition",
-      content: "Saved prompt content",
+      content: id === "evaluators" ? "Judge content" : "Saved prompt content",
+      "score-group": "Select an output definition",
+      fields: "Output fields",
+      output: "Output contract",
       evals: "Linked evaluations",
       reviews: "Version reviews",
       exception: "Exception evidence",
@@ -443,6 +454,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       );
   }
   const detail = find(
+    "[data-score-group-editor]",
     "[data-evaluator-editor]",
     "[data-run-detail-id]",
     "[data-session-detail-id]",

@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import {
   type EvaluatorExecution,
   JudgeVerdictSchema,
+  ScoreGroupResultSchema,
+  scoreGroupOutputSchema,
 } from "@kortyx/telemetry-contracts";
 import {
   claimEvaluatorExecution,
@@ -13,6 +15,7 @@ import {
 } from "@kortyx/telemetry-db";
 import type { UsageTelemetry } from "@kortyx/usage-telemetry";
 import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
+import { z } from "zod";
 import packageJson from "../../package.json";
 import type { EvaluatorModelService } from "./model";
 
@@ -47,6 +50,9 @@ export function createEvaluatorWorker(
     try {
       await ensureProjectEnvironmentAllowed(db, job);
       phase = "model";
+      const outputSchema = job.snapshot.scoreGroup
+        ? scoreGroupOutputSchema(job.snapshot.scoreGroup.definition)
+        : JudgeVerdictSchema;
       const output = await models.invoke(
         job.snapshot.definition.model,
         job.renderedMessages,
@@ -54,6 +60,7 @@ export function createEvaluatorWorker(
         (value) => {
           usage = value;
         },
+        z.toJSONSchema(outputSchema),
       );
       signal.throwIfAborted();
       if (usage && models.provider)
@@ -65,15 +72,22 @@ export function createEvaluatorWorker(
           usage,
         );
       phase = "validation";
-      const verdict = JudgeVerdictSchema.parse(output);
+      const validated = outputSchema.parse(output);
       phase = "persistence";
       const accepted = await finishEvaluatorExecution(db, job.id, owner, {
         status: "completed",
-        verdict,
+        ...(job.snapshot.scoreGroup
+          ? {
+              result: ScoreGroupResultSchema.parse({
+                group: job.snapshot.scoreGroup,
+                fields: validated,
+              }),
+            }
+          : { verdict: JudgeVerdictSchema.parse(validated) }),
         usage,
       });
       measurement?.end(accepted ? "success" : "failed");
-    } catch {
+    } catch (cause) {
       measurement?.end(abort.signal.aborted ? "cancelled" : "failed");
       if (usage && models.provider)
         usage = await priceEvaluatorUsage(
@@ -88,7 +102,15 @@ export function createEvaluatorWorker(
         usage,
         error: abort.signal.aborted
           ? "Assessment cancelled during shutdown."
-          : `Assessment failed during ${phase}. Check the model connection, judge instructions and recorded inputs. Reported usage has been retained.`,
+          : cause instanceof z.ZodError
+            ? `Judge output did not match the configured fields: ${cause.issues
+                .slice(0, 3)
+                .map(
+                  (issue) =>
+                    `${issue.path.join(".") || "output"} (${issue.code})`,
+                )
+                .join(", ")}. Reported usage has been retained.`
+            : `Assessment failed during ${phase}. Check the model connection, judge instructions and recorded inputs. Reported usage has been retained.`,
       });
     }
   };

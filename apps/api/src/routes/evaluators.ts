@@ -1,24 +1,32 @@
 import type { OpenAPIHono } from "@hono/zod-openapi";
 import {
+  DEFAULT_SCORE_GROUP_REF,
   EvaluatorDefinitionSchema,
   EvaluatorMetadataSchema,
   EvaluatorTargetSchema,
+  ScoreGroupDefinitionSchema,
 } from "@kortyx/telemetry-contracts";
 import {
   archiveEvaluator,
+  archiveJudgeScoreGroup,
   captureEvaluatorEvidence,
   enqueueEvaluatorExecution,
   evaluatorVariables,
   getEvaluator,
   getEvaluatorDetail,
   getEvaluatorExecution,
+  getJudgeScoreGroup,
+  getJudgeScoreGroupVersion,
   listEvaluatorLibrary,
   listEvaluatorRecordings,
+  listJudgeScoreGroups,
   publishEvaluator,
   publishedEvaluator,
+  publishJudgeScoreGroup,
   renderEvaluatorMessages,
   resolveEvaluatorSnapshot,
   saveEvaluator,
+  saveJudgeScoreGroup,
   updateEvaluatorMetadata,
 } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
@@ -38,6 +46,119 @@ export function registerEvaluatorRoutes(
   const root = "/v1/studio/evaluators";
   app.use(root, bodyLimit({ maxSize: 65536 }));
   app.use(`${root}/*`, bodyLimit({ maxSize: 65536 }));
+  app.get(`${root}/score-groups`, async (c) =>
+    c.json({
+      groups: await c.get("withTenantDatabase")((db) =>
+        listJudgeScoreGroups(db, c.get("principal")),
+      ),
+      canEdit: await canApiAction(c, "studio:write"),
+    }),
+  );
+  app.get(`${root}/score-groups/:groupId`, async (c) => {
+    const id = z.uuid().safeParse(c.req.param("groupId"));
+    if (!id.success) return c.json({ error: "Invalid score-group ID." }, 400);
+    return c.json(
+      await c.get("withTenantDatabase")((db) =>
+        getJudgeScoreGroup(db, c.get("principal"), id.data),
+      ),
+    );
+  });
+  app.get(`${root}/score-groups/:groupId/versions/:version`, async (c) => {
+    const id = z.uuid().safeParse(c.req.param("groupId"));
+    const version = z.coerce
+      .number()
+      .int()
+      .positive()
+      .safeParse(c.req.param("version"));
+    if (!id.success || !version.success)
+      return c.json({ error: "Invalid score-group version." }, 400);
+    return c.json(
+      await c.get("withTenantDatabase")((db) =>
+        getJudgeScoreGroupVersion(
+          db,
+          c.get("principal"),
+          { id: id.data, version: version.data },
+          { allowArchived: true },
+        ),
+      ),
+    );
+  });
+  app.post(`${root}/score-groups`, async (c) => {
+    await requireApiAction(c, "studio:write");
+    const input = ScoreGroupDefinitionSchema.safeParse(
+      await c.req.json().catch(() => null),
+    );
+    if (!input.success)
+      return c.json(
+        { error: input.error.issues[0]?.message ?? "Check score fields." },
+        400,
+      );
+    return c.json(
+      await c.get("withTenantDatabase")((db) =>
+        saveJudgeScoreGroup(db, c.get("principal"), input.data),
+      ),
+      201,
+    );
+  });
+  app.post(`${root}/score-groups/:groupId`, async (c) => {
+    await requireApiAction(c, "studio:write");
+    const id = z.uuid().safeParse(c.req.param("groupId"));
+    const input = z
+      .object({
+        definition: ScoreGroupDefinitionSchema,
+        revision: z.number().int().positive(),
+      })
+      .safeParse(await c.req.json().catch(() => null));
+    if (!id.success || !input.success)
+      return c.json(
+        {
+          error: !input.success
+            ? input.error.issues[0]?.message
+            : "Invalid score-group ID.",
+        },
+        400,
+      );
+    return c.json(
+      await c.get("withTenantDatabase")((db) =>
+        saveJudgeScoreGroup(
+          db,
+          c.get("principal"),
+          input.data.definition,
+          id.data,
+          input.data.revision,
+        ),
+      ),
+    );
+  });
+  app.post(
+    `${root}/score-groups/:groupId/:action{publish|archive}`,
+    async (c) => {
+      await requireApiAction(c, "studio:write");
+      const id = z.uuid().safeParse(c.req.param("groupId"));
+      const input = z
+        .object({ revision: z.number().int().positive() })
+        .safeParse(await c.req.json().catch(() => null));
+      if (!id.success || !input.success)
+        return c.json({ error: "Invalid score-group revision." }, 400);
+      return c.json(
+        await c.get("withTenantDatabase")((db) =>
+          c.req.param("action") === "publish"
+            ? publishJudgeScoreGroup(
+                db,
+                c.get("principal"),
+                id.data,
+                input.data.revision,
+              )
+            : archiveJudgeScoreGroup(
+                db,
+                c.get("principal"),
+                id.data,
+                input.data.revision,
+              ),
+        ),
+      );
+    },
+  );
   app.get(root, async (c) =>
     c.json({
       ...(await c.get("withTenantDatabase")((db) =>
@@ -228,7 +349,16 @@ export function registerEvaluatorRoutes(
               id: id.data,
               version: input.data.version,
             })
-          : resolveEvaluatorSnapshot(asset.draft, id.data, asset.revision);
+          : resolveEvaluatorSnapshot(
+              asset.draft,
+              id.data,
+              asset.revision,
+              await getJudgeScoreGroupVersion(
+                db,
+                scope,
+                asset.draft.scoreGroup ?? DEFAULT_SCORE_GROUP_REF,
+              ),
+            );
         if (preview) {
           if (!input.data.requestKey)
             throw new HTTPException(400, {

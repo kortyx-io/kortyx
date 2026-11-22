@@ -6,7 +6,10 @@ export async function evaluatorRequest(
   signal?: AbortSignal,
 ): Promise<unknown> {
   const operation = studioOperation("studio.evaluator", {
-    resource: "evaluators",
+    resource:
+      path === "score-groups" || path.startsWith("score-groups/")
+        ? "score_groups"
+        : "evaluators",
     evaluator_action:
       body === undefined
         ? "read"
@@ -18,7 +21,7 @@ export async function evaluatorRequest(
               ? "preview"
               : path.endsWith("/evidence")
                 ? "evidence"
-                : path
+                : path && path !== "score-groups"
                   ? "save"
                   : "create",
     action: body === undefined ? "view" : "update",

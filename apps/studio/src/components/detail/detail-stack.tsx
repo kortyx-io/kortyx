@@ -49,6 +49,7 @@ const DETAIL_BASE_PATHS = [
   "/experiments/judges",
   "/datasets",
   "/evaluators",
+  "/evaluators/score-groups",
   "/prompts",
 ] as const;
 

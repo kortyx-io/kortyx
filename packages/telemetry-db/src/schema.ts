@@ -1750,6 +1750,61 @@ export const datasetJudgeBindings = pgTable(
     }).onDelete("cascade"),
   ],
 );
+export const judgeScoreGroups = pgTable(
+  "judge_score_groups",
+  {
+    ...evaluatorScopeColumns(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    revision: integer("revision").notNull().default(1),
+    publishedVersion: integer("published_version").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+    draft: jsonb("draft")
+      .$type<import("@kortyx/telemetry-contracts").ScoreGroupDefinition>()
+      .notNull(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("judge_score_groups_scope_id").on(
+      t.organizationId,
+      t.projectId,
+      t.id,
+    ),
+    foreignKey({
+      name: "judge_score_groups_project_fk",
+      columns: [t.organizationId, t.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+    }).onDelete("cascade"),
+  ],
+);
+export const judgeScoreGroupVersions = pgTable(
+  "judge_score_group_versions",
+  {
+    ...evaluatorScopeColumns(),
+    groupId: uuid("group_id").notNull(),
+    version: integer("version").notNull(),
+    definition: jsonb("definition")
+      .$type<import("@kortyx/telemetry-contracts").ScoreGroupDefinition>()
+      .notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("judge_score_group_versions_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.groupId,
+      t.version,
+    ),
+    foreignKey({
+      name: "judge_score_group_versions_group_fk",
+      columns: [t.organizationId, t.projectId, t.groupId],
+      foreignColumns: [
+        judgeScoreGroups.organizationId,
+        judgeScoreGroups.projectId,
+        judgeScoreGroups.id,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
 export const judgePreviews = pgTable(
   "judge_previews",
   {
@@ -1784,6 +1839,10 @@ export const judgePreviews = pgTable(
     verdict:
       jsonb("verdict").$type<
         import("@kortyx/telemetry-contracts").EvaluatorExecution["verdict"]
+      >(),
+    result:
+      jsonb("score_result").$type<
+        import("@kortyx/telemetry-contracts").ScoreGroupResult
       >(),
     usage:
       jsonb("usage").$type<

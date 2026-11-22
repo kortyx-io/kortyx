@@ -87,10 +87,11 @@ export function getDetailBackdropState(layers: DetailLayer[]) {
     activeCount: activeLayers.length,
     topActiveExpanded: activeLayers.at(-1)?.expanded === true,
     topIndex,
-    // Keep one backdrop behind every drawer surface. Putting it between
-    // stacked layers blocks the visible ancestor slivers that intentionally
-    // let users peel the stack back to an earlier entity.
-    zIndex: OVERLAY_LAYERS.detailBackdrop,
+    // Dim every covered surface, including an expanded ancestor drawer.
+    // The backdrop still dismisses only the active child when clicked.
+    zIndex:
+      OVERLAY_LAYERS.detailBackdrop +
+      Math.max(0, topIndex) * OVERLAY_LAYERS.detailDrawerStep,
   };
 }
 

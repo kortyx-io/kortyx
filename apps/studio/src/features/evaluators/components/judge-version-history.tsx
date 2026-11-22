@@ -1,6 +1,5 @@
 "use client";
 
-import type { EvaluatorDetail } from "@kortyx/telemetry-contracts";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +14,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDateTime } from "@/lib/format";
 
 export type JudgeHistoryProps = {
-  versions: EvaluatorDetail["versions"];
+  versions: {
+    version: number;
+    createdAt: string;
+    definition: { model?: string; fields?: unknown[] };
+  }[];
+  assetName?: string;
   selectedVersion?: number;
   editing: boolean;
   hasDraft: boolean;
@@ -34,13 +38,14 @@ export function JudgeVersionHistory({
   dirty,
   disabled,
   onSelect,
+  assetName = "judge",
 }: JudgeHistoryProps & {
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
 }) {
   return (
     <aside
-      aria-label="Judge version history"
+      aria-label={`${assetName} version history`}
       data-judge-version-history
       className={`${expanded ? "w-56" : "w-12"} hidden min-h-0 shrink-0 flex-col border-r @2xl/judge-detail:flex`}
     >
@@ -73,7 +78,11 @@ export function JudgeVersionHistory({
                 className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-3 text-left text-xs hover:bg-muted/50 aria-pressed:bg-muted"
               >
                 <span className="text-muted-foreground">
-                  {dirty ? "Unsaved changes" : "Saved instructions"}
+                  {dirty
+                    ? "Unsaved changes"
+                    : assetName === "judge"
+                      ? "Saved instructions"
+                      : "Saved fields"}
                 </span>
                 <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-400">
                   Draft
@@ -85,14 +94,15 @@ export function JudgeVersionHistory({
                 type="button"
                 key={version.version}
                 disabled={disabled}
-                aria-label={`Open judge version ${version.version}`}
+                aria-label={`Open ${assetName} version ${version.version}`}
                 aria-pressed={!editing && selectedVersion === version.version}
                 onClick={() => onSelect(version.version)}
                 className="flex w-full min-w-0 flex-col gap-1 rounded-md px-2 py-3 text-left hover:bg-muted/50 aria-pressed:bg-muted"
               >
                 <span className="text-xs font-medium">v{version.version}</span>
                 <span className="block max-w-full truncate text-[11px] text-muted-foreground">
-                  {version.definition.model}
+                  {version.definition.model ??
+                    `${version.definition.fields?.length ?? 0} fields`}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
                   {formatDateTime(version.createdAt)}
@@ -174,7 +184,8 @@ export function JudgeVersionPicker({
                     v{version.version}
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
-                    {version.definition.model}
+                    {version.definition.model ??
+                      `${version.definition.fields?.length ?? 0} fields`}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
                     {formatDateTime(version.createdAt)}

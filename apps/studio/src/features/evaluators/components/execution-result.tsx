@@ -26,6 +26,80 @@ export function ExecutionResult({
           {execution.error}
         </p>
       )}
+      {execution.result && (
+        <>
+          <p className="text-[11px] text-muted-foreground">
+            {execution.result.group.definition.name} · v
+            {execution.result.group.version}
+          </p>
+          {execution.result.group.definition.fields.map((field) => {
+            const result = execution.result?.fields[field.id];
+            if (!result) return null;
+            const display =
+              result.status !== "scored"
+                ? result.status === "insufficient_evidence"
+                  ? "Insufficient evidence"
+                  : "Not applicable"
+                : field.type === "category"
+                  ? (Array.isArray(result.value)
+                      ? result.value
+                      : [result.value]
+                    )
+                      .map(
+                        (value) =>
+                          field.options.find((option) => option.id === value)
+                            ?.label ?? String(value),
+                      )
+                      .join(", ") || "None"
+                  : typeof result.value === "boolean"
+                    ? result.value
+                      ? "True"
+                      : "False"
+                    : String(result.value);
+            return (
+              <div
+                key={field.id}
+                className="flex flex-col gap-2 border-t pt-3"
+                data-score-result-field={field.id}
+              >
+                <h3 className="text-xs font-medium">{field.label}</h3>
+                <p
+                  className={`whitespace-pre-wrap text-xs leading-6 ${result.status === "scored" ? "" : "text-muted-foreground"}`}
+                >
+                  {display}
+                </p>
+                {field.id !== "assessment" && (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {result.reason}
+                  </p>
+                )}
+                {field.type === "number" && result.status === "scored" && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Range {field.min}–{field.max}
+                    {field.direction !== "none" &&
+                      ` · ${field.direction === "higher" ? "Higher" : "Lower"} is better`}
+                  </p>
+                )}
+                {result.evidence.length > 0 && (
+                  <details>
+                    <summary className="cursor-pointer text-[11px] text-muted-foreground">
+                      Supporting evidence
+                    </summary>
+                    {result.evidence.map((excerpt, index) => (
+                      <blockquote
+                        key={`${index}:${excerpt}`}
+                        className="mt-2 whitespace-pre-wrap border-l-2 pl-3 text-xs leading-5 text-muted-foreground"
+                      >
+                        {excerpt}
+                      </blockquote>
+                    ))}
+                  </details>
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
       {execution.verdict && (
         <>
           <div>

@@ -20,6 +20,15 @@ interface PageGuide {
 
 /** Page identities and copy are independent of sample lesson/progress identities. */
 export const PAGE_GUIDES = {
+  "score-group": {
+    title: "Score group",
+    kind: "detail",
+    overview:
+      "Score groups define the judge’s typed output and grading guidance. Groups are shared across judges; a saved judge pins an immutable group version. Assessment is always available and read-only.",
+    content:
+      "Fields defines text, boolean, numeric and category outputs. Use Output to inspect the generated contract. Save a group version, then Use this version to return to the judge. Save the judge to keep that selection.",
+    example: "/evaluators/score-groups/00000000-0000-4000-8000-000000000020",
+  },
   runs: {
     title: "Runs",
     kind: "list",
@@ -266,6 +275,7 @@ export function pageGuideId(path: string): PageGuideId {
     path.startsWith("/evals/")
   )
     return "evals";
+  if (path.startsWith("/evaluators/score-groups/")) return "score-group";
   if (path.startsWith("/evaluators")) return "evaluators";
   if (path.startsWith("/diagnostics/")) return "diagnostic";
   if (
@@ -383,13 +393,22 @@ export const DETAIL_TAB_HELP = {
   evaluators: {
     content:
       "Judge instructions define how to assess evidence. Evaluation context is an always-visible template whose variables are filled from the selected case or recording. Content-only version history keeps saved instructions separate from the editable draft. The header action menu edits the judge name and description. The model and evidence scope are in Configuration.",
+    "score-group":
+      "Select one shared score-group version to define this judge’s output. Assessment is always available. Open a group in the next drawer to inspect fields. New score group and the row’s Edit action manage shared definitions independently of the judge. Save the judge to pin the selection.",
     preview:
-      "Search the Recording picker or paste a full run ID; each result includes its environment. Selection loads captured input and response without a model call. Missing input is explicit; Final response only requires captured response content. Inspect the filled variables and rendered request, then run the saved judge version or draft. Run preview consumes model usage and shows the verdict, reason, supporting evidence and reported cost.",
+      "Search the Recording picker or paste a full run ID; each result includes its environment. Selection loads captured input and response without a model call. Missing input is explicit; Final response only requires captured response content. Inspect the filled variables and rendered request, then run the saved judge version or draft. Run preview consumes model usage and shows the selected group’s typed values, reasons, supporting evidence and reported cost. Older judge versions retain their original verdict.",
+  },
+  "score-group": {
+    fields:
+      "A group defines typed output fields, grading guidance and bounds. Assessment is required. Numeric fields offer Score 0–1, Rating, and custom ranges; categories can allow multiple selections. Saving a new group version never changes published judges.",
+    output:
+      "This is an illustrative output contract, not a model result. All configured fields validate together. A scored field needs a typed value; allowed insufficient-evidence and not-applicable states carry null and a reason. Test real output in the judge’s Preview tab.",
   },
 } satisfies DetailTabCopy;
 
 /** Documentation follows the feature being explained, independently of tour progress. */
 export const PAGE_DOCUMENTATION = {
+  "score-group": studioHelp.scoreGroups,
   runs: studioHelp.runs,
   run: studioHelp.runs,
   sessions: studioHelp.sessions,

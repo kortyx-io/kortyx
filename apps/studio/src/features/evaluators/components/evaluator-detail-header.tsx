@@ -4,7 +4,7 @@ import { ArrowLeft, Maximize2, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useDetailDrawer } from "@/components/detail/detail-drawer";
 import { Button } from "@/components/ui/button";
-import { HelpCircle } from "@/components/ui/info-tooltip";
+import { HelpCircle, type HelpDefinition } from "@/components/ui/info-tooltip";
 import { studioHelp } from "@/lib/studio-help";
 
 export function EvaluatorDetailHeader({
@@ -12,11 +12,15 @@ export function EvaluatorDetailHeader({
   status,
   onBack,
   children,
+  kind = "Judge",
+  help = studioHelp.evaluators,
 }: {
   title: string;
   status: string;
   onBack?: () => void;
   children?: ReactNode;
+  kind?: string;
+  help?: HelpDefinition;
 }) {
   const { navigation } = useDetailDrawer();
   const canExpand = navigation?.canExpand;
@@ -28,7 +32,13 @@ export function EvaluatorDetailHeader({
       <Button
         size="icon-sm"
         variant="ghost"
-        aria-label={canExpand ? "Expand detail" : "Back to judge library"}
+        aria-label={
+          canExpand
+            ? "Expand detail"
+            : kind === "Score group"
+              ? "Back to judge"
+              : "Back to judge library"
+        }
         onClick={canExpand ? navigation.expand : (navigation?.close ?? onBack)}
       >
         {canExpand ? <Maximize2 /> : <ArrowLeft />}
@@ -38,10 +48,10 @@ export function EvaluatorDetailHeader({
           <h1 className="truncate text-sm font-semibold" title={title}>
             {title}
           </h1>
-          <HelpCircle help={studioHelp.evaluators} />
+          <HelpCircle help={help} />
         </div>
         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          Judge · {status}
+          {kind} · {status}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">{children}</div>

@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  ScoreGroupReferenceSchema,
+  ScoreGroupResultSchema,
+} from "./score-groups";
 
 const label = z.string().trim().min(1).max(200);
 const version = z.number().int().positive();
@@ -105,6 +109,7 @@ export const EvaluatorDefinitionSchema = z
     content: JudgeContentSchema,
     model: label,
     evidence: z.enum(["response", "trajectory"]).default("trajectory"),
+    scoreGroup: ScoreGroupReferenceSchema.optional(),
   })
   .strict();
 export const EvaluatorMetadataSchema = EvaluatorDefinitionSchema.pick({
@@ -158,6 +163,7 @@ export const EvaluatorExecutionSchema = z.object({
   source: z.literal("preview"),
   status: z.enum(["queued", "running", "completed", "error", "cancelled"]),
   verdict: JudgeVerdictSchema.nullable(),
+  result: ScoreGroupResultSchema.nullable().optional(),
   evidence: z.unknown(),
   renderedMessages: z.array(
     z.object({
@@ -184,6 +190,7 @@ export const EvaluatorExecutionSummarySchema = EvaluatorExecutionSchema.omit({
   evidence: true,
   renderedMessages: true,
   verdict: true,
+  result: true,
 });
 export const EvaluatorLibrarySchema = z.object({
   evaluators: z.array(EvaluatorSchema),

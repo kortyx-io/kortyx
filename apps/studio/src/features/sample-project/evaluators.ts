@@ -1,5 +1,7 @@
 import {
+  ASSESSMENT_SCORE_GROUP,
   DEFAULT_JUDGE_CONTENT,
+  DEFAULT_SCORE_GROUP_REF,
   EvaluatorDetailSchema,
   EvaluatorExecutionSchema,
   EvaluatorLibrarySchema,
@@ -20,6 +22,7 @@ export function sampleEvaluatorResponse(path: string): unknown | undefined {
     },
     model: "sample/judge",
     evidence: "trajectory",
+    scoreGroup: DEFAULT_SCORE_GROUP_REF,
   };
   const evaluator = {
     id: evaluatorId,
@@ -38,11 +41,18 @@ export function sampleEvaluatorResponse(path: string): unknown | undefined {
     target: { type: "run", runId: sample.runs.success },
     source: "preview",
     status: "completed",
-    verdict: {
-      passed: true,
-      reason:
-        "The recorded support response gives the delivery status and the next action. This fictional sample demonstrates a judge preview.",
-      evidence: [],
+    verdict: null,
+    result: {
+      group: ASSESSMENT_SCORE_GROUP,
+      fields: {
+        assessment: {
+          status: "scored",
+          value:
+            "The recorded support response gives the delivery status and the next action. This fictional sample demonstrates a judge preview.",
+          reason: "The response is supported by the fictional recording.",
+          evidence: [],
+        },
+      },
     },
     evidence: {
       captured: "Read-only fictional sample evidence.",
@@ -81,6 +91,22 @@ export function sampleEvaluatorResponse(path: string): unknown | undefined {
       canRun: false,
       workerAvailable: false,
     });
+  const assessmentGroup = {
+    id: DEFAULT_SCORE_GROUP_REF.id,
+    revision: 1,
+    publishedVersion: 1,
+    builtin: true,
+    archived: false,
+    draft: ASSESSMENT_SCORE_GROUP.definition,
+    latest: ASSESSMENT_SCORE_GROUP,
+    updatedAt: ASSESSMENT_SCORE_GROUP.createdAt,
+  };
+  if (path === "/v1/studio/evaluators/score-groups")
+    return { groups: [assessmentGroup], canEdit: false };
+  if (
+    path === `/v1/studio/evaluators/score-groups/${DEFAULT_SCORE_GROUP_REF.id}`
+  )
+    return { group: assessmentGroup, versions: [ASSESSMENT_SCORE_GROUP] };
   if (path === `/v1/studio/evaluators/${evaluatorId}`) return detail;
   if (path === `/v1/studio/evaluators/executions/${executionId}`)
     return execution;

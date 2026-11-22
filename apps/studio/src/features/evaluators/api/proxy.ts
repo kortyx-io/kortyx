@@ -10,7 +10,7 @@ export async function proxyEvaluatorRequest(request: Request, parts: string[]) {
   if (sample) return sample;
   const path = parts.join("/");
   if (
-    !/^(?:recordings|executions\/[a-f0-9-]{36}|[a-f0-9-]{36}(?:\/(?:publish|archive|preview|evidence|metadata))?)?$/.test(
+    !/^(?:score-groups(?:\/[a-f0-9-]{36}(?:\/(?:publish|archive|versions\/[1-9][0-9]*))?)?|recordings|executions\/[a-f0-9-]{36}|[a-f0-9-]{36}(?:\/(?:publish|archive|preview|evidence|metadata))?)?$/.test(
       path,
     )
   )
@@ -66,10 +66,18 @@ export async function proxyEvaluatorRequest(request: Request, parts: string[]) {
         redirect: "error",
       },
     );
-    return Response.json(await readBoundedJson(response, 2000000), {
-      status: response.status,
-      headers: { "cache-control": "no-store" },
-    });
+    return Response.json(
+      await readBoundedJson(
+        response,
+        // A group is bounded by the 64 KB write limit. Reads may include up to
+        // 200 draft/latest pairs or 100 saved versions, plus JSON escaping.
+        path.startsWith("score-groups") ? 32000000 : 2000000,
+      ),
+      {
+        status: response.status,
+        headers: { "cache-control": "no-store" },
+      },
+    );
   } catch {
     return Response.json(
       {

@@ -13,6 +13,7 @@ export interface EvaluatorModelService {
     messages: EvaluatorExecution["renderedMessages"],
     signal: AbortSignal,
     onUsage: (usage: NonNullable<EvaluatorExecution["usage"]>) => void,
+    outputSchema?: Record<string, unknown>,
   ): Promise<unknown>;
 }
 export function loadEvaluatorModels(
@@ -44,7 +45,7 @@ export function loadEvaluatorModels(
   return {
     models,
     provider: provider.id,
-    async invoke(model, messages, signal, onUsage) {
+    async invoke(model, messages, signal, onUsage, outputSchema) {
       if (!models.includes(model))
         throw new Error("Model is not enabled by this installation.");
       const result = await provider(model)
@@ -55,7 +56,7 @@ export function loadEvaluatorModels(
           responseFormat: {
             type: "json",
             name: "judge_preview",
-            schema: z.toJSONSchema(JudgeVerdictSchema),
+            schema: outputSchema ?? z.toJSONSchema(JudgeVerdictSchema),
           },
         })
         .invoke(messages);
@@ -108,7 +109,7 @@ export function loadEvaluatorModels(
       signal.throwIfAborted();
       if (result.finishReason && result.finishReason.unified !== "stop")
         throw new Error("Judge response was incomplete.");
-      return JudgeVerdictSchema.parse(JSON.parse(result.content));
+      return JSON.parse(result.content);
     },
   };
 }

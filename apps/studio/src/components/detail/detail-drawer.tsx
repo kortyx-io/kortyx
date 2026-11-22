@@ -449,6 +449,8 @@ function DetailDrawerSurface({
         data-entry-motion={entered ? "preserve" : "enter"}
         data-state={closing ? "closed" : "open"}
         role="dialog"
+        inert={!layer.isTop || closing}
+        aria-hidden={!layer.isTop || closing}
         aria-modal={layer.isTop && !expandedView && !nestedInspector.nestedOpen}
         aria-labelledby={customHeader ? undefined : titleId}
         aria-label={customHeader ? title : undefined}

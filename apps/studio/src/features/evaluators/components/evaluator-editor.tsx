@@ -1,12 +1,15 @@
 "use client";
 import {
   DEFAULT_JUDGE_CONTENT,
+  DEFAULT_SCORE_GROUP_REF,
   type EvaluatorDefinition,
   EvaluatorDefinitionSchema,
   type EvaluatorDetail,
   EvaluatorDetailSchema,
   type EvaluatorLibrary,
   EvaluatorSchema,
+  type ScoreGroupLibrary,
+  type ScoreGroupVersion,
 } from "@kortyx/telemetry-contracts";
 import { Archive, MoreHorizontal, Pencil, Plus, Save, X } from "lucide-react";
 import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
@@ -40,25 +43,62 @@ import { EvaluatorDetailHeader } from "./evaluator-detail-header";
 import { EvaluatorPreview } from "./evaluator-preview";
 import { JudgeContentEditor } from "./judge-content-editor";
 import { JudgeDetailsDialog } from "./judge-details-dialog";
+import { JudgeScoreGroups } from "./judge-score-groups";
 import {
   JudgeVersionHistory,
   JudgeVersionPicker,
 } from "./judge-version-history";
+import { useScoreGroupBridge } from "./score-group-bridge";
 
 const judgeContentIdentity = (definition: EvaluatorDefinition) =>
-  JSON.stringify([definition.content, definition.model, definition.evidence]);
+  JSON.stringify([
+    definition.content,
+    definition.model,
+    definition.evidence,
+    definition.scoreGroup,
+  ]);
 
-export function EvaluatorEditor({
-  library,
-  initial,
-  initialPreview,
-  drawer = false,
-}: {
+type EditorProps = {
   library: EvaluatorLibrary;
   initial: EvaluatorDetail | null;
   initialPreview: EvaluatorPreviewData;
+  initialScoreGroups: ScoreGroupLibrary;
+  initialScoreVersions: ScoreGroupVersion[];
   drawer?: boolean;
-}) {
+};
+export function EvaluatorEditor(props: EditorProps) {
+  const [title, setTitle] = useState(
+    props.initial?.evaluator.draft.name || "New judge",
+  );
+  const view = <EvaluatorEditorContent {...props} onTitleChange={setTitle} />;
+  return props.drawer ? (
+    <DetailDrawer
+      customHeader
+      title={title}
+      description="Versioned judge instructions"
+      matchPath={`/evaluators/${props.initial?.evaluator.id ?? "new"}`}
+      dismissPath="/evaluators"
+    >
+      {view}
+    </DetailDrawer>
+  ) : (
+    <DetailPage
+      customHeader
+      title={title}
+      description="Versioned judge instructions"
+    >
+      {view}
+    </DetailPage>
+  );
+}
+function EvaluatorEditorContent({
+  library,
+  initial,
+  initialPreview,
+  initialScoreGroups,
+  initialScoreVersions,
+  onTitleChange,
+}: EditorProps & { onTitleChange: (title: string) => void }) {
   const router = useRouter();
   const [query, setQuery] = useStudioQueryStates(
     {
@@ -79,6 +119,7 @@ export function EvaluatorEditor({
       content: structuredClone(DEFAULT_JUDGE_CONTENT),
       model: library.models[0] ?? "",
       evidence: "trajectory",
+      scoreGroup: DEFAULT_SCORE_GROUP_REF,
     },
   );
   const [saved, setSaved] = useState(
@@ -112,6 +153,65 @@ export function EvaluatorEditor({
             judgeContentIdentity(detail.versions[0].definition)),
     );
   const title = detail?.evaluator.draft.name ?? (draft.name || "New judge");
+  useEffect(() => onTitleChange(title), [title, onTitleChange]);
+  const [scoreGroups, setScoreGroups] = useState(initialScoreGroups);
+  const [scoreVersions, setScoreVersions] = useState(initialScoreVersions);
+  const bridge = useScoreGroupBridge();
+  const judgePath = detail
+    ? `/evaluators/${detail.evaluator.id}`
+    : "/evaluators/new";
+  const ownerState = useRef({ editing, draft });
+  ownerState.current = { editing, draft };
+  useEffect(
+    () =>
+      bridge?.register(judgePath, {
+        canUse: () => ownerState.current.editing,
+        saved: (asset) => {
+          if (asset.latest)
+            setScoreVersions((previous) => [
+              asset.latest as ScoreGroupVersion,
+              ...previous.filter(
+                (version) =>
+                  version.groupId !== asset.id ||
+                  version.version !== asset.latest?.version,
+              ),
+            ]);
+          setScoreGroups((previous) => ({
+            ...previous,
+            groups: [
+              asset,
+              ...previous.groups.filter((group) => group.id !== asset.id),
+            ],
+          }));
+        },
+        use: (version, asset) => {
+          if (!ownerState.current.editing) return;
+          setScoreVersions((previous) => [
+            version,
+            ...previous.filter(
+              (item) =>
+                item.groupId !== version.groupId ||
+                item.version !== version.version,
+            ),
+          ]);
+          setScoreGroups((previous) => ({
+            ...previous,
+            groups: [
+              asset,
+              ...previous.groups.filter((group) => group.id !== asset.id),
+            ],
+          }));
+          setDraft((previous) => ({
+            ...previous,
+            scoreGroup: { id: version.groupId, version: version.version },
+          }));
+          setNotice(
+            `Selected ${version.definition.name} · v${version.version}. Save the judge to keep this selection.`,
+          );
+        },
+      }),
+    [bridge, judgePath],
+  );
   useWorkspaceLabel(
     detail ? `/evaluators/${detail.evaluator.id}` : "/evaluators/new",
     title,
@@ -212,6 +312,7 @@ export function EvaluatorEditor({
         ...structuredClone(value),
         name: detail?.evaluator.draft.name ?? draft.name,
         description: detail?.evaluator.draft.description ?? draft.description,
+        scoreGroup: value.scoreGroup ?? DEFAULT_SCORE_GROUP_REF,
       });
     void setQuery({ edit: true, v: null, tab: "content" });
     setNotice("");
@@ -374,6 +475,7 @@ export function EvaluatorEditor({
           }
           helpByTab={{
             content: studioHelp.evaluators,
+            "score-group": studioHelp.scoreGroups,
             preview: studioHelp.evaluators,
           }}
           tabs={[
@@ -400,9 +502,44 @@ export function EvaluatorEditor({
                         setDraft(next);
                         setNotice("");
                       }}
+                      scoreGroupSummary={
+                        value.scoreGroup
+                          ? `${scoreVersions.find((group) => group.groupId === value.scoreGroup?.id && group.version === value.scoreGroup.version)?.definition.name ?? "Score group"} · v${value.scoreGroup.version}`
+                          : editing
+                            ? "Assessment · v1"
+                            : "Legacy verdict"
+                      }
+                      onScoreGroup={() => void setQuery({ tab: "score-group" })}
                     />
                   </ScrollArea>
                 </div>
+              ),
+            },
+            {
+              id: "score-group",
+              label: "Score group",
+              content: (
+                <JudgeScoreGroups
+                  library={scoreGroups}
+                  versions={scoreVersions}
+                  selected={
+                    value.scoreGroup ??
+                    (editing ? DEFAULT_SCORE_GROUP_REF : undefined)
+                  }
+                  judgePath={judgePath}
+                  editing={editing}
+                  disabled={busy}
+                  onSelect={(version) => {
+                    setDraft((previous) => ({
+                      ...previous,
+                      scoreGroup: {
+                        id: version.groupId,
+                        version: version.version,
+                      },
+                    }));
+                    setNotice("");
+                  }}
+                />
               ),
             },
             ...(detail
@@ -509,23 +646,5 @@ export function EvaluatorEditor({
       </Dialog>
     </div>
   );
-  return drawer ? (
-    <DetailDrawer
-      customHeader
-      title={title}
-      description="Versioned judge instructions"
-      matchPath={`/evaluators/${detail?.evaluator.id ?? "new"}`}
-      dismissPath="/evaluators"
-    >
-      {view}
-    </DetailDrawer>
-  ) : (
-    <DetailPage
-      customHeader
-      title={title}
-      description="Versioned judge instructions"
-    >
-      {view}
-    </DetailPage>
-  );
+  return view;
 }

@@ -14,9 +14,14 @@ const help = (
 
 /** Public customer concepts only. Cloud implementation details stay in its adapter. */
 export const studioHelp = {
+  scoreGroups: help(
+    "Score groups",
+    "A score group defines the fields a judge returns. Assessment is always available. Saved group versions are immutable; a judge pins one version. Missing evidence is distinct from a low score.",
+    "evaluators#score-groups",
+  ),
   evaluators: help(
     "Evaluators",
-    "Judges own versioned instructions and Kortyx-aware context templates. Write instructions, inspect variables and preview a recording before saving a version.",
+    "Judges own versioned instructions, Kortyx-aware context and a score-group selection. Define the typed output, inspect variables and preview a recording before saving a version.",
     "evaluators",
   ),
   sampleProject: help(
