@@ -1,5 +1,6 @@
 "use client";
 import {
+  type EvaluatorDefinition,
   type EvaluatorExecution,
   EvaluatorExecutionSchema,
   type EvaluatorTarget,
@@ -35,12 +36,14 @@ export function EvaluatorPreview({
   version,
   disabled,
   initial,
+  evidenceScope,
 }: {
   id: string;
   revision: number;
   version?: number;
   disabled: boolean;
   initial: EvaluatorPreviewData;
+  evidenceScope: EvaluatorDefinition["evidence"];
 }) {
   const recordings = initial.recordings;
   const [target, setTarget] = useState<EvaluatorTarget>({
@@ -53,6 +56,9 @@ export function EvaluatorPreview({
   const [evidence, setEvidence] = useState<unknown>(null),
     [error, setError] = useState(initial.error),
     [busy, setBusy] = useState(false);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
+  const evidenceRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => evidenceRequest.current?.abort(), []);
   const [choices, setChoices] = useState<
     z.infer<typeof ChoicesSchema>["steps"]
   >([]);
@@ -90,11 +96,61 @@ export function EvaluatorPreview({
     };
   }, [executionId, executionStatus]);
   const changeTarget = (value: EvaluatorTarget) => {
+    evidenceRequest.current?.abort();
     setTarget(value);
     setEvidence(null);
+    setExecution(null);
+    setError("");
     requestIdentity.current = null;
+    setLoadingEvidence(false);
+    if (!disabled && (value.type === "case" || value.runId))
+      void inspectEvidence(value);
+  };
+  const inspectEvidence = async (value: EvaluatorTarget) => {
+    evidenceRequest.current?.abort();
+    const abort = new AbortController();
+    evidenceRequest.current = abort;
+    setLoadingEvidence(true);
+    setError("");
+    try {
+      const result = await evaluatorRequest(
+        `${id}/evidence`,
+        {
+          target: value,
+          revision,
+          ...(version ? { version } : {}),
+        },
+        abort.signal,
+      );
+      const parsed = EvidenceSchema.parse(result);
+      if (abort.signal.aborted) return;
+      setEvidence(result);
+      const steps = ChoicesSchema.safeParse(parsed.evidence.captured);
+      setChoices(steps.success ? steps.data.steps : []);
+    } catch (cause) {
+      if (!abort.signal.aborted)
+        setError(
+          cause instanceof Error ? cause.message : "Evidence unavailable.",
+        );
+    } finally {
+      if (!abort.signal.aborted) setLoadingEvidence(false);
+    }
   };
   const filled = EvidenceSchema.safeParse(evidence);
+  const observation = filled.success
+    ? z
+        .object({ text: z.string(), structured: z.array(z.unknown()) })
+        .safeParse(filled.data.variables.observation)
+    : null;
+  const missingResponse =
+    observation?.success &&
+    !observation.data.text.trim() &&
+    !observation.data.structured.length;
+  const missingInput =
+    filled.success &&
+    (filled.data.variables.input === null ||
+      filled.data.variables.input === undefined ||
+      filled.data.variables.input === "");
   const selectedStep =
     target.type === "case"
       ? (target.stepIndex ?? choices.at(-1)?.index)
@@ -122,6 +178,39 @@ export function EvaluatorPreview({
             setChoices([]);
           }}
         />
+        {loadingEvidence && (
+          <output className="text-xs text-muted-foreground">
+            Loading recorded evidence…
+          </output>
+        )}
+        {filled.success && (
+          <section
+            className="flex flex-col gap-3 text-xs"
+            aria-label="Recording content"
+          >
+            <div>
+              <p className="mb-1 font-medium">Recorded input</p>
+              <p className="whitespace-pre-wrap break-words text-muted-foreground">
+                {missingInput
+                  ? "Input was not captured. To judge against the user's request, enable input content capture in the app and record a new run."
+                  : typeof filled.data.variables.input === "string"
+                    ? filled.data.variables.input
+                    : JSON.stringify(filled.data.variables.input)}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 font-medium">Recorded response</p>
+              <p className="whitespace-pre-wrap break-words text-muted-foreground">
+                {missingResponse
+                  ? "No final response was captured. Enable output content capture in the app and record a new run, or select another recording."
+                  : observation?.success
+                    ? observation.data.text ||
+                      JSON.stringify(observation.data.structured)
+                    : "Response content is unavailable."}
+              </p>
+            </div>
+          </section>
+        )}
         {target.type === "case" && choices.length > 1 && (
           <EditorSelect
             id="preview-step"
@@ -157,31 +246,12 @@ export function EvaluatorPreview({
             size="sm"
             variant="secondary"
             disabled={
-              busy || disabled || (target.type === "run" && !target.runId)
+              busy ||
+              loadingEvidence ||
+              disabled ||
+              (target.type === "run" && !target.runId)
             }
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                const value = await evaluatorRequest(`${id}/evidence`, {
-                  target,
-                  revision,
-                  ...(version ? { version } : {}),
-                });
-                const parsed = EvidenceSchema.parse(value);
-                setEvidence(value);
-                const steps = ChoicesSchema.safeParse(parsed.evidence.captured);
-                if (steps.success) setChoices(steps.data.steps);
-              } catch (cause) {
-                setError(
-                  cause instanceof Error
-                    ? cause.message
-                    : "Evidence unavailable.",
-                );
-              } finally {
-                setBusy(false);
-              }
-            }}
+            onClick={() => void inspectEvidence(target)}
           >
             Inspect evidence
           </Button>
@@ -190,6 +260,9 @@ export function EvaluatorPreview({
             disabled={
               busy ||
               disabled ||
+              loadingEvidence ||
+              !filled.success ||
+              (evidenceScope === "response" && Boolean(missingResponse)) ||
               (target.type === "run" && !target.runId) ||
               ["queued", "running"].includes(executionStatus ?? "")
             }
@@ -227,7 +300,7 @@ export function EvaluatorPreview({
           </p>
         )}
         {filled.success && (
-          <details open className="border-t pt-3">
+          <details className="border-t pt-3">
             <summary className="cursor-pointer text-xs font-medium">
               Filled variables
             </summary>

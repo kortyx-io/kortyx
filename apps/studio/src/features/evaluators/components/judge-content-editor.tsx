@@ -12,6 +12,8 @@ import { EditorField, EditorSelect } from "./editor-fields";
 const noReferences = () => {};
 const emptyNames = {};
 const emptyDependencies: [] = [];
+const modelDescription =
+  "The model connection stays on the backend. Each saved version owns these instructions and this configuration.";
 export function JudgeContentEditor({
   value,
   models,
@@ -73,23 +75,29 @@ export function JudgeContentEditor({
       </section>
       <section className="flex flex-col gap-3" data-judge-configuration>
         <h2 className="text-xs font-medium">Configuration</h2>
-        <div className="grid gap-4 @xl:grid-cols-2">
+        <div className="grid items-start gap-4 @xl:grid-cols-2">
           {models.length ? (
             <EditorSelect
               id="judge-model"
               label="Judge model"
+              description={modelDescription}
               value={value.model}
               disabled={disabled}
               options={models.map((model) => ({ value: model, label: model }))}
               onChange={(model) => change({ model })}
             />
           ) : (
-            <EditorField id="judge-model" label="Judge model">
+            <EditorField
+              id="judge-model"
+              label="Judge model"
+              description={modelDescription}
+            >
               <Input
                 id="judge-model"
                 disabled={disabled}
                 value={value.model}
                 placeholder="Model ID configured on your backend"
+                aria-describedby="judge-model-description"
                 onChange={(e) => change({ model: e.target.value })}
               />
             </EditorField>
@@ -115,10 +123,6 @@ export function JudgeContentEditor({
             }
           />
         </div>
-        <p className="text-xs leading-5 text-muted-foreground">
-          The model connection stays on the backend. Each saved version owns
-          these instructions and this configuration.
-        </p>
       </section>
     </div>
   );

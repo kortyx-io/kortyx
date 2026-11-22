@@ -18,8 +18,31 @@ The database adds dedicated judge definitions, versions, dataset relations and p
 
 Usage telemetry counts authoring requests separately from claimed preview model attempts. Approved properties exclude instructions, evidence, arbitrary names and identifiers. Scoped preview records retain the content snapshot, rendered request, verdict, usage, safe error and source recording for customer inspection.
 
-Testing and final validation are intentionally held until the user has reviewed the UI. This iteration is a local review candidate, not a merge-ready completion claim.
+Full feature and guided-tour validation remain pending UI approval. Targeted
+preview verification is complete as described below. This iteration is a local
+review candidate, not a merge-ready completion claim.
 
 Refresh diagnosis: the shared TipTap editor previously emitted no server content. The judge's two fields appeared only after hydration and shifted Configuration down. The editor now renders matching paragraph/variable/reference content until TipTap takes over. Initial recordings and the read-only sample preview are fetched in the server page; only explicit preview polling and user-triggered run lookup run on the client. Judge dates use the shared UTC formatter so browser locale/timezone cannot change the initial text.
 
-Local review checks for this pass: telemetry-db build, API and Studio type checks, changed-file Biome check (seven existing PromptEditor non-null assertion warnings), and read-only browser inspection. Existing/new judge fields had matching server/hydrated dimensions with no observed layout shifts; the sample Preview result was present in initial HTML. Drawer opening, expansion and browser Back/Forward were inspected, along with desktop/mobile layout and the combined picker. Functional evaluator, provider and full guided-tour testing remain held for UI approval. No model was invoked by these checks.
+Local review checks include telemetry-db build, API and Studio type checks,
+changed-file Biome check, and browser inspection. Existing/new judge fields had
+matching server/hydrated dimensions with no observed layout shifts; the sample
+Preview result was present in initial HTML. Drawer opening, expansion and browser
+Back/Forward were inspected, along with desktop/mobile layout and the picker.
+
+Preview selection now loads captured input/response before inference, clears the
+previous recording's result, and cancels stale evidence reads. Missing input is
+visible. Final-response previews without captured output are blocked in the UI
+and rejected before a job is queued. Full-event judges can still assess retained
+public events independently of response-content capture. Input/output capture
+stays opt-in; `kortyx-prompts` supports the explicit local-review environment
+flag without changing its default.
+
+Targeted verification: four judge-evidence regression tests passed; the two
+example transport tests and example type check passed. Browser authoring saved
+an independent Intent classification review version. Two explicit OpenAI
+gpt-4.1-mini previews against fresh example runs passed (password reset → support,
+purchase request → sales), with the actual input/output present in rendered judge
+messages and no browser errors. A content-free recording was blocked in the UI;
+the API returned 400 with no queued preview job. These checks do not replace the
+remaining full feature, tour, compatibility and CI validation.

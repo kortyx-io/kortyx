@@ -43,6 +43,15 @@ Instructions and context are rendered as separate message roles internally. The 
 
 Save the draft or select a saved version, then open **Preview**. The **Recording** picker searches recent runs and saved experiment cases. Paste a full run ID to look up an older run. Each result shows its environment, which is carried with the selection; no separate environment input is needed. **Inspect evidence** shows the filled variables, selected recording and exact request without invoking a model. For multi-step cases, inspect the recording to choose a step and criterion.
 
+Selecting a recording loads its captured input and response automatically. Missing
+input is shown explicitly; a judge comparing against the user's request needs a
+recording with input capture. **Final response only** cannot run without captured
+response content. Enable the permitted input/output content capture in your
+application and record a new execution; old recordings cannot recover omitted
+content. Selecting another recording clears the previous result. **Inspect
+evidence** reloads the evidence; **Filled variables** and the rendered-request
+disclosure show the exact context sent to the judge.
+
 **Run preview** invokes the configured judge model and can incur a charge. It assesses retained evidence without rerunning the application or its tools. The preview shows the existing experiment-style verdict: passed, reason and supporting excerpts, together with tokens and reported cost. Rate-card costs are labeled estimates; unavailable pricing remains explicit. The runtime supplies this response contract independently of the reusable rubric.
 
 Only retained evidence is available. Strings, arrays and nesting are bounded; secret and continuation fields are excluded. Recordings are limited to 500 events and 256 KB. Evidence limitations are included in the inspected request. Missing events do not prove that an action did not occur.

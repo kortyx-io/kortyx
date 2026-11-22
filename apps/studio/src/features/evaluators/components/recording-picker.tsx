@@ -117,11 +117,16 @@ export function RecordingPicker({
             search(value);
         }}
         onValueChange={(record) => {
+          if (!record) {
+            setSelected(null);
+            onChange(null);
+            return;
+          }
           cancelSearch();
           setSearching(false);
           setSelected(record);
-          if (record) setQuery(recordingLabel(record));
-          onChange(record?.target ?? null);
+          setQuery(recordingLabel(record));
+          onChange(record.target);
         }}
       >
         <ComboboxInput

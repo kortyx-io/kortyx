@@ -64,7 +64,7 @@ const telemetry = createKortyxTelemetryAdapter({
   apiKey: process.env.KORTYX_PROMPTS_API_KEY ?? "",
   environment,
   service: { name: "prompt-intent-example" },
-  captureContent: { input: false, output: false },
+  captureContent: process.env.KORTYX_TELEMETRY_CAPTURE_CONTENT === "true",
 });
 const agent = createAgent({
   frameworkAdapter: createInMemoryFrameworkAdapter(),

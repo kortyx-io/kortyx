@@ -384,7 +384,7 @@ export const DETAIL_TAB_HELP = {
     content:
       "Judge instructions define how to assess evidence. Evaluation context is an always-visible template whose variables are filled from the selected case or recording. Content-only version history keeps saved instructions separate from the editable draft. The header action menu edits the judge name and description. The model and evidence scope are in Configuration.",
     preview:
-      "Search the Recording picker or paste a full run ID; each result includes its environment. Inspect the filled variables and rendered request, then run the saved judge version or draft. Inspecting evidence makes no model call. Run preview consumes model usage and shows the verdict, reason, supporting evidence and reported cost.",
+      "Search the Recording picker or paste a full run ID; each result includes its environment. Selection loads captured input and response without a model call. Missing input is explicit; Final response only requires captured response content. Inspect the filled variables and rendered request, then run the saved judge version or draft. Run preview consumes model usage and shows the verdict, reason, supporting evidence and reported cost.",
   },
 } satisfies DetailTabCopy;
 

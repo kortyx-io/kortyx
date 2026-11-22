@@ -679,6 +679,18 @@ export function renderEvaluatorMessages(
     ...compiled.messages,
   ];
 }
+
+export function validateEvaluatorPreviewEvidence(
+  snapshot: EvaluatorSnapshot,
+  evidence: EvaluatorEvidence,
+) {
+  if (snapshot.definition.evidence !== "response") return;
+  const observation = evaluatorVariables(evidence).observation;
+  if (!observation.text.trim() && !observation.structured.length)
+    throw new TelemetryValidationError(
+      "This recording has no captured final response. Choose another recording, or enable output content capture in the app and record a new run.",
+    );
+}
 export async function enqueueEvaluatorExecution(
   db: TelemetryDb,
   scope: EvaluatorScope,
@@ -723,6 +735,7 @@ export async function enqueueEvaluatorExecution(
     input.snapshot.definition.evidence,
     true,
   );
+  validateEvaluatorPreviewEvidence(input.snapshot, evidence);
   const renderedMessages = evidence.admissionError
     ? []
     : renderEvaluatorMessages(input.snapshot, evidence);

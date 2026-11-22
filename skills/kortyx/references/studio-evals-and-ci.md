@@ -885,3 +885,10 @@ The Evaluators page owns judge instructions, a typed evaluation-context template
 Dataset association storage is separate from judge authoring. Dataset selection UI, scoring and production rules are not exposed in this pass. Existing code-managed suites, criteria, checks and App/Studio judging continue working unchanged.
 
 In Configuration, **Final response only** omits tool calls and intermediate events; **Full event evidence** includes the retained public trajectory. Preview uses one searchable Recording picker for recent recordings or a full run ID. Selecting a result also selects its environment; the UI does not require a separate environment field.
+
+Recording selection loads captured input and response before a judge call. Input
+and output telemetry capture remain opt-in. Final-response previews reject a
+recording with no response content before queuing inference. Enabling capture
+affects new runs only; do not reconstruct omitted input from model guesses or
+unrelated storage. The `kortyx-prompts` example supports
+`KORTYX_TELEMETRY_CAPTURE_CONTENT=true` for local review recordings.

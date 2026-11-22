@@ -296,7 +296,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       add(
         "records",
         "Inspect a preview",
-        "Search the Recording picker or paste a full run ID. Its result carries the environment automatically. Review filled variables and rendered messages before invoking the model. A preview shows the verdict and reason with reported usage. Missing evidence remains explicit.",
+        "Search the Recording picker or paste a full run ID. Its result carries the environment and loads captured input and response automatically. Missing content is explicit; Final response only needs captured output. Review filled variables and rendered messages before invoking the model. A preview shows the verdict and reason with reported usage.",
         find('[aria-label="Judge result"]', '[aria-label="Preview evidence"]'),
       );
     }

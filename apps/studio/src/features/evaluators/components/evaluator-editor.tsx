@@ -426,6 +426,7 @@ export function EvaluatorEditor({
                         <EvaluatorPreview
                           key={`${detail.evaluator.id}:${editing ? detail.evaluator.revision : selected?.version}`}
                           initial={initialPreview}
+                          evidenceScope={value.evidence}
                           id={detail.evaluator.id}
                           revision={detail.evaluator.revision}
                           version={!editing ? selected?.version : undefined}
