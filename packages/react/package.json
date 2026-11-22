@@ -48,7 +48,7 @@
     "react": ">=19"
   },
   "devDependencies": {
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "catalog:",
     "jsdom": "^29.1.1",
     "react": "catalog:",
