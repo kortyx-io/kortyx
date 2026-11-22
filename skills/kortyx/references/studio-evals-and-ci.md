@@ -893,4 +893,6 @@ affects new runs only; do not reconstruct omitted input from model guesses or
 unrelated storage. The `kortyx-prompts` example supports
 `KORTYX_TELEMETRY_CAPTURE_CONTENT=true` for local review recordings.
 
+In a score group’s Fields tab, select a field from the list (or searchable picker in a narrow drawer), then edit its grading guidance and type-specific settings. Add field explains the supported types. The colored example output is illustrative; use the judge’s Preview for model-generated results. Advanced contains stable output/category keys and text-length limits. Required Assessment cannot be removed.
+
 Score groups are Studio authoring assets, not a new SDK scorer API. They do not change application suite declarations or existing code-managed grading. Custom backend model services receive the requested structured-output schema as an optional fifth argument to `invoke`; hosts must honor it to support new score-group previews. Provider credentials remain server-owned.

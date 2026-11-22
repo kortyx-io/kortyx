@@ -1,91 +1,50 @@
 "use client";
-import {
-  ASSESSMENT_FIELD,
-  type ScoreField,
-  type ScoreGroupDefinition,
+
+import type {
+  ScoreField,
+  ScoreGroupDefinition,
 } from "@kortyx/telemetry-contracts";
-import { ChevronDown, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { LockKeyhole, Plus, Trash2 } from "lucide-react";
+import { useId, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { EditorField, EditorSelect } from "./editor-fields";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { ScoreFieldEditor } from "./score-field-editor";
+import {
+  ScoreFieldEvidenceSummary,
+  ScoreFieldExample,
+} from "./score-field-example";
+import {
+  FIELD_TYPES,
+  type FieldKind,
+  fieldKind,
+  makeScoreField,
+  ScoreFieldMark,
+  scoreFieldLabel,
+} from "./score-field-type";
 
-export const FIELD_KINDS = [
-  { value: "score", label: "Score · 0–1" },
-  { value: "rating", label: "Rating · 1–5" },
-  { value: "custom", label: "Number · custom range" },
-  { value: "boolean", label: "Boolean" },
-  { value: "category", label: "Category" },
-  { value: "text", label: "Text" },
-];
-export const scoreFieldLabel = (field: ScoreField) =>
-  field.type === "number"
-    ? `${field.preset === "score" ? "Score" : field.preset === "rating" ? "Rating" : "Number"} · ${field.min}–${field.max}`
-    : field.type === "category"
-      ? field.multiple
-        ? "Category · multiple"
-        : "Category"
-      : field.type === "boolean"
-        ? "Boolean"
-        : "Text";
-function makeField(kind: string, id: string): ScoreField {
-  const common = {
-    id,
-    label: "New field",
-    description: "",
-    allowNotApplicable: true,
-    allowInsufficientEvidence: true,
-  };
-  if (kind === "boolean") return { ...common, type: "boolean" };
-  if (kind === "text")
-    return { ...common, type: "text", minLength: 1, maxLength: 4000 };
-  if (kind === "category")
-    return {
-      ...common,
-      type: "category",
-      multiple: false,
-      options: [
-        { id: "option_1", label: "Option 1", description: "" },
-        { id: "option_2", label: "Option 2", description: "" },
-      ],
-    };
-  return {
-    ...common,
-    type: "number",
-    preset:
-      kind === "score" ? "score" : kind === "rating" ? "rating" : "custom",
-    integer: kind === "rating",
-    min: kind === "rating" ? 1 : 0,
-    max: kind === "score" ? 1 : kind === "rating" ? 5 : 100,
-    direction: "higher",
-  };
-}
-function Toggle({
-  label,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  disabled: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-xs">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-        className="size-3.5 accent-foreground"
-      />
-      {label}
-    </label>
-  );
-}
 export function ScoreGroupFields({
   value,
   editing,
@@ -98,443 +57,356 @@ export function ScoreGroupFields({
   onChange: (definition: ScoreGroupDefinition) => void;
 }) {
   const [active, setActive] = useState(0);
-  const [kind, setKind] = useState("score");
+  const [newField, setNewField] = useState<number | null>(null);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const addedFromMenu = useRef(false);
+  const titleId = useId();
+  const panelId = useId();
+  const index = value.fields[active] ? active : 0;
+  const field = value.fields[index];
+  if (!field) return null;
+  const requiredAssessment =
+    field.id === "assessment" &&
+    index === value.fields.findIndex((item) => item.id === "assessment");
+  const kind = fieldKind(field);
+  const type = FIELD_TYPES[kind];
+  const choose = (index: number) => {
+    setActive(index);
+    setNewField(null);
+  };
+  const add = (kind: FieldKind) => {
+    addedFromMenu.current = true;
+    const base = kind === "custom" ? "number" : kind;
+    let id = base,
+      suffix = 1;
+    while (value.fields.some((field) => field.id === id))
+      id = `${base}_${++suffix}`;
+    const next = makeScoreField(kind, id);
+    if (suffix > 1) next.label = `${next.label} ${suffix}`;
+    onChange({ ...value, fields: [...value.fields, next] });
+    setActive(value.fields.length);
+    setNewField(value.fields.length);
+  };
+  const choices = value.fields.map((field, index) => ({
+    index,
+    label: field.label || "Unnamed field",
+    kind: fieldKind(field),
+  }));
   return (
-    <div className="flex flex-col gap-5 p-4 @lg:p-5" data-score-group-fields>
-      {value.description && (
-        <p className="text-xs leading-5 text-muted-foreground">
-          {value.description}
-        </p>
-      )}
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xs font-medium">Output fields</h2>
-        <p className="text-xs leading-5 text-muted-foreground">
-          Assessment is required. Each additional field defines a value and its
-          grading guidance; missing evidence can be reported explicitly.
-        </p>
-      </div>
-      <div className="divide-y rounded-md border">
-        {value.fields.map((field, index) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: Field keys are editable; removal resets the active editor and rows have no local state.
-          <div key={index}>
-            <div className="flex items-center gap-2 px-3 py-2">
-              <button
-                type="button"
-                aria-expanded={active === index}
-                onClick={() => setActive(active === index ? -1 : index)}
-                className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs font-medium"
-              >
-                <ChevronDown
-                  className={`size-3.5 shrink-0 transition-transform ${active === index ? "" : "-rotate-90"}`}
-                />
-                <span className="truncate">{field.label || "New field"}</span>
-                {field.id === "assessment" && (
-                  <span className="text-[11px] font-normal text-muted-foreground">
-                    Required
-                  </span>
-                )}
-              </button>
-              <Badge variant="secondary" className="shrink-0 text-[10px]">
-                {scoreFieldLabel(field)}
-              </Badge>
-              {editing && field.id !== "assessment" && (
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  aria-label={`Remove ${field.label}`}
-                  disabled={disabled}
-                  onClick={() => {
-                    onChange({
-                      ...value,
-                      fields: value.fields.filter(
-                        (_, position) => position !== index,
-                      ),
-                    });
-                    setActive(Math.max(0, index - 1));
-                  }}
-                >
-                  <Trash2 />
-                </Button>
-              )}
-            </div>
-            {active === index &&
-              (editing ? (
-                <ScoreFieldEditor
-                  field={field}
-                  index={index}
-                  disabled={disabled}
-                  onChange={(next) =>
-                    onChange({
-                      ...value,
-                      fields: value.fields.map((item, position) =>
-                        position === index ? next : item,
-                      ),
-                    })
-                  }
-                />
-              ) : (
-                <div className="flex flex-col gap-3 px-4 pt-1 pb-4 text-xs">
-                  <p className="whitespace-pre-wrap leading-5">
-                    {field.description}
-                  </p>
-                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-muted-foreground">
-                    <dt>Key</dt>
-                    <dd className="font-mono">{field.id}</dd>
-                    {field.type === "number" && (
-                      <>
-                        <dt>Direction</dt>
-                        <dd>
-                          {field.direction === "higher"
-                            ? "Higher is better"
-                            : field.direction === "lower"
-                              ? "Lower is better"
-                              : "No ordering"}
-                        </dd>
-                      </>
-                    )}
-                    {field.type === "text" && (
-                      <>
-                        <dt>Length</dt>
-                        <dd>
-                          {field.minLength}–{field.maxLength} characters
-                        </dd>
-                      </>
-                    )}
-                    <dt>Missing evidence</dt>
-                    <dd>
-                      {field.allowInsufficientEvidence
-                        ? "Can abstain with a reason"
-                        : "A value is required"}
-                    </dd>
-                  </dl>
-                  {field.type === "category" && (
-                    <ul className="flex flex-col gap-2">
-                      {field.options.map((option) => (
-                        <li key={option.id}>
-                          <span className="font-medium">{option.label}</span>
-                          {option.description && ` — ${option.description}`}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-          </div>
-        ))}
-      </div>
-      {editing && (
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-48 flex-1">
-            <EditorSelect
-              id="new-score-field-type"
-              label="New field type"
-              value={kind}
-              options={FIELD_KINDS}
-              disabled={disabled || value.fields.length >= 20}
-              onChange={setKind}
-            />
-          </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={disabled || value.fields.length >= 20}
-            onClick={() => {
-              let n = value.fields.length;
-              while (value.fields.some((field) => field.id === `field_${n}`))
-                n++;
-              onChange({
-                ...value,
-                fields: [...value.fields, makeField(kind, `field_${n}`)],
-              });
-              setActive(value.fields.length);
-            }}
-          >
-            <Plus />
-            Add field
-          </Button>
+    <div
+      className="@container/score-fields flex h-full min-h-0 flex-col bg-muted/15"
+      data-score-group-fields
+    >
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b bg-background px-5 py-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">Output fields</h2>
+          <Badge variant="secondary" className="text-[10px] tabular-nums">
+            {editing ? `${value.fields.length}/20` : value.fields.length}
+          </Badge>
         </div>
-      )}
+        {editing && (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={disabled || value.fields.length >= 20}
+              >
+                <Plus data-icon="inline-start" />
+                Add field
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-72"
+              onCloseAutoFocus={(event) => {
+                if (addedFromMenu.current) event.preventDefault();
+                addedFromMenu.current = false;
+              }}
+            >
+              <DropdownMenuGroup>
+                {(
+                  Object.entries(FIELD_TYPES) as [
+                    FieldKind,
+                    (typeof FIELD_TYPES)[FieldKind],
+                  ][]
+                ).map(([kind, type]) => (
+                  <DropdownMenuItem
+                    key={kind}
+                    className="items-start gap-3 py-2.5"
+                    onSelect={() => add(kind)}
+                  >
+                    <ScoreFieldMark kind={kind} small />
+                    <span className="flex flex-col gap-1">
+                      <span className="text-xs font-medium">
+                        {type.label}{" "}
+                        <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                          {type.detail}
+                        </span>
+                      </span>
+                      <span className="text-[11px] leading-4 text-muted-foreground">
+                        {type.description}
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </header>
+      <div className="flex min-h-0 flex-1">
+        <aside className="hidden w-60 shrink-0 flex-col border-r bg-background @[780px]/score-fields:flex">
+          <ScrollArea className="min-h-0 flex-1">
+            <nav aria-label="Output fields" className="flex flex-col gap-1 p-3">
+              {value.fields.map((item, position) => (
+                <button
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Field keys are editable and these navigation rows have no local state.
+                  key={position}
+                  type="button"
+                  aria-current={position === index ? "true" : undefined}
+                  aria-controls={panelId}
+                  onClick={() => choose(position)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left outline-none transition-colors hover:bg-muted/65 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                    position === index &&
+                      "bg-muted ring-1 ring-inset ring-border",
+                  )}
+                >
+                  <ScoreFieldMark kind={fieldKind(item)} small />
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="truncate text-xs font-medium"
+                        title={item.label}
+                      >
+                        {item.label || "Unnamed field"}
+                      </span>
+                      {item.id === "assessment" &&
+                        position ===
+                          value.fields.findIndex(
+                            (item) => item.id === "assessment",
+                          ) && (
+                          <LockKeyhole
+                            className="size-3 shrink-0 text-muted-foreground"
+                            aria-label="Required field"
+                          />
+                        )}
+                    </span>
+                    <span className="truncate text-[10px] text-muted-foreground">
+                      {scoreFieldLabel(item)}
+                    </span>
+                    {editing && !item.description.trim() && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Needs grading guidance
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </nav>
+          </ScrollArea>
+          <p className="border-t px-5 py-3 text-[10px] leading-5 text-muted-foreground">
+            Assessment is always included.
+            <br />
+            Select a field to {editing ? "configure" : "inspect"} it.
+          </p>
+        </aside>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="shrink-0 border-b bg-background px-5 py-3 @[780px]/score-fields:hidden">
+            <Combobox<(typeof choices)[number]>
+              items={choices}
+              value={choices[index]}
+              itemToStringLabel={(item) => item.label}
+              isItemEqualToValue={(a, b) => a.index === b.index}
+              onValueChange={(item) => {
+                if (item) choose(item.index);
+              }}
+            >
+              <ComboboxInput
+                aria-label="Select output field"
+                autoComplete="off"
+                placeholder="Find a field…"
+                className="w-full"
+              />
+              <ComboboxContent>
+                <ComboboxEmpty>No matching field.</ComboboxEmpty>
+                <ComboboxList aria-label="Output fields">
+                  {(item: (typeof choices)[number]) => (
+                    <ComboboxItem key={item.index} value={item}>
+                      <ScoreFieldMark kind={item.kind} small />
+                      <span className="flex min-w-0 flex-col gap-1">
+                        <span className="truncate text-xs">{item.label}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {FIELD_TYPES[item.kind].label}
+                        </span>
+                      </span>
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          </div>
+          <ScrollArea
+            className="min-h-0 min-w-0 flex-1"
+            viewportClassName="overscroll-contain"
+          >
+            <section
+              id={panelId}
+              aria-labelledby={titleId}
+              className="@container/field-workspace mx-auto flex w-full max-w-5xl flex-col gap-6 p-5 @lg/score-fields:p-7"
+              data-score-field-detail
+            >
+              <div className="flex items-start gap-3">
+                <ScoreFieldMark kind={kind} />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <h2
+                    id={titleId}
+                    className="break-words text-base font-semibold leading-6"
+                  >
+                    {field.label || "Unnamed field"}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={cn("text-[10px]", type.background)}
+                    >
+                      {scoreFieldLabel(field)}
+                    </Badge>
+                    {requiredAssessment && (
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <LockKeyhole className="size-3" aria-hidden="true" />
+                        Required
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {editing && !requiredAssessment && (
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={`Remove ${field.label}`}
+                    disabled={disabled}
+                    onClick={() => setRemoveOpen(true)}
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
+              </div>
+              <div className="grid items-start gap-6 @[840px]/field-workspace:grid-cols-[minmax(0,1fr)_16rem]">
+                {editing ? (
+                  <ScoreFieldEditor
+                    key={index}
+                    field={field}
+                    requiredAssessment={requiredAssessment}
+                    disabled={disabled}
+                    focusNew={newField === index}
+                    onChange={(next) => {
+                      setNewField(null);
+                      onChange({
+                        ...value,
+                        fields: value.fields.map((item, position) =>
+                          position === index ? next : item,
+                        ),
+                      });
+                    }}
+                  />
+                ) : (
+                  <ScoreFieldDetails field={field} />
+                )}
+                <aside className="@[840px]/field-workspace:sticky @[840px]/field-workspace:top-5">
+                  <ScoreFieldExample field={field} />
+                </aside>
+              </div>
+            </section>
+          </ScrollArea>
+        </div>
+      </div>
+      <Dialog open={removeOpen} onOpenChange={setRemoveOpen}>
+        <DialogContent>
+          <DialogTitle>Remove field?</DialogTitle>
+          <DialogDescription>
+            {field.label} will be removed from this draft. Saved versions and
+            previous results keep their fields.
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setRemoveOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={disabled}
+              onClick={() => {
+                onChange({
+                  ...value,
+                  fields: value.fields.filter(
+                    (_, position) => position !== index,
+                  ),
+                });
+                setActive(Math.max(0, index - 1));
+                setNewField(null);
+                setRemoveOpen(false);
+              }}
+            >
+              Remove field
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-function ScoreFieldEditor({
-  field,
-  index,
-  disabled,
-  onChange,
-}: {
-  field: ScoreField;
-  index: number;
-  disabled: boolean;
-  onChange: (field: ScoreField) => void;
-}) {
-  const prefix = `score-field-${index}`;
-  const update = (patch: Partial<ScoreField>) =>
-    onChange({ ...field, ...patch } as ScoreField);
-  const assessment = field.id === ASSESSMENT_FIELD.id;
+function ScoreFieldDetails({ field }: { field: ScoreField }) {
   return (
-    <div className="flex flex-col gap-4 border-t bg-muted/15 p-4">
-      <div className="grid items-start gap-4 @xl:grid-cols-2">
-        <EditorField id={`${prefix}-label`} label="Field label">
-          <Input
-            id={`${prefix}-label`}
-            disabled={disabled}
-            value={field.label}
-            maxLength={200}
-            onChange={(event) => update({ label: event.target.value })}
-          />
-        </EditorField>
-        <EditorField
-          id={`${prefix}-key`}
-          label="Field key"
-          description="Stable key used in judge results."
-        >
-          <Input
-            id={`${prefix}-key`}
-            disabled={disabled || assessment}
-            value={field.id}
-            maxLength={64}
-            onChange={(event) => update({ id: event.target.value })}
-          />
-        </EditorField>
-        <EditorSelect
-          id={`${prefix}-type`}
-          label="Type"
-          value={field.type === "number" ? field.preset : field.type}
-          options={FIELD_KINDS}
-          disabled={disabled || assessment}
-          onChange={(kind) =>
-            onChange({
-              ...makeField(kind, field.id),
-              label: field.label,
-              description: field.description,
-            })
-          }
-        />
-      </div>
-      <EditorField
-        id={`${prefix}-guidance`}
-        label="Grading guidance"
-        description={
-          field.type === "number" && field.preset === "score"
-            ? "Define what 0, intermediate values and 1 mean. This is a rubric score, not automatically a probability."
-            : "Explain what this field measures and how the judge should assign its value."
-        }
-      >
-        <Textarea
-          id={`${prefix}-guidance`}
-          disabled={disabled}
-          value={field.description}
-          maxLength={4000}
-          rows={3}
-          onChange={(event) => update({ description: event.target.value })}
-          placeholder={
-            field.type === "boolean"
-              ? "What do true and false mean?"
-              : "Define the criterion and give examples."
-          }
-        />
-      </EditorField>
-      {(field.type === "number" || field.type === "text") && (
-        <div className="grid items-start gap-4 @xl:grid-cols-2">
-          <EditorField
-            id={`${prefix}-min`}
-            label={field.type === "text" ? "Minimum characters" : "Minimum"}
-          >
-            <Input
-              id={`${prefix}-min`}
-              type="number"
-              value={field.type === "text" ? field.minLength : field.min}
-              disabled={
-                disabled ||
-                (field.type === "number" && field.preset === "score")
-              }
-              onChange={(event) =>
-                update(
-                  field.type === "text"
-                    ? { minLength: Number(event.target.value) }
-                    : { min: Number(event.target.value) },
-                )
-              }
-            />
-          </EditorField>
-          <EditorField
-            id={`${prefix}-max`}
-            label={field.type === "text" ? "Maximum characters" : "Maximum"}
-          >
-            <Input
-              id={`${prefix}-max`}
-              type="number"
-              value={field.type === "text" ? field.maxLength : field.max}
-              disabled={
-                disabled ||
-                (field.type === "number" && field.preset === "score")
-              }
-              onChange={(event) =>
-                update(
-                  field.type === "text"
-                    ? { maxLength: Number(event.target.value) }
-                    : { max: Number(event.target.value) },
-                )
-              }
-            />
-          </EditorField>
-          {field.type === "number" && (
-            <EditorSelect
-              id={`${prefix}-direction`}
-              label="Direction"
-              value={field.direction}
-              disabled={disabled}
-              options={[
-                { value: "higher", label: "Higher is better" },
-                { value: "lower", label: "Lower is better" },
-                { value: "none", label: "No ordering" },
-              ]}
-              onChange={(direction) =>
-                update({ direction: direction as "higher" | "lower" | "none" })
-              }
-            />
-          )}
-          {field.type === "number" && field.preset === "custom" && (
-            <Toggle
-              label="Whole numbers only"
-              checked={field.integer}
-              disabled={disabled}
-              onChange={(integer) => update({ integer })}
-            />
-          )}
-        </div>
-      )}
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-2">
+        <h3 className="text-xs font-medium">Grading guidance</h3>
+        <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/85">
+          {field.description}
+        </p>
+      </section>
       {field.type === "category" && (
-        <div className="flex flex-col gap-3">
-          <Toggle
-            label="Allow multiple categories"
-            checked={field.multiple}
-            disabled={disabled}
-            onChange={(multiple) => update({ multiple })}
-          />
-          {field.options.map((option, position) => (
-            <div
-              // biome-ignore lint/suspicious/noArrayIndexKey: Category keys are editable and these controlled rows have no local state.
-              key={position}
-              className="grid items-end gap-3 @xl:grid-cols-[1fr_1fr_auto]"
-            >
-              <EditorField
-                id={`${prefix}-option-${position}-id`}
-                label="Category key"
-              >
-                <Input
-                  id={`${prefix}-option-${position}-id`}
-                  value={option.id}
-                  disabled={disabled}
-                  onChange={(event) =>
-                    update({
-                      options: field.options.map((item, n) =>
-                        n === position
-                          ? { ...item, id: event.target.value }
-                          : item,
-                      ),
-                    })
-                  }
-                />
-              </EditorField>
-              <EditorField
-                id={`${prefix}-option-${position}-label`}
-                label="Category label"
-              >
-                <Input
-                  id={`${prefix}-option-${position}-label`}
-                  value={option.label}
-                  disabled={disabled}
-                  onChange={(event) =>
-                    update({
-                      options: field.options.map((item, n) =>
-                        n === position
-                          ? { ...item, label: event.target.value }
-                          : item,
-                      ),
-                    })
-                  }
-                />
-              </EditorField>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                aria-label={`Remove category ${option.label}`}
-                disabled={disabled || field.options.length <= 2}
-                onClick={() =>
-                  update({
-                    options: field.options.filter((_, n) => n !== position),
-                  })
-                }
-              >
-                <Trash2 />
-              </Button>
-              <div className="@xl:col-span-3">
-                <EditorField
-                  id={`${prefix}-option-${position}-description`}
-                  label="Meaning"
+        <section className="flex flex-col gap-3">
+          <h3 className="text-xs font-medium">Categories</h3>
+          <div className="divide-y rounded-lg border bg-background">
+            {field.options.map((option) => (
+              <div key={option.id} className="flex items-start gap-3 p-3">
+                <Badge
+                  variant="secondary"
+                  className="max-w-40 whitespace-normal break-words text-[11px]"
                 >
-                  <Input
-                    id={`${prefix}-option-${position}-description`}
-                    value={option.description}
-                    disabled={disabled}
-                    onChange={(event) =>
-                      update({
-                        options: field.options.map((item, n) =>
-                          n === position
-                            ? { ...item, description: event.target.value }
-                            : item,
-                        ),
-                      })
-                    }
-                  />
-                </EditorField>
+                  {option.label}
+                </Badge>
+                <p className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground">
+                  {option.description || "No additional guidance."}
+                </p>
               </div>
-            </div>
-          ))}
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={disabled || field.options.length >= 50}
-            className="self-start"
-            onClick={() => {
-              let n = field.options.length + 1;
-              while (
-                field.options.some((option) => option.id === `option_${n}`)
-              )
-                n++;
-              update({
-                options: [
-                  ...field.options,
-                  { id: `option_${n}`, label: `Option ${n}`, description: "" },
-                ],
-              });
-            }}
-          >
-            <Plus />
-            Add category
-          </Button>
-        </div>
+            ))}
+          </div>
+        </section>
       )}
-      {!assessment && (
-        <div className="flex flex-wrap gap-4">
-          <Toggle
-            label="Allow insufficient evidence"
-            checked={field.allowInsufficientEvidence}
-            disabled={disabled}
-            onChange={(allowInsufficientEvidence) =>
-              update({ allowInsufficientEvidence })
-            }
-          />
-          <Toggle
-            label="Allow not applicable"
-            checked={field.allowNotApplicable}
-            disabled={disabled}
-            onChange={(allowNotApplicable) => update({ allowNotApplicable })}
-          />
+      <ScoreFieldEvidenceSummary field={field} />
+      <dl className="flex flex-wrap gap-x-8 gap-y-3 border-t pt-4 text-[11px] text-muted-foreground">
+        <div className="flex flex-col gap-1.5">
+          <dt>Output key</dt>
+          <dd className="font-mono text-foreground" translate="no">
+            {field.id}
+          </dd>
         </div>
-      )}
+        {field.type === "text" && (
+          <div className="flex flex-col gap-1.5">
+            <dt>Length</dt>
+            <dd>
+              {field.minLength}–{field.maxLength} characters
+            </dd>
+          </div>
+        )}
+      </dl>
     </div>
   );
 }

@@ -54,6 +54,10 @@ A group can contain up to 20 fields, including the required assessment. Authorin
 | Number | A custom numeric range, optionally restricted to whole numbers |
 | Category | One configured category or multiple categories; multiple selection can return an empty list when none applies |
 
+In **Fields**, choose a field in the left-hand list to inspect or edit it. In a narrow drawer or on mobile, use the searchable field picker. **Add field** offers each type with a short explanation. Only the selected field’s settings are shown. Its color and icon identify the type, rather than indicating a good or bad result.
+
+Start with the field name and **Grading guidance**, then configure its scale or categories. The **Example output** card illustrates the shape of a value and updates with the configuration; it does not invoke the judge or predict its answer. Use the judge’s **Preview** tab for real results. **Advanced** contains output keys, category keys and text-length limits. Removing a field asks for confirmation; removing a category offers **Undo** until another setting changes.
+
 Numeric fields specify whether higher or lower is better, or have no ordering. Category keys are stable machine-readable values; labels and meanings explain their interpretation. Each field has grading guidance. Custom fields may allow **Not applicable** or **Insufficient evidence** with a reason instead of a value. Assessment always requires text. The judge returns all fields in one response; invalid types, missing fields or values outside the configured bounds produce a visible execution error, rather than a negative quality score.
 
 Editing a shared group creates a new version. Existing judge versions and preview results retain their original group definition and field meanings. Archived groups cannot be selected for new use, while saved references remain readable. The built-in Assessment group cannot be archived. Changes to score groups do not change code-managed checks or automatically grade datasets.

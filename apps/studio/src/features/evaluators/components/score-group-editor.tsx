@@ -39,7 +39,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioHelp } from "@/lib/studio-help";
@@ -500,10 +499,7 @@ function ScoreGroupEditorBody({
                       void setQuery({ groupHistory })
                     }
                   />
-                  <ScrollArea
-                    className="min-h-0 min-w-0 flex-1"
-                    viewportClassName="overscroll-contain"
-                  >
+                  <div className="min-h-0 min-w-0 flex-1">
                     <ScoreGroupFields
                       value={value}
                       editing={editing}
@@ -513,7 +509,7 @@ function ScoreGroupEditorBody({
                         setNotice("");
                       }}
                     />
-                  </ScrollArea>
+                  </div>
                 </div>
               ),
             },
