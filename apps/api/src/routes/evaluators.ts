@@ -5,6 +5,7 @@ import {
   EvaluatorMetadataSchema,
   EvaluatorTargetSchema,
   ScoreGroupDefinitionSchema,
+  ScoreGroupMetadataSchema,
 } from "@kortyx/telemetry-contracts";
 import {
   archiveEvaluator,
@@ -28,6 +29,7 @@ import {
   saveEvaluator,
   saveJudgeScoreGroup,
   updateEvaluatorMetadata,
+  updateJudgeScoreGroupMetadata,
 } from "@kortyx/telemetry-db";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
@@ -126,6 +128,33 @@ export function registerEvaluatorRoutes(
           input.data.definition,
           id.data,
           input.data.revision,
+        ),
+      ),
+    );
+  });
+  app.post(`${root}/score-groups/:groupId/metadata`, async (c) => {
+    await requireApiAction(c, "studio:write");
+    const id = z.uuid().safeParse(c.req.param("groupId"));
+    const input = ScoreGroupMetadataSchema.extend({
+      revision: z.number().int().positive(),
+    }).safeParse(await c.req.json().catch(() => null));
+    if (!id.success || !input.success)
+      return c.json(
+        {
+          error: !input.success
+            ? input.error.issues[0]?.message
+            : "Invalid score-group ID.",
+        },
+        400,
+      );
+    return c.json(
+      await c.get("withTenantDatabase")((db) =>
+        updateJudgeScoreGroupMetadata(
+          db,
+          c.get("principal"),
+          id.data,
+          input.data.revision,
+          { name: input.data.name, description: input.data.description },
         ),
       ),
     );

@@ -21,6 +21,7 @@ import {
   listJudgeScoreGroups,
   publishJudgeScoreGroup,
   saveJudgeScoreGroup,
+  updateJudgeScoreGroupMetadata,
 } from "../src/repositories/judge-score-groups";
 import { organizations, projects } from "../src/schema";
 
@@ -77,6 +78,15 @@ describe.skipIf(!url)("project-owned versioned score groups", () => {
     await expect(
       archiveJudgeScoreGroup(client.db, scope, DEFAULT_SCORE_GROUP_REF.id, 1),
     ).rejects.toThrow("cannot be archived");
+    await expect(
+      updateJudgeScoreGroupMetadata(
+        client.db,
+        scope,
+        DEFAULT_SCORE_GROUP_REF.id,
+        1,
+        { name: "Changed", description: "" },
+      ),
+    ).rejects.toThrow("read-only");
   });
   it("pins output definitions and isolates versions, drafts, conflicts and project scope", async () => {
     let group = await saveJudgeScoreGroup(client.db, scope, definition());
@@ -156,6 +166,84 @@ describe.skipIf(!url)("project-owned versioned score groups", () => {
       (await getEvaluatorDetail(client.db, scope, judge.id)).evaluator.draft
         .scoreGroup,
     ).toEqual({ id, version: 1 });
+  });
+  it("renames metadata without publishing or changing saved output definitions", async () => {
+    let group = await saveJudgeScoreGroup(client.db, scope, definition());
+    const id = group.group.id;
+    group = await publishJudgeScoreGroup(
+      client.db,
+      scope,
+      id,
+      group.group.revision,
+    );
+    const versions = structuredClone(group.versions);
+    const working = {
+      ...definition(),
+      fields: group.group.draft.fields.map((field) => ({
+        ...field,
+        description: "A saved draft rubric that must survive renaming.",
+      })),
+    };
+    group = await saveJudgeScoreGroup(
+      client.db,
+      scope,
+      working,
+      id,
+      group.group.revision,
+    );
+    const revision = group.group.revision;
+    const renamed = await updateJudgeScoreGroupMetadata(
+      client.db,
+      scope,
+      id,
+      revision,
+      { name: "  New group name  ", description: "New description" },
+    );
+    expect(renamed.group.draft.name).toBe("New group name");
+    expect(renamed.group.draft.description).toBe("New description");
+    expect(renamed.group.draft.fields).toEqual(working.fields);
+    expect(renamed.group.revision).toBe(revision + 1);
+    expect(renamed.group.publishedVersion).toBe(1);
+    expect(renamed.versions).toEqual(versions);
+    await expect(
+      updateJudgeScoreGroupMetadata(client.db, scope, id, revision, {
+        name: "Stale",
+        description: "",
+      }),
+    ).rejects.toThrow("changed");
+    await expect(
+      updateJudgeScoreGroupMetadata(
+        client.db,
+        other,
+        id,
+        renamed.group.revision,
+        { name: "Other project", description: "" },
+      ),
+    ).rejects.toThrow("changed");
+    await expect(
+      updateJudgeScoreGroupMetadata(
+        client.db,
+        scope,
+        DEFAULT_SCORE_GROUP_REF.id,
+        1,
+        { name: "Replace default", description: "" },
+      ),
+    ).rejects.toThrow("read-only");
+    const archived = await archiveJudgeScoreGroup(
+      client.db,
+      scope,
+      id,
+      renamed.group.revision,
+    );
+    await expect(
+      updateJudgeScoreGroupMetadata(
+        client.db,
+        scope,
+        id,
+        archived.group.revision,
+        { name: "Archived", description: "" },
+      ),
+    ).rejects.toThrow("changed");
   });
   it("selects Assessment for a new judge when no group is provided", async () => {
     const judge = await saveEvaluator(client.db, scope, {

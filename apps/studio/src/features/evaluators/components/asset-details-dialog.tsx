@@ -12,7 +12,22 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EditorField } from "./editor-fields";
 
-export function JudgeDetailsDialog({
+const detailCopy = {
+  judge: {
+    name: "judge",
+    label: "Judge name",
+    id: "judge",
+    content: "Instructions",
+  },
+  scoreGroup: {
+    name: "score group",
+    label: "Score group name",
+    id: "score-group-details",
+    content: "Output fields",
+  },
+};
+export function AssetDetailsDialog({
+  entity = "judge",
   open,
   onOpenChange,
   name: initialName,
@@ -22,6 +37,7 @@ export function JudgeDetailsDialog({
   onSave,
   onRestoreFocus,
 }: {
+  entity?: keyof typeof detailCopy;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   name: string;
@@ -31,6 +47,7 @@ export function JudgeDetailsDialog({
   onRestoreFocus: () => void;
   onSave: (metadata: { name: string; description: string }) => Promise<void>;
 }) {
+  const copy = detailCopy[entity];
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
   const [busy, setBusy] = useState(false);
@@ -57,11 +74,11 @@ export function JudgeDetailsDialog({
       >
         <div className="flex flex-col gap-1">
           <DialogTitle className="text-sm font-semibold">
-            {existing ? "Rename judge" : "Name judge"}
+            {`${existing ? "Rename" : "Name"} ${copy.name}`}
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Update the judge's name and description. Instructions and saved
-            versions are kept separately.
+            Update the {copy.name}'s name and description. {copy.content} and
+            saved versions are kept separately.
           </DialogDescription>
         </div>
         <form
@@ -78,7 +95,7 @@ export function JudgeDetailsDialog({
               setError(
                 cause instanceof Error
                   ? cause.message
-                  : "Could not update judge details.",
+                  : `Could not update ${copy.name} details.`,
               );
             } finally {
               setBusy(false);
@@ -86,18 +103,18 @@ export function JudgeDetailsDialog({
           }}
         >
           <fieldset disabled={busy} className="flex flex-col gap-4">
-            <EditorField id="judge-name" label="Judge name">
+            <EditorField id={`${copy.id}-name`} label={copy.label}>
               <Input
-                id="judge-name"
+                id={`${copy.id}-name`}
                 value={name}
                 required
                 maxLength={200}
                 onChange={(event) => setName(event.target.value)}
               />
             </EditorField>
-            <EditorField id="judge-description" label="Description">
+            <EditorField id={`${copy.id}-description`} label="Description">
               <Textarea
-                id="judge-description"
+                id={`${copy.id}-description`}
                 value={description}
                 maxLength={2000}
                 rows={3}

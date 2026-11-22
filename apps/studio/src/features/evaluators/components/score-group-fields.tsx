@@ -101,40 +101,10 @@ export function ScoreGroupFields({
   const [kind, setKind] = useState("score");
   return (
     <div className="flex flex-col gap-5 p-4 @lg:p-5" data-score-group-fields>
-      {editing ? (
-        <div className="grid items-start gap-4 @xl:grid-cols-2">
-          <EditorField id="score-group-name" label="Group name">
-            <Input
-              id="score-group-name"
-              value={value.name}
-              disabled={disabled}
-              maxLength={200}
-              onChange={(event) =>
-                onChange({ ...value, name: event.target.value })
-              }
-              placeholder="e.g. Answer quality"
-            />
-          </EditorField>
-          <EditorField id="score-group-description" label="Description">
-            <Textarea
-              id="score-group-description"
-              value={value.description}
-              disabled={disabled}
-              rows={2}
-              maxLength={2000}
-              onChange={(event) =>
-                onChange({ ...value, description: event.target.value })
-              }
-              placeholder="When should this group be used?"
-            />
-          </EditorField>
-        </div>
-      ) : (
-        value.description && (
-          <p className="text-xs leading-5 text-muted-foreground">
-            {value.description}
-          </p>
-        )
+      {value.description && (
+        <p className="text-xs leading-5 text-muted-foreground">
+          {value.description}
+        </p>
       )}
       <div className="flex flex-col gap-1">
         <h2 className="text-xs font-medium">Output fields</h2>

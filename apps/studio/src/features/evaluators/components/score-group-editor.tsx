@@ -7,9 +7,16 @@ import {
   ScoreGroupDetailSchema,
   scoreGroupOutputSchema,
 } from "@kortyx/telemetry-contracts";
-import { Archive, Copy, MoreHorizontal, Plus, Save } from "lucide-react";
+import {
+  Archive,
+  Copy,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Save,
+} from "lucide-react";
 import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
   DetailDrawer,
@@ -37,6 +44,7 @@ import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter, useSearchParams } from "@/lib/scoped-navigation";
 import { studioHelp } from "@/lib/studio-help";
 import { evaluatorRequest } from "../api/client";
+import { AssetDetailsDialog } from "./asset-details-dialog";
 import { EvaluatorDetailHeader } from "./evaluator-detail-header";
 import {
   JudgeVersionHistory,
@@ -112,6 +120,11 @@ function ScoreGroupEditorBody({
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [saveIntent, setSaveIntent] = useState<"draft" | "version" | null>(
+    null,
+  );
+  const actionsTrigger = useRef<HTMLButtonElement>(null);
   const builtin = detail?.group.builtin ?? false;
   const archived = detail?.group.archived ?? false;
   const editing =
@@ -122,7 +135,13 @@ function ScoreGroupEditorBody({
   const selected =
     detail?.versions.find((version) => version.version === query.groupV) ??
     detail?.versions[0];
-  const value = editing ? draft : (selected?.definition ?? draft);
+  const value = editing
+    ? draft
+    : {
+        ...(selected?.definition ?? draft),
+        name: detail?.group.draft.name ?? draft.name,
+        description: detail?.group.draft.description ?? draft.description,
+      };
   const dirty = JSON.stringify(draft) !== saved;
   const title = detail?.group.draft.name || draft.name || "New score group";
   useEffect(() => onTitleChange(title), [title, onTitleChange]);
@@ -140,8 +159,8 @@ function ScoreGroupEditorBody({
   const hasDraft =
     !detail?.versions[0] ||
     dirty ||
-    JSON.stringify(detail.group.draft) !==
-      JSON.stringify(detail.versions[0].definition);
+    JSON.stringify(detail.group.draft.fields) !==
+      JSON.stringify(detail.versions[0].definition.fields);
   const history = {
     versions: detail?.versions ?? [],
     selectedVersion: selected?.version,
@@ -174,8 +193,8 @@ function ScoreGroupEditorBody({
     }
     return next;
   };
-  const persist = async () => {
-    const definition = ScoreGroupDefinitionSchema.parse(draft);
+  const persist = async (input = draft) => {
+    const definition = ScoreGroupDefinitionSchema.parse(input);
     const result = ScoreGroupDetailSchema.parse(
       await evaluatorRequest(
         `score-groups${detail ? `/${detail.group.id}` : ""}`,
@@ -188,12 +207,20 @@ function ScoreGroupEditorBody({
     owner?.saved(result.group);
     return result;
   };
-  const save = async (publish: boolean) => {
+  const save = async (publish: boolean, input = draft) => {
+    if (!input.name.trim()) {
+      setSaveIntent(publish ? "version" : "draft");
+      setDetailsOpen(true);
+      return;
+    }
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      let next = dirty || !detail ? await persist() : detail;
+      let next =
+        JSON.stringify(input) !== saved || !detail
+          ? await persist(input)
+          : detail;
       if (publish)
         next = ScoreGroupDetailSchema.parse(
           await evaluatorRequest(`score-groups/${next.group.id}/publish`, {
@@ -247,7 +274,39 @@ function ScoreGroupEditorBody({
       setBusy(false);
     }
   };
-  const valid = ScoreGroupDefinitionSchema.safeParse(value);
+  const renameGroup = async (metadata: {
+    name: string;
+    description: string;
+  }) => {
+    if (!detail) {
+      const next = { ...draft, ...metadata };
+      setDraft(next);
+      if (saveIntent) await save(saveIntent === "version", next);
+      setSaveIntent(null);
+      return;
+    }
+    const result = ScoreGroupDetailSchema.parse(
+      await evaluatorRequest(`score-groups/${detail.group.id}/metadata`, {
+        ...metadata,
+        revision: detail.group.revision,
+      }),
+    );
+    const savedMetadata = {
+      name: result.group.draft.name,
+      description: result.group.draft.description,
+    };
+    setDetail(result);
+    setDraft((previous) => ({ ...previous, ...savedMetadata }));
+    setSaved((previous) =>
+      JSON.stringify({ ...JSON.parse(previous), ...savedMetadata }),
+    );
+    owner?.saved(result.group);
+    setNotice("Score group details updated.");
+  };
+  const valid = ScoreGroupDefinitionSchema.safeParse({
+    ...value,
+    name: value.name.trim() || "New score group",
+  });
   const sample = Object.fromEntries(
     value.fields.map((field) => [
       field.id,
@@ -350,7 +409,12 @@ function ScoreGroupEditorBody({
                   return;
                 }
                 if (!hasDraft && selected)
-                  setDraft(structuredClone(selected.definition));
+                  setDraft({
+                    ...structuredClone(selected.definition),
+                    name: detail?.group.draft.name ?? draft.name,
+                    description:
+                      detail?.group.draft.description ?? draft.description,
+                  });
                 void setQuery({
                   groupEdit: true,
                   groupV: null,
@@ -371,12 +435,13 @@ function ScoreGroupEditorBody({
           )
         )}
         {canEdit && !builtin && !archived && (
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button
                 size="icon-sm"
                 variant="ghost"
                 aria-label="Score group actions"
+                ref={actionsTrigger}
                 disabled={busy}
               >
                 <MoreHorizontal />
@@ -384,6 +449,10 @@ function ScoreGroupEditorBody({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={() => setDetailsOpen(true)}>
+                  <Pencil />
+                  Rename score group
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void duplicate()}>
                   <Copy />
                   Duplicate group
@@ -493,6 +562,26 @@ function ScoreGroupEditorBody({
           ]}
         />
       </div>
+      <AssetDetailsDialog
+        entity="scoreGroup"
+        open={detailsOpen}
+        onOpenChange={(open) => {
+          setDetailsOpen(open);
+          if (!open) setSaveIntent(null);
+        }}
+        name={draft.name}
+        description={draft.description}
+        existing={Boolean(detail)}
+        submitLabel={
+          saveIntent === "draft"
+            ? "Save draft"
+            : saveIntent === "version"
+              ? "Save version"
+              : "Save details"
+        }
+        onRestoreFocus={() => actionsTrigger.current?.focus()}
+        onSave={renameGroup}
+      />
       <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <DialogContent>
           <DialogTitle>Archive score group?</DialogTitle>

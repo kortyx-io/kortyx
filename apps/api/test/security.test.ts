@@ -431,6 +431,7 @@ describe("score-group authorization", () => {
     "/00000000-0000-4000-8000-000000000020",
     "/00000000-0000-4000-8000-000000000020/publish",
     "/00000000-0000-4000-8000-000000000020/archive",
+    "/00000000-0000-4000-8000-000000000020/metadata",
   ])("denies writes for a read-only operator: %s", async (suffix) => {
     const { app } = setup();
     expect(

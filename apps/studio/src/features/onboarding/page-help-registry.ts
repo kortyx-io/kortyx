@@ -26,7 +26,7 @@ export const PAGE_GUIDES = {
     overview:
       "Score groups define the judge’s typed output and grading guidance. Groups are shared across judges; a saved judge pins an immutable group version. Assessment is always available and read-only.",
     content:
-      "Fields defines text, boolean, numeric and category outputs. Use Output to inspect the generated contract. Save a group version, then Use this version to return to the judge. Save the judge to keep that selection.",
+      "Fields defines text, boolean, numeric and category outputs. Rename score group in the header menu edits its name and description in a modal. Use Output to inspect the generated contract. Save a group version, then Use this version to return to the judge. Save the judge to keep that selection.",
     example: "/evaluators/score-groups/00000000-0000-4000-8000-000000000020",
   },
   runs: {
@@ -400,7 +400,7 @@ export const DETAIL_TAB_HELP = {
   },
   "score-group": {
     fields:
-      "A group defines typed output fields, grading guidance and bounds. Assessment is required. Numeric fields offer Score 0–1, Rating, and custom ranges; categories can allow multiple selections. Saving a new group version never changes published judges.",
+      "A group defines typed output fields, grading guidance and bounds. Assessment is required. Numeric fields offer Score 0–1, Rating, and custom ranges; categories can allow multiple selections. Rename score group edits its name and description without publishing a version. Saving a new group version never changes published judges.",
     output:
       "This is an illustrative output contract, not a model result. All configured fields validate together. A scored field needs a typed value; allowed insufficient-evidence and not-applicable states carry null and a reason. Test real output in the judge’s Preview tab.",
   },

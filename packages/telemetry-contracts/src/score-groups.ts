@@ -117,6 +117,13 @@ export const ScoreGroupDefinitionSchema = z
       });
   });
 export type ScoreGroupDefinition = z.infer<typeof ScoreGroupDefinitionSchema>;
+export const ScoreGroupMetadataSchema = z
+  .object({
+    name: ScoreGroupDefinitionSchema.shape.name,
+    description: ScoreGroupDefinitionSchema.shape.description,
+  })
+  .strict();
+
 export const ScoreGroupVersionSchema = z.object({
   groupId: z.uuid(),
   version: z.number().int().positive(),

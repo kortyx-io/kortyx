@@ -39,10 +39,10 @@ import { useRouter } from "@/lib/scoped-navigation";
 import { studioHelp } from "@/lib/studio-help";
 import { evaluatorRequest } from "../api/client";
 import type { EvaluatorPreviewData } from "../schema";
+import { AssetDetailsDialog } from "./asset-details-dialog";
 import { EvaluatorDetailHeader } from "./evaluator-detail-header";
 import { EvaluatorPreview } from "./evaluator-preview";
 import { JudgeContentEditor } from "./judge-content-editor";
-import { JudgeDetailsDialog } from "./judge-details-dialog";
 import { JudgeScoreGroups } from "./judge-score-groups";
 import {
   JudgeVersionHistory,
@@ -418,7 +418,7 @@ function EvaluatorEditorContent({
             </span>
           </Button>
         )}
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               size="icon-sm"
@@ -504,7 +504,7 @@ function EvaluatorEditorContent({
                       }}
                       scoreGroupSummary={
                         value.scoreGroup
-                          ? `${scoreVersions.find((group) => group.groupId === value.scoreGroup?.id && group.version === value.scoreGroup.version)?.definition.name ?? "Score group"} · v${value.scoreGroup.version}`
+                          ? `${scoreGroups.groups.find((group) => group.id === value.scoreGroup?.id)?.draft.name ?? scoreVersions.find((group) => group.groupId === value.scoreGroup?.id && group.version === value.scoreGroup.version)?.definition.name ?? "Score group"} · v${value.scoreGroup.version}`
                           : editing
                             ? "Assessment · v1"
                             : "Legacy verdict"
@@ -583,7 +583,7 @@ function EvaluatorEditorContent({
           ]}
         />
       </div>
-      <JudgeDetailsDialog
+      <AssetDetailsDialog
         open={detailsOpen}
         onOpenChange={(open) => {
           setDetailsOpen(open);

@@ -10,7 +10,7 @@ export async function proxyEvaluatorRequest(request: Request, parts: string[]) {
   if (sample) return sample;
   const path = parts.join("/");
   if (
-    !/^(?:score-groups(?:\/[a-f0-9-]{36}(?:\/(?:publish|archive|versions\/[1-9][0-9]*))?)?|recordings|executions\/[a-f0-9-]{36}|[a-f0-9-]{36}(?:\/(?:publish|archive|preview|evidence|metadata))?)?$/.test(
+    !/^(?:score-groups(?:\/[a-f0-9-]{36}(?:\/(?:publish|archive|metadata|versions\/[1-9][0-9]*))?)?|recordings|executions\/[a-f0-9-]{36}|[a-f0-9-]{36}(?:\/(?:publish|archive|preview|evidence|metadata))?)?$/.test(
       path,
     )
   )

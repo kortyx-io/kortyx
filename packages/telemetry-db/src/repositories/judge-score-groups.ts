@@ -4,10 +4,11 @@ import {
   ScoreGroupAssetSchema,
   type ScoreGroupDefinition,
   ScoreGroupDefinitionSchema,
+  ScoreGroupMetadataSchema,
   type ScoreGroupVersion,
   ScoreGroupVersionSchema,
 } from "@kortyx/telemetry-contracts";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { TelemetryDb } from "../client";
 import { TelemetryNotFoundError, TelemetryValidationError } from "../errors";
 import {
@@ -164,6 +165,42 @@ export async function saveJudgeScoreGroup(
     );
   return getJudgeScoreGroup(db, scope, id);
 }
+/** Asset metadata changes independently of immutable output definitions. */
+export async function updateJudgeScoreGroupMetadata(
+  db: TelemetryDb,
+  scope: Scope,
+  id: string,
+  revision: number,
+  input: { name: string; description: string },
+) {
+  const metadata = ScoreGroupMetadataSchema.parse(input);
+  if (id === DEFAULT_SCORE_GROUP_REF.id)
+    throw new TelemetryValidationError(
+      "Assessment is read-only. Duplicate it to customize.",
+    );
+  const [row] = await db
+    .update(groups)
+    .set({
+      draft: sql`${groups.draft} || ${JSON.stringify(metadata)}::jsonb`,
+      revision: sql`${groups.revision} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        where(groups, scope),
+        eq(groups.id, id),
+        eq(groups.revision, revision),
+        eq(groups.archived, false),
+      ),
+    )
+    .returning({ id: groups.id });
+  if (!row)
+    throw new TelemetryValidationError(
+      "Score group changed. Reload before renaming.",
+    );
+  return getJudgeScoreGroup(db, scope, id);
+}
+
 export async function publishJudgeScoreGroup(
   db: TelemetryDb,
   scope: Scope,
