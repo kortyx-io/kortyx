@@ -25,7 +25,7 @@ export function ScoreFieldExample({ field }: { field: ScoreField }) {
     <section
       aria-label="Example field output"
       className={cn(
-        "flex flex-col gap-4 rounded-xl border p-4",
+        "flex flex-col gap-2.5 rounded-lg border p-3",
         type.background,
       )}
     >
@@ -39,7 +39,7 @@ export function ScoreFieldExample({ field }: { field: ScoreField }) {
       {field.type === "number" ? (
         validRange ? (
           <>
-            <p className="text-2xl font-semibold tabular-nums tracking-tight">
+            <p className="text-xl font-semibold leading-6 tabular-nums tracking-tight">
               {new Intl.NumberFormat("en-US", {
                 maximumFractionDigits: 2,
               }).format(number)}
@@ -50,7 +50,7 @@ export function ScoreFieldExample({ field }: { field: ScoreField }) {
               )}
             </p>
             <div>
-              <div className="h-2 overflow-hidden rounded-full bg-background/80">
+              <div className="h-1.5 overflow-hidden rounded-full bg-background/80">
                 <div
                   className={cn(
                     "h-full rounded-full bg-current opacity-70",
@@ -61,12 +61,12 @@ export function ScoreFieldExample({ field }: { field: ScoreField }) {
                   }}
                 />
               </div>
-              <div className="mt-1.5 flex justify-between text-[10px] tabular-nums text-muted-foreground">
+              <div className="mt-1 flex justify-between text-[10px] leading-3 tabular-nums text-muted-foreground">
                 <span>{min}</span>
                 <span>{max}</span>
               </div>
             </div>
-            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-[10px] leading-4 text-muted-foreground">
               {field.direction === "higher" ? (
                 <>
                   <TrendingUp className="size-3.5" aria-hidden="true" />
@@ -108,19 +108,18 @@ export function ScoreFieldExample({ field }: { field: ScoreField }) {
           ))}
         </div>
       ) : (
-        <p className="text-sm leading-6">
-          A written explanation of the conclusion, supporting evidence and any
-          limitations.
+        <p className="text-xs leading-5">
+          Explains the conclusion, evidence and limitations.
         </p>
       )}
-      <p className="text-[11px] leading-5 text-muted-foreground">
+      <p className="text-[10px] leading-4 text-muted-foreground">
         {field.type === "category"
           ? field.multiple
-            ? "The judge can return any matching categories, including none."
-            : "The judge returns one of your categories."
+            ? "Returns matching categories, or none."
+            : "Returns one category."
           : field.type === "boolean"
-            ? "The judge returns true or false, with a reason."
-            : "Actual values are generated when you run the judge."}
+            ? "Returns true or false with a reason."
+            : "Run Preview for actual results."}
       </p>
     </section>
   );

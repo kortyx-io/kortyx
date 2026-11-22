@@ -133,14 +133,14 @@ export function ScoreGroupFields({
                 ).map(([kind, type]) => (
                   <DropdownMenuItem
                     key={kind}
-                    className="items-start gap-3 py-2.5"
+                    className="items-center gap-2.5 py-2"
                     onSelect={() => add(kind)}
                   >
                     <ScoreFieldMark kind={kind} small />
-                    <span className="flex flex-col gap-1">
-                      <span className="text-xs font-medium">
+                    <span className="flex flex-col">
+                      <span className="text-xs font-medium leading-4">
                         {type.label}{" "}
-                        <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                        <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
                           {type.detail}
                         </span>
                       </span>
@@ -257,24 +257,28 @@ export function ScoreGroupFields({
               className="@container/field-workspace mx-auto flex w-full max-w-5xl flex-col gap-6 p-5 @lg/score-fields:p-7"
               data-score-field-detail
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-3">
                 <ScoreFieldMark kind={kind} />
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <h2
                     id={titleId}
-                    className="break-words text-base font-semibold leading-6"
+                    title={field.label || "Unnamed field"}
+                    className="truncate text-base font-semibold leading-5"
                   >
                     {field.label || "Unnamed field"}
                   </h2>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex h-4 items-center gap-2">
                     <Badge
                       variant="outline"
-                      className={cn("text-[10px]", type.background)}
+                      className={cn(
+                        "h-4 px-1.5 py-0 text-[10px] leading-none",
+                        type.background,
+                      )}
                     >
                       {scoreFieldLabel(field)}
                     </Badge>
                     {requiredAssessment && (
-                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span className="flex h-4 shrink-0 items-center gap-1 text-[10px] leading-4 text-muted-foreground">
                         <LockKeyhole className="size-3" aria-hidden="true" />
                         Required
                       </span>
