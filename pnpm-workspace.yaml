@@ -15,7 +15,7 @@ catalog:
   "@opentelemetry/api": ^1.9.0
   "@radix-ui/react-dialog": ^1.1.15
   "@tailwindcss/postcss": ^4
-  "@types/node": ^20
+  "@types/node": ^26
   "@vitest/coverage-v8": ^4.1.12
   "@types/react": ^19
   "@types/react-dom": ^19
