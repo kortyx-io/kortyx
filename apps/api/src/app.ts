@@ -117,9 +117,7 @@ export const createApiApp = (options: CreateApiAppOptions) => {
   app.use("/v1/*", async (c, next) => {
     const segment = c.req.path.split("/")[2];
     const evaluatorResource = c.req.path.split("/")[3];
-    const evaluatorRequest = ["evaluators", "score-groups"].includes(
-      evaluatorResource ?? "",
-    );
+    const evaluatorRequest = evaluatorResource === "evaluators";
     const operation = evaluatorRequest
       ? "studio.evaluator"
       : segment === "telemetry"
@@ -186,8 +184,6 @@ export const createApiApp = (options: CreateApiAppOptions) => {
   registerEvaluatorRoutes(app, {
     models: options.evaluatorModels,
     workerAvailable: options.evaluatorWorkerAvailable ?? false,
-    targets: options.evalTargets ?? [],
-    targetAdapter: options.evalTargetAdapter,
   });
   registerStudioReviewRoutes(app);
   registerStudioChangeRoutes(

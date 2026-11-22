@@ -8,7 +8,6 @@ import { KeyValue } from "@/components/detail/detail-primitives";
 import { type DetailTab, DetailTabs } from "@/components/detail/detail-tabs";
 import { Button } from "@/components/ui/button";
 import { ErrorNotices } from "@/features/diagnostics/error-notices";
-import { RecordEvaluatorScores } from "@/features/evaluators/components/record-scores";
 import { formatDateTime, formatDurationMs } from "@/lib/format";
 import {
   caseRows,
@@ -80,12 +79,7 @@ export function EvalRunDetail({
     {
       id: "context",
       label: "Configuration",
-      content: (
-        <>
-          <EvalRunConfiguration run={run} />
-          <RecordEvaluatorScores evalRunId={run.id} />
-        </>
-      ),
+      content: <EvalRunConfiguration run={run} />,
     },
   ];
   return (

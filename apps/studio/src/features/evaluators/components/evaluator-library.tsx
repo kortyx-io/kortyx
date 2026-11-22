@@ -17,7 +17,7 @@ export function EvaluatorLibraryView({
       filter: false,
       defaultWidth: 220,
       key: "name",
-      label: "Evaluator",
+      label: "Judge",
       help: studioHelp.evaluators,
       render: (r) => (
         <Link
@@ -38,26 +38,13 @@ export function EvaluatorLibraryView({
     {
       filter: false,
       defaultWidth: 220,
-      key: "group",
-      label: "Score group",
-      help: studioHelp.scoreGroups,
-      render: (r) =>
-        library.scoreGroups.find(
-          (g) =>
-            g.id === r.draft.scoreGroup.id &&
-            g.version === r.draft.scoreGroup.version,
-        )?.name ?? "Unavailable",
-    },
-    {
-      filter: false,
-      defaultWidth: 220,
       key: "state",
-      label: "Published",
+      label: "Version",
       render: (r) =>
         r.archived
           ? "Archived"
           : r.publishedVersion
-            ? `Version ${r.publishedVersion}`
+            ? `v${r.publishedVersion}`
             : "Draft",
     },
     {
@@ -74,18 +61,18 @@ export function EvaluatorLibraryView({
       columns={columns}
       data={library.evaluators}
       getRowKey={(r) => r.id}
-      search={{ placeholder: "Search evaluators…" }}
+      search={{ placeholder: "Search judges…" }}
       header={
         <TablePageHeader
           title="Evaluators"
-          description="Reusable judges for experiments and recorded application runs"
+          description="Versioned judge instructions with Kortyx-aware context"
           help={studioHelp.evaluators}
           actions={
             library.canEdit ? (
               <Button size="sm" asChild>
                 <Link href="/evaluators/new">
                   <Plus />
-                  New evaluator
+                  New judge
                 </Link>
               </Button>
             ) : undefined
@@ -94,14 +81,14 @@ export function EvaluatorLibraryView({
       }
       emptyState={
         <div className="flex flex-col items-center gap-3 p-8">
-          <h2 className="font-medium">Create your first evaluator</h2>
+          <h2 className="font-medium">Create your first judge</h2>
           <p className="max-w-lg text-center text-sm text-muted-foreground">
-            Choose a prompt, model and score group, then preview the judge
-            against recorded evidence before publishing.
+            Write judge instructions, inspect the available variables, and
+            preview a recorded case before saving a version.
           </p>
           {library.canEdit && (
             <Button asChild>
-              <Link href="/evaluators/new">New evaluator</Link>
+              <Link href="/evaluators/new">New judge</Link>
             </Button>
           )}
         </div>

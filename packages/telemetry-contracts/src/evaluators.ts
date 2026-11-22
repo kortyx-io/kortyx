@@ -2,97 +2,109 @@ import { z } from "zod";
 
 const label = z.string().trim().min(1).max(200);
 const version = z.number().int().positive();
-const fieldBase = {
-  id: z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),
-  label,
-  description: z.string().trim().min(1).max(4000),
-  abstain: z.boolean().default(false),
+export const JUDGE_VARIABLES = [
+  {
+    path: "criterion",
+    label: "Criterion",
+    description:
+      "The expected behavior for the selected dataset step, when supplied.",
+  },
+  {
+    path: "criterion.text",
+    label: "Criterion text",
+    description: "The selected case's expected behavior.",
+  },
+  {
+    path: "input",
+    label: "Input",
+    description: "The user message or response to human input.",
+  },
+  {
+    path: "observation",
+    label: "Observation",
+    description:
+      "The captured answer, structured outputs, events and human pause.",
+  },
+  {
+    path: "observation.type",
+    label: "Observation type",
+    description: "Answer, interrupt, error or cancellation.",
+  },
+  {
+    path: "observation.text",
+    label: "Response text",
+    description: "Text captured from the evaluated application.",
+  },
+  {
+    path: "observation.structured",
+    label: "Structured output",
+    description: "Captured public structured outputs.",
+  },
+  {
+    path: "observation.events",
+    label: "Execution events",
+    description:
+      "Selected public events, including tool inputs, results and errors.",
+  },
+  {
+    path: "observation.interrupt",
+    label: "Human pause",
+    description: "The captured question and offered choices, when available.",
+  },
+  {
+    path: "reference",
+    label: "Reference facts",
+    description: "Expected facts supplied by the dataset, when available.",
+  },
+  {
+    path: "conversation",
+    label: "Conversation",
+    description:
+      "Recorded inputs and observations preceding the selected step.",
+  },
+] as const;
+export const DEFAULT_JUDGE_CONTENT = {
+  instructions:
+    "Evaluate the observed response against the supplied criterion when present. Use the recorded input, reference facts, conversation and public execution events as evidence. Accept equivalent wording and any valid internal execution path. Do not add requirements the criterion does not contain.\n\nCheck factual claims against successful tool results and reference facts. An assistant's own claims are not independent proof. Missing events do not prove an action never occurred. Explain missing evidence without inventing facts.\n\nAn interrupt is a pause for human input, not a completed answer. Judge the question and offered choices at that step. Structured output is emitted data, not proof of frontend visibility.",
+  context:
+    "Criterion: {{criterion}}\nInput: {{input}}\nCurrent observation: {{observation}}\nReference facts: {{reference}}\nPreceding conversation: {{conversation}}",
 };
-export const ScoreFieldSchema = z.discriminatedUnion("type", [
-  z
-    .object({
-      ...fieldBase,
-      type: z.literal("text"),
-      maxLength: z.number().int().min(1).max(4000).default(2000),
-    })
-    .strict(),
-  z.object({ ...fieldBase, type: z.literal("boolean") }).strict(),
-  z
-    .object({
-      ...fieldBase,
-      type: z.literal("numeric"),
-      min: z.number().finite(),
-      max: z.number().finite(),
-      direction: z.enum(["higher", "lower"]),
-    })
-    .strict(),
-  z
-    .object({
-      ...fieldBase,
-      type: z.literal("categorical"),
-      categories: z.array(label).min(2).max(20),
-    })
-    .strict(),
-]);
-export const ScoreGroupDefinitionSchema = z
-  .object({ name: label, fields: z.array(ScoreFieldSchema).min(1).max(20) })
+export const JudgeContentSchema = z
+  .object({
+    instructions: z.string().trim().min(1).max(40000),
+    context: z.string().trim().min(1).max(16000),
+  })
   .strict()
-  .superRefine((group, ctx) => {
-    if (new Set(group.fields.map((f) => f.id)).size !== group.fields.length)
-      ctx.addIssue({
-        code: "custom",
-        message: "Each field needs a unique ID.",
-      });
-    const assessment = group.fields.find((f) => f.id === "assessment");
-    if (!assessment || assessment.type !== "text" || assessment.abstain)
-      ctx.addIssue({
-        code: "custom",
-        message: "Include a required assessment text field.",
-      });
-    for (const field of group.fields) {
-      if (field.type === "numeric" && field.min >= field.max)
+  .superRefine((content, ctx) => {
+    for (const [field, text] of Object.entries(content)) {
+      if (/\{\{\s*>|\[\[prompt:/.test(text))
         ctx.addIssue({
           code: "custom",
-          message: "Numeric minimum must be less than maximum.",
+          path: [field],
+          message:
+            "Judges own their instructions and cannot include ordinary Prompts.",
         });
-      if (
-        field.type === "categorical" &&
-        new Set(field.categories).size !== field.categories.length
-      )
-        ctx.addIssue({ code: "custom", message: "Categories must be unique." });
+      for (const match of text.matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)) {
+        if (
+          !JUDGE_VARIABLES.some(
+            (variable) => variable.path === match[1]?.trim(),
+          )
+        )
+          ctx.addIssue({
+            code: "custom",
+            path: [field],
+            message: `Unknown judge variable: ${match[1]?.trim()}.`,
+          });
+      }
     }
   });
-export const ScoreGroupSchema = ScoreGroupDefinitionSchema.safeExtend({
-  id: z.string().min(1),
-  version,
-});
-export const DEFAULT_ASSESSMENT_GROUP = ScoreGroupSchema.parse({
-  id: "assessment",
-  version: 1,
-  name: "Assessment",
-  fields: [
-    {
-      id: "assessment",
-      label: "Assessment",
-      type: "text",
-      description:
-        "Explain the conclusion and any limitations in the recorded evidence.",
-      abstain: false,
-      maxLength: 2000,
-    },
-  ],
-});
 export const EvaluatorDefinitionSchema = z
   .object({
     name: label,
     description: z.string().max(2000).default(""),
-    prompt: z.object({ id: z.uuid(), version }).strict(),
+    content: JudgeContentSchema,
     model: label,
-    scoreGroup: z
-      .object({ id: z.string().min(1).max(200), version })
-      .strict()
-      .default({ id: "assessment", version: 1 }),
-    evidence: z.enum(["response", "trajectory"]).default("response"),
+    evidence: z.enum(["response", "trajectory"]).default("trajectory"),
   })
   .strict();
 export const EvaluatorSchema = z.object({
@@ -120,49 +132,16 @@ export const EvaluatorTargetSchema = z.discriminatedUnion("type", [
       evalRunId: z.uuid(),
       caseId: z.string().min(1).max(512),
       repetition: version,
+      stepIndex: z.number().int().nonnegative().optional(),
+      criterionId: z.string().max(512).optional(),
     })
     .strict(),
 ]);
-export const EvaluatorRuleDefinitionSchema = z
+export const JudgeVerdictSchema = z
   .object({
-    name: label,
-    evaluatorVersion: version,
-    environment: label,
-    stage: z.enum(["completed", "paused"]).default("completed"),
-    workflowId: z.string().max(512).default(""),
-    sampleRate: z.number().gt(0).max(1),
-    dailyLimit: z.number().int().min(1).max(10000),
-    enabled: z.boolean().default(false),
-  })
-  .strict();
-export const EvaluatorRuleSchema = EvaluatorRuleDefinitionSchema.extend({
-  id: z.uuid(),
-  evaluatorId: z.uuid(),
-  revision: version,
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-export const ScoreFieldResultSchema = z
-  .object({
-    fieldId: z.string(),
-    status: z.enum(["scored", "not_applicable", "insufficient_evidence"]),
-    value: z.union([z.string(), z.number().finite(), z.boolean()]).optional(),
-    evidence: z
-      .array(
-        z
-          .object({
-            eventId: z.string().min(1).max(512).optional(),
-            recordingId: z.string().min(1).max(512).optional(),
-            path: z.string().max(512).optional(),
-          })
-          .strict()
-          .refine(
-            (ref) => Boolean(ref.eventId) !== Boolean(ref.recordingId),
-            "Reference one event or recording.",
-          ),
-      )
-      .max(20)
-      .default([]),
+    passed: z.boolean(),
+    reason: z.string().min(1),
+    evidence: z.array(z.string()),
   })
   .strict();
 export const EvaluatorExecutionSchema = z.object({
@@ -172,10 +151,9 @@ export const EvaluatorExecutionSchema = z.object({
   evaluatorName: z.string(),
   environment: z.string(),
   target: EvaluatorTargetSchema,
-  source: z.enum(["preview", "manual", "rule", "experiment"]),
+  source: z.literal("preview"),
   status: z.enum(["queued", "running", "completed", "error", "cancelled"]),
-  scoreGroup: ScoreGroupSchema,
-  scores: z.array(ScoreFieldResultSchema).nullable(),
+  verdict: JudgeVerdictSchema.nullable(),
   evidence: z.unknown(),
   renderedMessages: z.array(
     z.object({
@@ -201,15 +179,10 @@ export const EvaluatorExecutionSchema = z.object({
 export const EvaluatorExecutionSummarySchema = EvaluatorExecutionSchema.omit({
   evidence: true,
   renderedMessages: true,
-  scores: true,
-  scoreGroup: true,
+  verdict: true,
 });
-export type EvaluatorExecutionSummary = z.infer<
-  typeof EvaluatorExecutionSummarySchema
->;
 export const EvaluatorLibrarySchema = z.object({
   evaluators: z.array(EvaluatorSchema),
-  scoreGroups: z.array(ScoreGroupSchema),
   models: z.array(z.string()),
   canEdit: z.boolean(),
   canRun: z.boolean(),
@@ -221,66 +194,18 @@ export const EvaluatorDetailSchema = z.object({
     z.object({
       version,
       definition: EvaluatorDefinitionSchema,
+      hash: z.string(),
       createdAt: z.string(),
     }),
   ),
-  rules: z.array(EvaluatorRuleSchema),
   executions: z.array(EvaluatorExecutionSummarySchema),
-  datasets: z.array(
-    z.object({
-      targetId: z.string(),
-      suiteId: z.string(),
-      evaluatorVersion: version,
-    }),
-  ),
 });
-export type ScoreGroup = z.infer<typeof ScoreGroupSchema>;
 export type EvaluatorDefinition = z.infer<typeof EvaluatorDefinitionSchema>;
 export type EvaluatorReference = z.infer<typeof EvaluatorReferenceSchema>;
 export type EvaluatorTarget = z.infer<typeof EvaluatorTargetSchema>;
-export type EvaluatorRuleDefinition = z.infer<
-  typeof EvaluatorRuleDefinitionSchema
->;
-export type EvaluatorRule = z.infer<typeof EvaluatorRuleSchema>;
 export type EvaluatorExecution = z.infer<typeof EvaluatorExecutionSchema>;
+export type EvaluatorExecutionSummary = z.infer<
+  typeof EvaluatorExecutionSummarySchema
+>;
 export type EvaluatorLibrary = z.infer<typeof EvaluatorLibrarySchema>;
 export type EvaluatorDetail = z.infer<typeof EvaluatorDetailSchema>;
-
-/** Validate the whole group before accepting any field, including abstentions. */
-export function validateScoreGroupResult(group: ScoreGroup, value: unknown) {
-  const results = z.array(ScoreFieldResultSchema).parse(value);
-  if (
-    results.length !== group.fields.length ||
-    new Set(results.map((r) => r.fieldId)).size !== results.length
-  )
-    throw new Error("Return each score field exactly once.");
-  for (const field of group.fields) {
-    const result = results.find((r) => r.fieldId === field.id);
-    if (!result) throw new Error(`Missing field ${field.id}.`);
-    if (result.status !== "scored") {
-      if (!field.abstain || result.value !== undefined)
-        throw new Error(`Invalid abstention for ${field.id}.`);
-      continue;
-    }
-    const schemas = {
-      text: z
-        .string()
-        .trim()
-        .min(1)
-        .max(field.type === "text" ? field.maxLength : 4000),
-      boolean: z.boolean(),
-      numeric: z
-        .number()
-        .finite()
-        .min(field.type === "numeric" ? field.min : -Infinity)
-        .max(field.type === "numeric" ? field.max : Infinity),
-      categorical: z
-        .string()
-        .refine(
-          (v) => field.type === "categorical" && field.categories.includes(v),
-        ),
-    };
-    schemas[field.type].parse(result.value);
-  }
-  return results;
-}

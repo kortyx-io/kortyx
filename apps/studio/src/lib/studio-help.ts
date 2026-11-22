@@ -16,13 +16,8 @@ const help = (
 export const studioHelp = {
   evaluators: help(
     "Evaluators",
-    "Reusable judges assess recorded evidence. Save a draft, preview representative recordings, then publish an immutable version for datasets and production rules.",
+    "Judges own versioned instructions and Kortyx-aware context templates. Write instructions, inspect variables and preview a recording before saving a version.",
     "evaluators",
-  ),
-  scoreGroups: help(
-    "Score groups",
-    "A judge fills the required assessment and every additional typed field in one response. Missing evidence may be an explicit abstention when the group permits it.",
-    "evaluators#score-groups",
   ),
   sampleProject: help(
     "Sample project",

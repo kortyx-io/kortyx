@@ -1,4 +1,3 @@
-import { EvaluatorReferenceSchema } from "@kortyx/telemetry-contracts";
 import { z } from "zod";
 import {
   EvalJudgeResponseIdentitySchema,
@@ -41,14 +40,6 @@ export const EvaluationMetadataSchema = z
 export const StudioEvaluationStartRequestSchema = z
   .object({
     targetId: z.string().trim().min(1),
-    evaluators: z
-      .array(EvaluatorReferenceSchema)
-      .max(20)
-      .refine(
-        (refs) => new Set(refs.map((ref) => ref.id)).size === refs.length,
-        "Select each evaluator once.",
-      )
-      .optional(),
     name: z.string().trim().min(1).max(200).optional(),
     promptSelection: StudioEvalStartRequestSchema.shape.promptSelection,
     selection: z.enum(["all", "selected"]),

@@ -23,191 +23,227 @@ const RecordingsSchema = z.object({
     }),
   ),
 });
+const EvidenceSchema = z.object({
+  evidence: z.object({ captured: z.unknown() }),
+  variables: z.record(z.string(), z.unknown()),
+  messages: z.array(z.object({ role: z.string(), content: z.string() })),
+});
+const ChoicesSchema = z.object({
+  steps: z.array(
+    z.object({
+      index: z.number(),
+      criteria: z
+        .array(z.object({ id: z.string(), text: z.string() }))
+        .default([]),
+    }),
+  ),
+});
 export function EvaluatorPreview({
   id,
   revision,
-  publishedVersion,
+  version,
   disabled,
-  initialRunId,
-  onSaved,
+  initialExecutionId,
 }: {
   id: string;
   revision: number;
-  publishedVersion: number;
+  version?: number;
   disabled: boolean;
-  initialRunId?: string;
-  onSaved?: () => void;
+  initialExecutionId?: string;
 }) {
   const [recordings, setRecordings] = useState<
     z.infer<typeof RecordingsSchema>["recordings"]
   >([]);
   const [target, setTarget] = useState<EvaluatorTarget>({
     type: "run",
-    runId: initialRunId ?? "",
+    runId: "",
   });
   const [execution, setExecution] = useState<EvaluatorExecution | null>(null);
-  const [evidence, setEvidence] = useState<unknown>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const identity = useRef<{
-    key: string;
-    target: string;
-    revision: number;
-  } | null>(null);
+  const [evidence, setEvidence] = useState<unknown>(null),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const [choices, setChoices] = useState<
+    z.infer<typeof ChoicesSchema>["steps"]
+  >([]);
+  const requestIdentity = useRef<string | null>(null);
   useEffect(() => {
-    const controller = new AbortController();
-    void evaluatorRequest("recordings", undefined, controller.signal)
+    if (!initialExecutionId) return;
+    const abort = new AbortController();
+    void evaluatorRequest(
+      `executions/${initialExecutionId}`,
+      undefined,
+      abort.signal,
+    )
+      .then((value) => setExecution(EvaluatorExecutionSchema.parse(value)))
+      .catch(() => {});
+    return () => abort.abort();
+  }, [initialExecutionId]);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    void evaluatorRequest("recordings", undefined, abort.signal)
       .then((value) => setRecordings(RecordingsSchema.parse(value).recordings))
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
+      .catch((cause) => {
+        if (!abort.signal.aborted) setError(cause.message);
       });
-    return () => controller.abort();
+    return () => abort.abort();
   }, []);
-  const executionId = execution?.id;
-  const executionStatus = execution?.status;
+  const executionId = execution?.id,
+    executionStatus = execution?.status;
   useEffect(() => {
     if (!executionId || !["queued", "running"].includes(executionStatus ?? ""))
       return;
-    const controller = new AbortController();
+    const abort = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
-        const next = EvaluatorExecutionSchema.parse(
+        const result = EvaluatorExecutionSchema.parse(
           await evaluatorRequest(
             `executions/${executionId}`,
             undefined,
-            controller.signal,
+            abort.signal,
           ),
         );
-        setExecution(next);
-        if (["queued", "running"].includes(next.status))
+        setExecution(result);
+        if (["queued", "running"].includes(result.status))
           timer = setTimeout(poll, 1000);
-        else onSaved?.();
-      } catch (e) {
-        if (!controller.signal.aborted)
+      } catch (cause) {
+        if (!abort.signal.aborted)
           setError(
-            e instanceof Error ? e.message : "Could not observe execution.",
+            cause instanceof Error ? cause.message : "Preview unavailable.",
           );
       }
     };
     timer = setTimeout(poll, 500);
     return () => {
-      controller.abort();
+      abort.abort();
       clearTimeout(timer);
     };
-  }, [executionId, executionStatus, onSaved]);
-  const select = (value: string) => {
-    const record = recordings[Number(value)];
-    if (record) {
-      setTarget(record.target);
-      setEvidence(null);
-    }
+  }, [executionId, executionStatus]);
+  const changeTarget = (value: EvaluatorTarget) => {
+    setTarget(value);
+    setEvidence(null);
+    requestIdentity.current = null;
   };
-  const runAssessment = async (mode: "preview" | "evaluate") => {
-    setBusy(true);
-    setError("");
-    const serialized = JSON.stringify({ target, mode, publishedVersion });
-    if (
-      !identity.current ||
-      identity.current.target !== serialized ||
-      identity.current.revision !== revision
-    )
-      identity.current = {
-        key: crypto.randomUUID(),
-        target: serialized,
-        revision,
-      };
-    try {
-      setExecution(
-        EvaluatorExecutionSchema.parse(
-          await evaluatorRequest(`${id}/${mode}`, {
-            target,
-            ...(mode === "preview"
-              ? { revision }
-              : { version: publishedVersion }),
-            requestKey: identity.current.key,
-          }),
-        ),
-      );
-      identity.current = null;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Assessment failed.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const filled = EvidenceSchema.safeParse(evidence);
+  const selectedStep =
+    target.type === "case"
+      ? (target.stepIndex ?? choices.at(-1)?.index)
+      : undefined;
+  const criteria =
+    choices.find((step) => step.index === selectedStep)?.criteria ?? [];
   return (
-    <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+    <div className="grid min-w-0 gap-5 @3xl:grid-cols-2">
       <section
         aria-label="Preview evidence"
-        className="flex min-w-0 flex-col gap-4 rounded-lg border p-4"
+        className="flex min-w-0 flex-col gap-4 rounded-md border p-4"
       >
-        <h2 className="font-medium">Preview against recorded evidence</h2>
-        <p className="text-sm text-muted-foreground">
-          Select an existing run or saved experiment case. Running the preview
-          uses the judge model and may incur a charge.
-        </p>
+        <div>
+          <h2 className="text-xs font-medium">Try a recording</h2>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            Inspect the variables and rendered request before running the judge.
+            Run preview uses the configured model and may incur a charge.
+          </p>
+        </div>
         <EditorSelect
-          id="recording"
+          id="judge-recording"
           label="Recent recordings"
           value={String(
             recordings.findIndex(
-              (r) => JSON.stringify(r.target) === JSON.stringify(target),
+              (record) =>
+                JSON.stringify(record.target) === JSON.stringify(target),
             ),
           )}
-          options={recordings.map((r, i) => ({
-            value: String(i),
-            label: `${r.label} · ${r.environment}`,
+          options={recordings.map((record, index) => ({
+            value: String(index),
+            label: `${record.label} · ${record.environment}`,
           }))}
-          onChange={select}
+          onChange={(value) => {
+            const record = recordings[Number(value)];
+            if (record) {
+              changeTarget(record.target);
+              setChoices([]);
+            }
+          }}
         />
         <EditorField id="preview-run-id" label="Or enter a run ID">
           <Input
             id="preview-run-id"
             value={target.type === "run" ? target.runId : ""}
-            onChange={(e) => {
-              setTarget({ type: "run", runId: e.target.value });
-              setEvidence(null);
+            onChange={(event) => {
+              changeTarget({ type: "run", runId: event.target.value });
+              setChoices([]);
             }}
           />
         </EditorField>
         {target.type === "run" && (
-          <EditorField
-            id="preview-environment"
-            label="Run environment"
-            description="Required when the same run ID exists in more than one environment."
-          >
+          <EditorField id="preview-environment" label="Run environment">
             <Input
               id="preview-environment"
               value={target.environment ?? ""}
-              placeholder="Select from recordings, or enter the environment"
-              onChange={(event) => {
-                setTarget({
+              placeholder="Required for run IDs shared across environments"
+              onChange={(event) =>
+                changeTarget({
                   ...target,
                   environment: event.target.value || undefined,
-                });
-                setEvidence(null);
-              }}
+                })
+              }
             />
           </EditorField>
         )}
+        {target.type === "case" && choices.length > 1 && (
+          <EditorSelect
+            id="preview-step"
+            label="Conversation step"
+            value={String(selectedStep)}
+            options={choices.map((step) => ({
+              value: String(step.index),
+              label: `Step ${step.index + 1}`,
+            }))}
+            onChange={(value) =>
+              changeTarget({
+                ...target,
+                stepIndex: Number(value),
+                criterionId: undefined,
+              })
+            }
+          />
+        )}
+        {target.type === "case" && criteria.length > 1 && (
+          <EditorSelect
+            id="preview-criterion"
+            label="Criterion"
+            value={target.criterionId ?? criteria[0]?.id ?? ""}
+            options={criteria.map((criterion) => ({
+              value: criterion.id,
+              label: criterion.text,
+            }))}
+            onChange={(criterionId) => changeTarget({ ...target, criterionId })}
+          />
+        )}
         <div className="flex flex-wrap gap-2">
           <Button
+            size="sm"
             variant="secondary"
             disabled={busy || disabled}
             onClick={async () => {
               setBusy(true);
               setError("");
               try {
-                setEvidence(
-                  await evaluatorRequest(`${id}/evidence`, {
-                    target,
-                    revision,
-                  }),
-                );
-              } catch (e) {
+                const value = await evaluatorRequest(`${id}/evidence`, {
+                  target,
+                  revision,
+                  ...(version ? { version } : {}),
+                });
+                const parsed = EvidenceSchema.parse(value);
+                setEvidence(value);
+                const steps = ChoicesSchema.safeParse(parsed.evidence.captured);
+                if (steps.success) setChoices(steps.data.steps);
+              } catch (cause) {
                 setError(
-                  e instanceof Error ? e.message : "Evidence unavailable.",
+                  cause instanceof Error
+                    ? cause.message
+                    : "Evidence unavailable.",
                 );
               } finally {
                 setBusy(false);
@@ -217,44 +253,87 @@ export function EvaluatorPreview({
             Inspect evidence
           </Button>
           <Button
+            size="sm"
             disabled={
               busy ||
               disabled ||
-              ["queued", "running"].includes(execution?.status ?? "")
+              ["queued", "running"].includes(executionStatus ?? "")
             }
-            onClick={() => void runAssessment("preview")}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              requestIdentity.current ??= crypto.randomUUID();
+              try {
+                setExecution(
+                  EvaluatorExecutionSchema.parse(
+                    await evaluatorRequest(`${id}/preview`, {
+                      target,
+                      revision,
+                      ...(version ? { version } : {}),
+                      requestKey: requestIdentity.current,
+                    }),
+                  ),
+                );
+                requestIdentity.current = null;
+              } catch (cause) {
+                setError(
+                  cause instanceof Error ? cause.message : "Preview failed.",
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
           >
             Run preview
           </Button>
-          {publishedVersion > 0 && (
-            <Button
-              variant="secondary"
-              disabled={
-                busy ||
-                disabled ||
-                ["queued", "running"].includes(execution?.status ?? "")
-              }
-              onClick={() => void runAssessment("evaluate")}
-            >
-              Evaluate with published v{publishedVersion}
-            </Button>
-          )}
         </div>
         {error && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-xs text-destructive">
             {error}
           </p>
         )}
-        {evidence !== null && <PreviewEvidence value={evidence} />}
+        {filled.success && (
+          <details open className="border-t pt-3">
+            <summary className="cursor-pointer text-xs font-medium">
+              Filled variables
+            </summary>
+            <dl className="mt-3 flex flex-col gap-3">
+              {Object.entries(filled.data.variables).map(([key, value]) => (
+                <div key={key}>
+                  <dt className="font-mono text-[11px] text-muted-foreground">
+                    {key}
+                  </dt>
+                  <dd className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs">
+                    {value === null
+                      ? "Not available in this recording"
+                      : typeof value === "string"
+                        ? value
+                        : JSON.stringify(value, null, 2)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        )}
+        {evidence !== null && (
+          <details>
+            <summary className="cursor-pointer text-xs">
+              Recording and rendered request
+            </summary>
+            <div className="mt-3">
+              <PreviewEvidence value={evidence} />
+            </div>
+          </details>
+        )}
       </section>
       {execution ? (
         <ExecutionResult execution={execution} />
       ) : (
-        <section className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6 text-center">
-          <h2 className="font-medium">See how your judge evaluates</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            The preview will show assessment text, additional fields, evidence
-            references, model usage and cost.
+        <section className="flex min-h-64 flex-col items-center justify-center gap-2 rounded-md border border-dashed p-6 text-center">
+          <h2 className="text-xs font-medium">See how this judge reasons</h2>
+          <p className="max-w-xs text-xs leading-5 text-muted-foreground">
+            The preview shows the verdict, explanation, supporting evidence and
+            model usage for this saved version or draft.
           </p>
         </section>
       )}

@@ -27,6 +27,12 @@ import {
 } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { OVERLAY_LAYERS } from "@/lib/overlay-layers";
 import { promptRequest } from "../api/client";
 import {
@@ -186,7 +192,7 @@ export function PromptEditor({
   id,
   label,
   value,
-  role,
+  messageRole: role,
   dependencies,
   names,
   ownKey,
@@ -194,14 +200,18 @@ export function PromptEditor({
   onChange,
   onInclude,
   onValidityChange,
+  references = true,
+  variables = [],
 }: {
   id: string;
   label: string;
   value: string;
-  role: PromptContent["messages"][number]["role"];
+  messageRole: PromptContent["messages"][number]["role"];
   dependencies: PromptContent["dependencies"];
   names: Record<string, string>;
   ownKey?: string;
+  references?: boolean;
+  variables?: readonly { path: string; label: string; description: string }[];
   disabled: boolean;
   onChange: (text: string, references: PromptContent["dependencies"]) => void;
   onValidityChange?: (valid: boolean) => void;
@@ -226,6 +236,7 @@ export function PromptEditor({
     role,
   };
   const [error, setError] = useState("");
+  const insertedVariable = useRef(false);
   const editor = useEditor({
     immediatelyRender: false,
     editable: !disabled,
@@ -271,6 +282,7 @@ export function PromptEditor({
         ],
         suggestion: {
           char: "#",
+          allow: () => references,
           allowedPrefixes: null,
           allowSpaces: true,
           debounce: 150,
@@ -487,7 +499,50 @@ export function PromptEditor({
   return (
     <div className="space-y-2">
       <EditorContent editor={editor} />
-      {!disabled && (
+      {!disabled && variables.length > 0 && (
+        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span>Variables are filled from the selected recording.</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" size="xs" variant="ghost">
+                Insert variable
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="max-h-80 w-80 overflow-y-auto"
+              onCloseAutoFocus={(event) => {
+                if (insertedVariable.current) {
+                  event.preventDefault();
+                  insertedVariable.current = false;
+                  editor?.commands.focus();
+                }
+              }}
+            >
+              {variables.map((variable) => (
+                <DropdownMenuItem
+                  key={variable.path}
+                  onSelect={() => {
+                    insertedVariable.current = true;
+                    editor
+                      ?.chain()
+                      .focus()
+                      .insertContent(`{{${variable.path}}}`)
+                      .run();
+                  }}
+                  className="flex-col items-start gap-1 py-2"
+                >
+                  <span className="font-mono text-xs">{`{{${variable.path}}}`}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {variable.description}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+      {!disabled && references && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>
             <span className="text-sky-700 dark:text-sky-300">

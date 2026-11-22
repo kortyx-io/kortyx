@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   type EvaluatorExecution,
-  validateScoreGroupResult,
+  JudgeVerdictSchema,
 } from "@kortyx/telemetry-contracts";
 import {
   claimEvaluatorExecution,
@@ -9,14 +9,11 @@ import {
   ensureProjectEnvironmentAllowed,
   finishEvaluatorExecution,
   priceEvaluatorUsage,
-  scheduleDatasetEvaluators,
-  scheduleEvaluatorRules,
   type TelemetryDb,
 } from "@kortyx/telemetry-db";
 import type { UsageTelemetry } from "@kortyx/usage-telemetry";
 import { getUsageTelemetry } from "@kortyx/usage-telemetry/node";
 import packageJson from "../../package.json";
-import { validateEvaluatorReferences } from "./evidence";
 import type { EvaluatorModelService } from "./model";
 
 /** A private host may restrict claims to a trusted project scope. */
@@ -37,14 +34,6 @@ export function createEvaluatorWorker(
   let pending: Promise<void> | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const tick = async () => {
-    for (const schedule of [
-      scheduleEvaluatorRules,
-      scheduleDatasetEvaluators,
-    ]) {
-      await schedule(db, scope).catch(() => {
-        console.error({ code: "EVALUATOR_SCHEDULING_FAILED" });
-      });
-    }
     const job = await claimEvaluatorExecution(db, owner, scope);
     if (!job) return;
     const measurement = telemetry?.start("studio.evaluator.execution", {
@@ -65,11 +54,6 @@ export function createEvaluatorWorker(
         (value) => {
           usage = value;
         },
-        {
-          group: job.snapshot.group,
-          evidenceId: job.evidence.revision,
-          eventIds: job.evidence.eventIds,
-        },
       );
       signal.throwIfAborted();
       if (usage && models.provider)
@@ -80,18 +64,12 @@ export function createEvaluatorWorker(
           job.snapshot.definition.model,
           usage,
         );
-      const value = output as { scores?: unknown };
       phase = "validation";
-      const scores = validateScoreGroupResult(
-        job.snapshot.group,
-        value?.scores,
-      );
-      phase = "evidence";
-      validateEvaluatorReferences(job.evidence, scores);
+      const verdict = JudgeVerdictSchema.parse(output);
       phase = "persistence";
       const accepted = await finishEvaluatorExecution(db, job.id, owner, {
         status: "completed",
-        scores,
+        verdict,
         usage,
       });
       measurement?.end(accepted ? "success" : "failed");
@@ -110,7 +88,7 @@ export function createEvaluatorWorker(
         usage,
         error: abort.signal.aborted
           ? "Assessment cancelled during shutdown."
-          : `Assessment failed during ${phase}. Check the model connection, declared fields, and supplied evidence references. Reported usage has been retained.`,
+          : `Assessment failed during ${phase}. Check the model connection, judge instructions and recorded inputs. Reported usage has been retained.`,
       });
     }
   };

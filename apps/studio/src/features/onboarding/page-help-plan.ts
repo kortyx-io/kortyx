@@ -283,27 +283,21 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
     if (id === "evaluators") {
       add(
         "tabs",
-        "Configure, preview and connect",
-        "Configuration saves a draft. Preview inspects recorded evidence and invokes the judge when requested. Rules selects production traffic. Executions preserves usage, failures and accepted fields. Datasets selects defaults for future experiments.",
-        find('[data-page-help="tabs"]', '[aria-label="Evaluator sections"]'),
+        "Write and preview a judge",
+        "Content holds judge-owned instructions and the evaluation context. Preview uses a recorded case or run. The version history selects saved versions or the current draft.",
+        find('[data-page-help="tabs"]'),
       );
       add(
         "content",
-        "Review the judge configuration",
-        "Select a saved prompt version, server-configured model, evidence scope and score group. Every group includes assessment text. Publish an immutable version after reviewing representative previews.",
-        find("#judge-score-group")?.closest<HTMLElement>("section") ??
-          find("#evaluator-name")?.closest<HTMLElement>("fieldset") ??
-          undefined,
+        "Judge instructions and context",
+        "Use the same editor as Prompts to write the judging instructions. Expand Evaluation context to inspect or customize the known Kortyx variables. Save a version to freeze the instructions and model configuration.",
+        find("[data-judge-instructions]", "[data-judge-context]"),
       );
       add(
         "records",
-        "Inspect evidence and results",
-        "Review captured evidence, omissions and rendered messages alongside the written assessment and typed fields. Missing evidence remains explicit. Previewing a judge consumes model usage; inspecting evidence and matching rules does not.",
-        find(
-          '[aria-label="Judge result"]',
-          '[aria-label="Preview evidence"]',
-          '[aria-label="Rule match preview"]',
-        ),
+        "Inspect a preview",
+        "Review filled variables and rendered messages before invoking the model. A preview shows the verdict and reason with reported usage. Missing evidence remains explicit.",
+        find('[aria-label="Judge result"]', '[aria-label="Preview evidence"]'),
       );
     }
     const content = find(

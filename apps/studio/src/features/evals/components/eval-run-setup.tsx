@@ -1,7 +1,6 @@
 "use client";
 
 import { type EvalSettings, EvalSettingsSchema } from "@kortyx/agent/evals";
-import type { EvaluatorReference } from "@kortyx/telemetry-contracts";
 import {
   type PromptDetail,
   PromptDetailSchema,
@@ -14,7 +13,6 @@ import { useEffect, useRef, useState } from "react";
 import { DetailInspectorDrawer } from "@/components/detail/detail-inspector";
 import { Button } from "@/components/ui/button";
 import { HelpCircle } from "@/components/ui/info-tooltip";
-import { ExperimentEvaluators } from "@/features/evaluators/components/experiment-evaluators";
 import { promptRequest } from "@/features/prompts/api/client";
 import {
   usePathname,
@@ -54,9 +52,6 @@ export function EvalRunSetup({
     close,
   } = useEvalSetup(targets);
   const [working, setWorking] = useState(false);
-  const [additionalEvaluators, setAdditionalEvaluators] = useState<
-    EvaluatorReference[] | undefined
-  >();
   const [error, setError] = useState("");
   const launch = useRef<{ body: string; key: string } | null>(null);
   const [prompts, setPrompts] = useState<PromptLibrary | null>(null),
@@ -216,9 +211,6 @@ export function EvalRunSetup({
     setError("");
     const body = {
       targetId: target.id,
-      ...(additionalEvaluators === undefined
-        ? {}
-        : { evaluators: additionalEvaluators }),
       selection: query.launchScope,
       ...(all
         ? { name: "All datasets" }
@@ -529,14 +521,6 @@ export function EvalRunSetup({
             </p>
           )}
         </fieldset>
-        {target && (
-          <ExperimentEvaluators
-            targetId={target.id}
-            suiteIds={selected.map((item) => item.id)}
-            disabled={working}
-            onChange={setAdditionalEvaluators}
-          />
-        )}
         <div className="space-y-2">
           <EvalSettingsFields
             fields={["repetitions"]}

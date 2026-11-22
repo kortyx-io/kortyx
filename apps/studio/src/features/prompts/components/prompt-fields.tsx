@@ -274,7 +274,7 @@ export function PromptFields({
             id={`${id}-message-${index}`}
             label={`${message.role[0]!.toUpperCase()}${message.role.slice(1)} Message${value.format === "chat" ? ` ${index + 1}` : ""}`}
             value={message.content}
-            role={message.role}
+            messageRole={message.role}
             dependencies={value.dependencies}
             names={names}
             ownKey={ownKey}

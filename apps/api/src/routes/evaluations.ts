@@ -10,7 +10,6 @@ import {
 import { EVALUATION_TABLE_SORT_KEYS } from "@kortyx/telemetry-contracts";
 import {
   cancelEvaluation,
-  datasetEvaluatorDefaults,
   enqueueEvaluation,
   ensureProjectEnvironmentAllowed,
   evaluationRequestHash,
@@ -20,7 +19,6 @@ import {
   getEvaluationComparison,
   listEvaluations,
   listEvaluationTable,
-  publishedEvaluator,
   TelemetryNotFoundError,
   TelemetryValidationError,
 } from "@kortyx/telemetry-db";
@@ -350,38 +348,6 @@ export function registerEvaluationRoutes(
         targetName: target.name,
         requestedBy,
       };
-      const evaluatorSnapshots = await c.get("withTenantDatabase")(
-        async (db) => {
-          const bindings =
-            request.evaluators === undefined
-              ? await datasetEvaluatorDefaults(
-                  db,
-                  auth,
-                  target.id,
-                  request.suites.map((s) => s.suiteId),
-                )
-              : [];
-          return Promise.all(
-            request.suites.map(async (suite) => ({
-              suiteId: suite.suiteId,
-              values: await Promise.all(
-                (
-                  request.evaluators ??
-                  bindings
-                    .filter((b) => b.suiteId === suite.suiteId)
-                    .map((b) => ({
-                      id: b.evaluatorId,
-                      version: b.evaluatorVersion,
-                    }))
-                ).map(async (ref) => ({
-                  ...ref,
-                  snapshot: await publishedEvaluator(db, auth, ref),
-                })),
-              ),
-            })),
-          );
-        },
-      );
       const parent = await c.get("withTenantDatabase")((db) =>
         enqueueEvaluation(
           db,
@@ -402,9 +368,6 @@ export function registerEvaluationRoutes(
           },
           judged.map(({ selection, suite, judge }) => ({
             ...scope,
-            evaluatorSnapshots:
-              evaluatorSnapshots.find((s) => s.suiteId === suite!.id)?.values ??
-              [],
             suiteId: suite!.id,
             suiteRevision: selection.suiteRevision,
             suite: suite as EvalSuite,

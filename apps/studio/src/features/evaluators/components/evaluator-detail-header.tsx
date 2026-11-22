@@ -25,7 +25,7 @@ export function EvaluatorDetailHeader({
       <Button
         size="icon-sm"
         variant="ghost"
-        aria-label="Back to evaluator library"
+        aria-label="Back to judge library"
         onClick={onBack}
       >
         <ArrowLeft />
@@ -38,7 +38,7 @@ export function EvaluatorDetailHeader({
           <HelpCircle help={studioHelp.evaluators} />
         </div>
         <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          Evaluator · {status}
+          Judge · {status}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">{children}</div>

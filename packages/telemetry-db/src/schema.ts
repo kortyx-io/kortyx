@@ -1483,9 +1483,7 @@ export const evaluatorDefinitions = pgTable(
     revision: integer("revision").notNull().default(1),
     publishedVersion: integer("published_version").notNull().default(0),
     archived: boolean("archived").notNull().default(false),
-    draft: jsonb("draft")
-      .$type<import("@kortyx/telemetry-contracts").EvaluatorDefinition>()
-      .notNull(),
+    draft: jsonb("draft").$type<unknown>().notNull(),
     updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
   },
   (t) => [
@@ -1506,12 +1504,8 @@ export const evaluatorVersions = pgTable(
     ...evaluatorScopeColumns(),
     evaluatorId: uuid("evaluator_id").notNull(),
     version: integer("version").notNull(),
-    definition: jsonb("definition")
-      .$type<import("@kortyx/telemetry-contracts").EvaluatorDefinition>()
-      .notNull(),
-    snapshot: jsonb("snapshot")
-      .$type<import("./repositories/evaluators").EvaluatorSnapshot>()
-      .notNull(),
+    definition: jsonb("definition").$type<unknown>().notNull(),
+    snapshot: jsonb("snapshot").$type<unknown>().notNull(),
     createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
   },
   (t) => [
@@ -1537,9 +1531,7 @@ export const evaluatorScoreGroups = pgTable(
     ...evaluatorScopeColumns(),
     id: uuid("id").notNull(),
     version: integer("version").notNull(),
-    definition: jsonb("definition")
-      .$type<import("@kortyx/telemetry-contracts").ScoreGroup>()
-      .notNull(),
+    definition: jsonb("definition").$type<unknown>().notNull(),
     createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
   },
   (t) => [
@@ -1562,9 +1554,7 @@ export const evaluatorRules = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     evaluatorId: uuid("evaluator_id").notNull(),
     revision: integer("revision").notNull().default(1),
-    definition: jsonb("definition")
-      .$type<import("@kortyx/telemetry-contracts").EvaluatorRuleDefinition>()
-      .notNull(),
+    definition: jsonb("definition").$type<unknown>().notNull(),
     scanAt: timestampWithTimezone("scan_at"),
     scanId: uuid("scan_id"),
     createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
@@ -1622,26 +1612,13 @@ export const evaluatorExecutions = pgTable(
     evaluatorId: uuid("evaluator_id").notNull(),
     evaluatorVersion: integer("evaluator_version").notNull(),
     environment: text("environment").notNull(),
-    target: jsonb("target")
-      .$type<import("@kortyx/telemetry-contracts").EvaluatorTarget>()
-      .notNull(),
-    source: text("source")
-      .$type<
-        import("@kortyx/telemetry-contracts").EvaluatorExecution["source"]
-      >()
-      .notNull(),
-    status: text("status")
-      .$type<
-        import("@kortyx/telemetry-contracts").EvaluatorExecution["status"]
-      >()
-      .notNull()
-      .default("queued"),
+    target: jsonb("target").$type<unknown>().notNull(),
+    source: text("source").$type<string>().notNull(),
+    status: text("status").$type<string>().notNull().default("queued"),
     requestKey: text("request_key").notNull(),
     requestHash: text("request_hash").notNull(),
     ruleId: uuid("rule_id"),
-    snapshot: jsonb("snapshot")
-      .$type<import("./repositories/evaluators").EvaluatorSnapshot>()
-      .notNull(),
+    snapshot: jsonb("snapshot").$type<unknown>().notNull(),
     evidence: jsonb("evidence")
       .$type<import("./repositories/evaluators").EvaluatorEvidence>()
       .notNull(),
@@ -1650,10 +1627,7 @@ export const evaluatorExecutions = pgTable(
         import("@kortyx/telemetry-contracts").EvaluatorExecution["renderedMessages"]
       >()
       .notNull(),
-    scores:
-      jsonb("scores").$type<
-        import("@kortyx/telemetry-contracts").EvaluatorExecution["scores"]
-      >(),
+    scores: jsonb("scores").$type<unknown>(),
     usage:
       jsonb("usage").$type<
         import("@kortyx/telemetry-contracts").EvaluatorExecution["usage"]
@@ -1677,6 +1651,164 @@ export const evaluatorExecutions = pgTable(
         evaluatorDefinitions.organizationId,
         evaluatorDefinitions.projectId,
         evaluatorDefinitions.id,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+
+// Dedicated judge authoring. Legacy evaluator tables above retain earlier review data;
+// they are not used by the judge APIs, preview worker or dataset association path.
+export const judgeDefinitions = pgTable(
+  "judge_definitions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ...evaluatorScopeColumns(),
+    revision: integer("revision").notNull().default(1),
+    publishedVersion: integer("published_version").notNull().default(0),
+    archived: boolean("archived").notNull().default(false),
+    draft: jsonb("draft")
+      .$type<import("@kortyx/telemetry-contracts").EvaluatorDefinition>()
+      .notNull(),
+    updatedAt: timestampWithTimezone("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("judge_definitions_scope_id").on(
+      t.organizationId,
+      t.projectId,
+      t.id,
+    ),
+    foreignKey({
+      name: "judge_definitions_project_fk",
+      columns: [t.organizationId, t.projectId],
+      foreignColumns: [projects.organizationId, projects.id],
+    }).onDelete("cascade"),
+  ],
+);
+export const judgeVersions = pgTable(
+  "judge_versions",
+  {
+    ...evaluatorScopeColumns(),
+    evaluatorId: uuid("judge_id").notNull(),
+    version: integer("version").notNull(),
+    definition: jsonb("definition")
+      .$type<import("@kortyx/telemetry-contracts").EvaluatorDefinition>()
+      .notNull(),
+    snapshot: jsonb("snapshot")
+      .$type<import("./repositories/evaluators").EvaluatorSnapshot>()
+      .notNull(),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("judge_versions_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.evaluatorId,
+      t.version,
+    ),
+    foreignKey({
+      name: "judge_versions_definition_fk",
+      columns: [t.organizationId, t.projectId, t.evaluatorId],
+      foreignColumns: [
+        judgeDefinitions.organizationId,
+        judgeDefinitions.projectId,
+        judgeDefinitions.id,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+export const datasetJudgeBindings = pgTable(
+  "dataset_judge_bindings",
+  {
+    ...evaluatorScopeColumns(),
+    targetId: text("target_id").notNull(),
+    suiteId: text("suite_id").notNull(),
+    evaluatorId: uuid("judge_id").notNull(),
+    evaluatorVersion: integer("judge_version").notNull(),
+  },
+  (t) => [
+    uniqueIndex("dataset_judge_binding_identity").on(
+      t.organizationId,
+      t.projectId,
+      t.targetId,
+      t.suiteId,
+      t.evaluatorId,
+    ),
+    foreignKey({
+      name: "dataset_judge_bindings_version_fk",
+      columns: [
+        t.organizationId,
+        t.projectId,
+        t.evaluatorId,
+        t.evaluatorVersion,
+      ],
+      foreignColumns: [
+        judgeVersions.organizationId,
+        judgeVersions.projectId,
+        judgeVersions.evaluatorId,
+        judgeVersions.version,
+      ],
+    }).onDelete("cascade"),
+  ],
+);
+export const judgePreviews = pgTable(
+  "judge_previews",
+  {
+    ...evaluatorScopeColumns(),
+    id: uuid("id").primaryKey().defaultRandom(),
+    evaluatorId: uuid("judge_id").notNull(),
+    evaluatorVersion: integer("judge_version").notNull(),
+    environment: text("environment").notNull(),
+    target: jsonb("target")
+      .$type<import("@kortyx/telemetry-contracts").EvaluatorTarget>()
+      .notNull(),
+    source: text("source").$type<"preview">().notNull().default("preview"),
+    status: text("status")
+      .$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["status"]
+      >()
+      .notNull()
+      .default("queued"),
+    requestKey: text("request_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    snapshot: jsonb("snapshot")
+      .$type<import("./repositories/evaluators").EvaluatorSnapshot>()
+      .notNull(),
+    evidence: jsonb("evidence")
+      .$type<import("./repositories/evaluators").EvaluatorEvidence>()
+      .notNull(),
+    renderedMessages: jsonb("rendered_messages")
+      .$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["renderedMessages"]
+      >()
+      .notNull(),
+    verdict:
+      jsonb("verdict").$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["verdict"]
+      >(),
+    usage:
+      jsonb("usage").$type<
+        import("@kortyx/telemetry-contracts").EvaluatorExecution["usage"]
+      >(),
+    error: text("error"),
+    leaseOwner: uuid("lease_owner"),
+    leaseExpiresAt: timestampWithTimezone("lease_expires_at"),
+    createdAt: timestampWithTimezone("created_at").notNull().defaultNow(),
+    endedAt: timestampWithTimezone("ended_at"),
+  },
+  (t) => [
+    uniqueIndex("judge_preview_request").on(
+      t.organizationId,
+      t.projectId,
+      t.requestKey,
+    ),
+    index("judge_preview_queue").on(t.status, t.createdAt),
+    foreignKey({
+      name: "judge_previews_definition_fk",
+      columns: [t.organizationId, t.projectId, t.evaluatorId],
+      foreignColumns: [
+        judgeDefinitions.organizationId,
+        judgeDefinitions.projectId,
+        judgeDefinitions.id,
       ],
     }).onDelete("cascade"),
   ],

@@ -7,6 +7,20 @@ export async function evaluatorRequest(
 ): Promise<unknown> {
   const operation = studioOperation("studio.evaluator", {
     resource: "evaluators",
+    evaluator_action:
+      body === undefined
+        ? "read"
+        : path.endsWith("/publish")
+          ? "publish"
+          : path.endsWith("/archive")
+            ? "archive"
+            : path.endsWith("/preview")
+              ? "preview"
+              : path.endsWith("/evidence")
+                ? "evidence"
+                : path
+                  ? "save"
+                  : "create",
     action: body === undefined ? "view" : "update",
     origin: body === undefined ? "background" : "foreground",
   });
@@ -26,9 +40,7 @@ export async function evaluatorRequest(
     );
     const data = await response.json();
     if (!response.ok)
-      throw new Error(
-        data.message ?? data.error ?? "Evaluator request failed.",
-      );
+      throw new Error(data.message ?? data.error ?? "Judge request failed.");
     operation.end();
     return data;
   } catch (error) {

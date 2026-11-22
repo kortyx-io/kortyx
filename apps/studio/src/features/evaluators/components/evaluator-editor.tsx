@@ -1,23 +1,26 @@
 "use client";
-
 import {
+  DEFAULT_JUDGE_CONTENT,
   type EvaluatorDefinition,
   EvaluatorDefinitionSchema,
   type EvaluatorDetail,
   EvaluatorDetailSchema,
-  type EvaluatorExecution,
-  EvaluatorExecutionSchema,
   type EvaluatorLibrary,
   EvaluatorSchema,
-  type PromptLibrary,
-  type ScoreGroup,
 } from "@kortyx/telemetry-contracts";
-import { Archive, MoreHorizontal, Save, Upload } from "lucide-react";
-import { parseAsString } from "nuqs";
+import {
+  Archive,
+  ChevronDown,
+  MoreHorizontal,
+  Plus,
+  Save,
+  X,
+} from "lucide-react";
+import { parseAsBoolean, parseAsInteger } from "nuqs";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { DetailPage } from "@/components/detail/detail-page";
-import { type DetailTab, DetailTabs } from "@/components/detail/detail-tabs";
+import { DetailTabs } from "@/components/detail/detail-tabs";
 import { useWorkspaceLabel } from "@/components/layouts/workspace-labels";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,362 +35,272 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { EvalTargets } from "@/features/evals/schema";
-import type { DetailTabId } from "@/lib/detail-tab-contract";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { studioHelp } from "@/lib/studio-help";
 import { evaluatorRequest } from "../api/client";
-import { EvaluatorConfiguration } from "./evaluator-configuration";
-import { EvaluatorDatasets } from "./evaluator-datasets";
 import { EvaluatorDetailHeader } from "./evaluator-detail-header";
 import { EvaluatorPreview } from "./evaluator-preview";
-import { EvaluatorRules } from "./evaluator-rules";
-import { ExecutionResult } from "./execution-result";
+import { JudgeContentEditor } from "./judge-content-editor";
 
 export function EvaluatorEditor({
-  library: initialLibrary,
+  library,
   initial,
-  prompts: initialPrompts,
-  targets,
 }: {
   library: EvaluatorLibrary;
   initial: EvaluatorDetail | null;
-  prompts: PromptLibrary;
-  targets: EvalTargets | null;
 }) {
   const router = useRouter();
-  const [query] = useStudioQueryStates(
-    { runId: parseAsString.withDefault("") },
+  const [query, setQuery] = useStudioQueryStates(
+    { v: parseAsInteger, edit: parseAsBoolean.withDefault(false) },
     { shallow: true },
   );
-  const [library, setLibrary] = useState(initialLibrary);
   const [detail, setDetail] = useState(initial);
-  const [prompts, setPrompts] = useState(initialPrompts);
   const [draft, setDraft] = useState<EvaluatorDefinition>(
     initial?.evaluator.draft ?? {
       name: "",
       description: "",
-      prompt: { id: "", version: 1 },
-      model: initialLibrary.models[0] ?? "",
-      scoreGroup: { id: "assessment", version: 1 },
-      evidence: "response",
+      content: structuredClone(DEFAULT_JUDGE_CONTENT),
+      model: library.models[0] ?? "",
+      evidence: "trajectory",
     },
   );
   const [saved, setSaved] = useState(
     JSON.stringify(initial?.evaluator.draft ?? null),
   );
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [selectedExecution, setSelectedExecution] = useState("");
-  const [execution, setExecution] = useState<EvaluatorExecution | null>(null);
-  const dirty = JSON.stringify(draft) !== saved;
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [archiveOpen, setArchiveOpen] = useState(false);
   const archived = detail?.evaluator.archived ?? false;
-  const disabled = busy || !library.canEdit || archived;
-  const title = detail?.evaluator.draft.name ?? "New evaluator";
+  const editing =
+    (!detail || !detail.evaluator.publishedVersion || query.edit) &&
+    library.canEdit &&
+    !archived;
+  const dirty = JSON.stringify(draft) !== saved;
+  const selected =
+    detail?.versions.find((version) => version.version === query.v) ??
+    detail?.versions[0];
+  const value = editing ? draft : (selected?.definition ?? draft);
+  const hasDraft =
+    dirty ||
+    Boolean(
+      detail &&
+        (!selected ||
+          JSON.stringify(detail.evaluator.draft) !==
+            JSON.stringify(detail.versions[0]?.definition)),
+    );
+  const title = detail?.evaluator.draft.name ?? "New judge";
   useWorkspaceLabel(
-    initial ? `/evaluators/${initial.evaluator.id}` : "/evaluators/new",
+    detail ? `/evaluators/${detail.evaluator.id}` : "/evaluators/new",
     title,
   );
-  const change = (value: Partial<EvaluatorDefinition>) => {
-    setDraft((old) => ({ ...old, ...value }));
-    setNotice("");
-  };
   useEffect(() => {
     if (!dirty) return;
     const guard = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
   }, [dirty]);
-  useEffect(() => {
-    setExecution(null);
-    if (!selectedExecution) return;
-    const controller = new AbortController();
-    void evaluatorRequest(
-      `executions/${selectedExecution}`,
-      undefined,
-      controller.signal,
-    )
-      .then((value) => setExecution(EvaluatorExecutionSchema.parse(value)))
-      .catch((cause) => {
-        if (!controller.signal.aborted)
-          setError(
-            cause instanceof Error ? cause.message : "Execution unavailable.",
-          );
-      });
-    return () => controller.abort();
-  }, [selectedExecution]);
-  const refresh = async () => {
-    if (detail)
-      setDetail(
-        EvaluatorDetailSchema.parse(
-          await evaluatorRequest(detail.evaluator.id),
-        ),
-      );
+  const readDetail = async (id: string) => {
+    const next = EvaluatorDetailSchema.parse(await evaluatorRequest(id));
+    setDetail(next);
+    return next;
   };
-  const save = async () => {
+  const persist = async () => {
+    const definition = EvaluatorDefinitionSchema.parse(draft);
+    const result = EvaluatorSchema.parse(
+      await evaluatorRequest(
+        detail?.evaluator.id ?? "",
+        detail
+          ? { definition, revision: detail.evaluator.revision }
+          : definition,
+      ),
+    );
+    setDraft(definition);
+    setSaved(JSON.stringify(definition));
+    if (detail) setDetail({ ...detail, evaluator: result });
+    else await readDetail(result.id);
+    return result;
+  };
+  const report = (cause: unknown) =>
+    setError(
+      cause instanceof z.ZodError
+        ? (cause.issues[0]?.message ?? "Check judge instructions.")
+        : cause instanceof Error
+          ? cause.message
+          : "Could not save judge.",
+    );
+  const saveDraft = async () => {
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const definition = EvaluatorDefinitionSchema.parse(draft);
-      const result = EvaluatorSchema.parse(
-        await evaluatorRequest(
-          detail?.evaluator.id ?? "",
-          detail
-            ? { definition, revision: detail.evaluator.revision }
-            : definition,
-        ),
-      );
-      setSaved(JSON.stringify(definition));
-      if (!detail) {
-        router.push(`/evaluators/${result.id}`);
-        return;
-      }
-      setDetail({ ...detail, evaluator: result });
+      const result = await persist();
       setNotice("Draft saved.");
+      if (!detail) router.replace(`/evaluators/${result.id}?edit=true`);
     } catch (cause) {
-      setError(
-        cause instanceof z.ZodError
-          ? (cause.issues[0]?.message ?? "Check the configuration.")
-          : cause instanceof Error
-            ? cause.message
-            : "Could not save evaluator.",
-      );
+      report(cause);
     } finally {
       setBusy(false);
     }
   };
-  const publish = async () => {
-    if (!detail) return;
+  const saveVersion = async () => {
     setBusy(true);
     setError("");
+    setNotice("");
     try {
-      const result = EvaluatorSchema.parse(
-        await evaluatorRequest(`${detail.evaluator.id}/publish`, {
-          revision: detail.evaluator.revision,
+      const asset = dirty || !detail ? await persist() : detail.evaluator;
+      const published = EvaluatorSchema.parse(
+        await evaluatorRequest(`${asset.id}/publish`, {
+          revision: asset.revision,
         }),
       );
-      setDetail({ ...detail, evaluator: result });
-      await refresh();
-      setNotice(
-        `Published version ${result.publishedVersion}. Existing rules retain their selected versions.`,
-      );
+      await readDetail(asset.id);
+      setSaved(JSON.stringify(published.draft));
+      setDraft(published.draft);
+      if (!detail)
+        router.replace(
+          `/evaluators/${asset.id}?v=${published.publishedVersion}`,
+        );
+      else await setQuery({ v: published.publishedVersion, edit: false });
+      setNotice(`Saved version ${published.publishedVersion}.`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not publish.");
+      report(cause);
     } finally {
       setBusy(false);
     }
   };
-  const groupCreated = (created: ScoreGroup) => {
-    setLibrary((old) => ({
-      ...old,
-      scoreGroups: [...old.scoreGroups, created],
-    }));
-    change({ scoreGroup: { id: created.id, version: created.version } });
+  const selectVersion = (version: number | null) =>
+    void setQuery({ v: version, edit: version === null });
+  const openDraft = () => {
+    if (!hasDraft) setDraft(structuredClone(value));
+    void setQuery({ edit: true, v: null });
+    setNotice("");
   };
-  const tabs: (DetailTab & { id: DetailTabId<"evaluators"> })[] = [
-    {
-      id: "configuration",
-      label: "Configuration",
-      content: (
-        <EvaluatorConfiguration
-          draft={draft}
-          detail={detail}
-          library={library}
-          prompts={prompts}
-          disabled={disabled}
-          onChange={change}
-          onGroupCreated={groupCreated}
-          onPromptsChanged={setPrompts}
-        />
-      ),
-    },
-  ];
-  if (detail)
-    tabs.push(
-      {
-        id: "preview",
-        label: "Preview",
-        content: (
-          <div className="p-4 @lg:p-6">
-            <EvaluatorPreview
-              id={detail.evaluator.id}
-              revision={detail.evaluator.revision}
-              publishedVersion={detail.evaluator.publishedVersion}
-              disabled={
-                dirty || archived || !library.canRun || !library.workerAvailable
-              }
-              initialRunId={query.runId}
-            />
-          </div>
-        ),
-      },
-      {
-        id: "rules",
-        label: "Rules",
-        content: (
-          <div className="p-4 @lg:p-6">
-            <EvaluatorRules
-              detail={detail}
-              disabled={
-                disabled ||
-                !library.canRun ||
-                !detail.evaluator.publishedVersion
-              }
-              workerAvailable={library.workerAvailable}
-              onSaved={refresh}
-            />
-          </div>
-        ),
-      },
-      {
-        id: "executions",
-        label: "Executions",
-        content: (
-          <div className="grid min-h-full min-w-0 @3xl:grid-cols-[20rem_minmax(0,1fr)]">
-            <section
-              aria-label="Execution history"
-              className="min-w-0 border-b @3xl:border-r @3xl:border-b-0"
-            >
-              <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-                <h2 className="text-xs font-medium">Execution history</h2>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => void refresh()}
-                >
-                  Refresh history
-                </Button>
-              </div>
-              {!detail.executions.length && (
-                <p className="p-4 text-xs leading-5 text-muted-foreground">
-                  Preview this evaluator or assess a recording to see its
-                  execution history.
-                </p>
-              )}
-              {detail.executions.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-pressed={selectedExecution === item.id}
-                  className="flex w-full min-w-0 flex-col gap-1 border-b px-4 py-3 text-left text-xs hover:bg-muted/50 aria-pressed:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-                  onClick={() => setSelectedExecution(item.id)}
-                >
-                  <span>
-                    {item.source} · {item.status} · {item.environment}
-                  </span>
-                  <span className="max-w-full truncate font-mono text-[11px] text-muted-foreground">
-                    {item.target.type === "run"
-                      ? item.target.runId
-                      : `${item.target.caseId} · attempt ${item.target.repetition}`}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(item.createdAt).toLocaleString()}
-                  </span>
-                </button>
-              ))}
-            </section>
-            <div className="min-w-0 p-4 @lg:p-6">
-              {execution ? (
-                <ExecutionResult execution={execution} />
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  {selectedExecution
-                    ? "Loading assessment…"
-                    : "Select an execution to inspect its assessment and evidence."}
-                </p>
-              )}
-            </div>
-          </div>
-        ),
-      },
-      {
-        id: "datasets",
-        label: "Datasets",
-        content: (
-          <div className="p-4 @lg:p-6">
-            <EvaluatorDatasets
-              detail={detail}
-              targets={targets}
-              disabled={disabled || !detail.evaluator.publishedVersion}
-              onSaved={refresh}
-            />
-          </div>
-        ),
-      },
-    );
+  const versionButtons = (
+    <>
+      {(hasDraft || !detail?.versions.length) && (
+        <button
+          type="button"
+          aria-pressed={editing}
+          className="flex w-full flex-col gap-1 rounded-lg px-3 py-3 text-left text-xs hover:bg-muted/60 aria-pressed:bg-muted"
+          onClick={() => selectVersion(null)}
+        >
+          <span>Draft</span>
+          <span className="text-[11px] text-muted-foreground">
+            {dirty ? "Unsaved changes" : "Saved instructions"}
+          </span>
+        </button>
+      )}
+      {detail?.versions.map((version) => (
+        <button
+          type="button"
+          key={version.version}
+          aria-pressed={!editing && selected?.version === version.version}
+          className="flex w-full flex-col gap-1 rounded-lg px-3 py-3 text-left text-xs hover:bg-muted/60 aria-pressed:bg-muted"
+          onClick={() => selectVersion(version.version)}
+        >
+          <span>v{version.version}</span>
+          <span className="truncate text-[11px] text-muted-foreground">
+            {version.definition.model}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            {new Date(version.createdAt).toLocaleDateString()}
+          </span>
+        </button>
+      ))}
+    </>
+  );
   return (
     <DetailPage
       title={title}
-      description="Evaluator configuration and recorded assessments"
+      description="Versioned judge instructions"
       customHeader
     >
       <div
-        className="flex h-full min-h-0 min-w-0 flex-col"
+        className="@container/judge-detail flex h-full min-h-0 min-w-0 flex-col"
         data-evaluator-editor="true"
       >
         <EvaluatorDetailHeader
           title={title}
           status={
             archived
-              ? "Archived · published history remains available"
-              : dirty
-                ? "Unsaved changes"
-                : detail?.evaluator.publishedVersion
-                  ? `Published v${detail.evaluator.publishedVersion}`
-                  : "Draft"
+              ? "Archived"
+              : editing
+                ? dirty
+                  ? "Unsaved changes"
+                  : "Draft saved"
+                : `v${selected?.version ?? 1} · ${value.model}`
           }
           onBack={() => router.push("/evaluators")}
         >
-          <Button
-            size="sm"
-            variant="secondary"
-            aria-label="Save draft"
-            disabled={disabled || !dirty}
-            onClick={() => void save()}
-          >
-            <Save />
-            <span className="hidden @lg/evaluator-header:inline">
-              Save draft
-            </span>
-          </Button>
-          <Button
-            size="sm"
-            aria-label="Publish version"
-            disabled={
-              disabled ||
-              dirty ||
-              !detail ||
-              !library.models.includes(draft.model)
-            }
-            onClick={() => void publish()}
-          >
-            <Upload />
-            <span className="hidden @lg/evaluator-header:inline">
-              Publish version
-            </span>
-          </Button>
+          {editing ? (
+            <>
+              {Boolean(detail?.evaluator.publishedVersion) && (
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Close editor"
+                  onClick={() => void setQuery({ edit: false })}
+                >
+                  <X />
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                aria-label="Save draft"
+                disabled={busy || !dirty}
+                onClick={() => void saveDraft()}
+              >
+                <Save />
+                <span className="hidden @lg/evaluator-header:inline">
+                  Save draft
+                </span>
+              </Button>
+              <Button
+                size="sm"
+                aria-label="Save version"
+                disabled={busy}
+                onClick={() => void saveVersion()}
+              >
+                <Plus />
+                <span className="hidden @lg/evaluator-header:inline">
+                  Save version
+                </span>
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              aria-label={hasDraft ? "Edit draft" : "New version"}
+              disabled={!library.canEdit || archived || busy}
+              onClick={openDraft}
+            >
+              <Plus />
+              <span className="hidden @lg/evaluator-header:inline">
+                {hasDraft ? "Edit draft" : "New version"}
+              </span>
+            </Button>
+          )}
           {detail && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   size="icon-sm"
                   variant="ghost"
-                  aria-label="Evaluator actions"
+                  aria-label="Judge actions"
                 >
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  disabled={disabled || dirty}
+                  disabled={!library.canEdit || archived || busy || dirty}
                   onSelect={() => setArchiveOpen(true)}
                 >
                   <Archive />
-                  Archive evaluator
+                  Archive judge
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -406,33 +319,120 @@ export function EvaluatorEditor({
             {notice}
           </output>
         )}
-        <div className="min-h-0 flex-1">
-          <DetailTabs
-            family="evaluators"
-            tabs={tabs}
-            helpByTab={{
-              configuration: studioHelp.evaluators,
-              preview: studioHelp.evaluators,
-              rules: studioHelp.evaluators,
-              executions: studioHelp.evaluators,
-              datasets: studioHelp.datasets,
-            }}
-          />
+        <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 @2xl/judge-detail:grid-cols-[14rem_minmax(0,1fr)]">
+          <aside
+            aria-label="Judge version history"
+            className="data-table-body-scroll hidden min-h-0 overflow-y-auto border-r p-2 @2xl/judge-detail:block"
+          >
+            <h2 className="flex h-9 items-center px-3 text-xs font-medium">
+              <ChevronDown className="mr-1 size-3.5" />
+              Version history
+            </h2>
+            {versionButtons}
+          </aside>
+          <div className="flex min-h-0 min-w-0 flex-col">
+            <div className="shrink-0 border-b px-3 py-1 @2xl/judge-detail:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="ghost">
+                    Version history ·{" "}
+                    {editing ? "Draft" : `v${selected?.version ?? 1}`}
+                    <ChevronDown />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  {versionButtons}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="min-h-0 flex-1">
+              <DetailTabs
+                family="evaluators"
+                helpByTab={{
+                  content: studioHelp.evaluators,
+                  preview: studioHelp.evaluators,
+                }}
+                tabs={[
+                  {
+                    id: "content",
+                    label: "Content",
+                    content: (
+                      <JudgeContentEditor
+                        value={value}
+                        models={library.models}
+                        mode={
+                          editing ? (busy ? "saving" : "editing") : "reading"
+                        }
+                        newJudge={!detail}
+                        onChange={(next) => {
+                          setDraft(next);
+                          setNotice("");
+                        }}
+                      />
+                    ),
+                  },
+                  ...(detail
+                    ? [
+                        {
+                          id: "preview" as const,
+                          label: "Preview",
+                          content: (
+                            <div className="flex flex-col gap-4 p-4 @lg:p-5">
+                              {editing && dirty && (
+                                <p className="text-xs text-muted-foreground">
+                                  Save the draft before previewing these
+                                  changes.
+                                </p>
+                              )}
+                              {!library.workerAvailable && library.canEdit && (
+                                <p className="text-xs text-muted-foreground">
+                                  Connect a backend judge model and preview
+                                  worker to run this judge.
+                                </p>
+                              )}
+                              <EvaluatorPreview
+                                key={`${detail.evaluator.id}:${editing ? detail.evaluator.revision : selected?.version}`}
+                                initialExecutionId={
+                                  !library.canEdit && !library.canRun
+                                    ? detail.executions[0]?.id
+                                    : undefined
+                                }
+                                id={detail.evaluator.id}
+                                revision={detail.evaluator.revision}
+                                version={
+                                  !editing ? selected?.version : undefined
+                                }
+                                disabled={
+                                  busy ||
+                                  archived ||
+                                  !library.canRun ||
+                                  !library.workerAvailable ||
+                                  (editing && dirty)
+                                }
+                              />
+                            </div>
+                          ),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            </div>
+          </div>
         </div>
         <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
           <DialogContent>
             <DialogTitle className="text-sm font-semibold">
-              Archive evaluator?
+              Archive judge?
             </DialogTitle>
-            <DialogDescription className="text-xs leading-5 text-muted-foreground">
-              Archiving disables rules and removes dataset defaults. Published
-              versions and results remain readable.
+            <DialogDescription className="text-xs text-muted-foreground">
+              The judge will no longer be selectable for future dataset
+              associations. Saved versions remain available.
             </DialogDescription>
             <div className="flex justify-end gap-2">
               <Button
                 size="sm"
                 variant="secondary"
-                disabled={busy}
                 onClick={() => setArchiveOpen(false)}
               >
                 Cancel
@@ -444,25 +444,20 @@ export function EvaluatorEditor({
                 onClick={async () => {
                   if (!detail) return;
                   setBusy(true);
-                  setError("");
                   try {
                     await evaluatorRequest(`${detail.evaluator.id}/archive`, {
                       revision: detail.evaluator.revision,
                     });
-                    await refresh();
+                    await readDetail(detail.evaluator.id);
                     setArchiveOpen(false);
                   } catch (cause) {
-                    setError(
-                      cause instanceof Error
-                        ? cause.message
-                        : "Could not archive.",
-                    );
+                    report(cause);
                   } finally {
                     setBusy(false);
                   }
                 }}
               >
-                Archive evaluator
+                Archive judge
               </Button>
             </div>
           </DialogContent>

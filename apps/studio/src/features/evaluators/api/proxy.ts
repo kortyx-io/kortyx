@@ -10,14 +10,11 @@ export async function proxyEvaluatorRequest(request: Request, parts: string[]) {
   if (sample) return sample;
   const path = parts.join("/");
   if (
-    !/^(?:score-groups(?:\/[a-f0-9-]{36}\/versions)?|dataset-defaults|recordings|scores|executions\/[a-f0-9-]{36}|[a-f0-9-]{36}(?:\/(?:publish|archive|preview|evaluate|evidence|datasets|rules(?:\/preview)?))?)?$/.test(
+    !/^(?:recordings|executions\/[a-f0-9-]{36}|[a-f0-9-]{36}(?:\/(?:publish|archive|preview|evidence))?)?$/.test(
       path,
     )
   )
-    return Response.json(
-      { error: "Unknown evaluator route." },
-      { status: 404 },
-    );
+    return Response.json({ error: "Unknown judge route." }, { status: 404 });
   const write = request.method === "POST";
   if (!write && request.method !== "GET")
     return Response.json({ error: "Unsupported method." }, { status: 405 });

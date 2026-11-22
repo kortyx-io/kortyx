@@ -878,13 +878,8 @@ client/server versions, with received values omitted.
 
 To compare two repetitions of one case, use `evals compare ID ID --suite SUITE_ID --case CASE_ID --repetition 1 --other-repetition 2`. Saved model/prompt usage identities appear when captured; fixture and context fingerprints identify changes without exposing transcripts.
 
+## Studio-authored judges
 
-## Reusable Studio evaluators
+The Evaluators page owns judge instructions, a typed evaluation-context template, model selection, drafts and immutable saved versions. It reuses the prompt editor and template compiler without referencing an ordinary managed Prompt asset. Known context includes criterion, input, observation (text, structured output, public events and human pause), reference facts and preceding conversation. Preview inspects the exact filled request and can make an explicitly requested model call against retained evidence. The preview uses the existing pass/reason/evidence verdict shape.
 
-Studio Evaluators are versioned judges over recorded runs and saved experiment cases. Configure a prompt version from Prompts, a backend-authorized model, evidence scope, and a score-group version. Assessment is the default required text field. Additional boolean, numeric, categorical, and text fields are validated together. Missing evidence can produce an explicit abstention when allowed. An operational error is independent of a negative quality result.
-
-Existing `defineSuite` cases, checks, criteria, execution setup, and judge selection remain supported. Connect published evaluators as dataset defaults in Studio. Experiment admission pins their configurations. Additional assessment reads saved case observations after application execution. It does not replace authored criterion verdicts or execute the application again. Launch requests may explicitly select `evaluators: [{ id, version }]`, or `evaluators: []` to omit additional assessment; omission uses dataset defaults.
-
-Production rules select an evaluator version, environment, completed or human-pause stage, optional workflow filter, deterministic sampling percentage, and UTC daily invocation cap. Activation applies to new recordings. Provider requests run asynchronously. Review missing evidence, usage and costs before activation. Preview consumes judge usage and is identifiable in history. Scores on the source recording and evaluator history refer to the same accepted group result.
-
-The self-hosted API starts a scoped evaluator worker with its configured server-side judge connection. Additional model IDs are allowlisted with `KORTYX_EVALUATOR_MODELS`. A Cloud host supplies an authorized worker lifecycle separately. Evidence is bounded and respects capture settings; absent content cannot be reconstructed by the judge. See the installed Studio version's Evaluators documentation for exact operational limits and API availability.
+Dataset association storage is separate from judge authoring. Dataset selection UI, scoring and production rules are not exposed in this pass. Existing code-managed suites, criteria, checks and App/Studio judging continue working unchanged.

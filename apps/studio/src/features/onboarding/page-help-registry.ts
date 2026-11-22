@@ -87,9 +87,9 @@ export const PAGE_GUIDES = {
     title: "Evaluators",
     kind: "list",
     overview:
-      "Save a draft with a versioned prompt, configured model, evidence scope and score group. Assessment is the default group and produces a written conclusion.",
+      "Create a specialized judge with its own instructions and Kortyx-aware evaluation context. Drafts and saved versions are separate from the ordinary Prompts library.",
     content:
-      "Preview against a recorded run or saved experiment case. Review evidence omissions, typed fields, tokens and cost. Publish an immutable version, then select dataset defaults or configure disabled production rules before activation.",
+      "Open a judge to write its instructions with the shared prompt editor, inspect context variables, and save a version. Preview can inspect the filled request and try a recorded run or dataset case.",
     example: "/evaluators",
   },
   prompts: {
@@ -381,16 +381,10 @@ export const DETAIL_TAB_HELP = {
       "Context correlates the diagnostic with its run, session, workflow, and trace when recorded. Follow those links to inspect execution order and the surrounding evidence.",
   },
   evaluators: {
-    configuration:
-      "Select a pinned prompt, model, evidence scope and score group. Output fields explain the response schema. Create prompts and groups in their focused dialogs, then save the draft before previewing. Published version history is available beside the configuration.",
+    content:
+      "Judge instructions define how to assess evidence. Evaluation context is a collapsible template whose variables are filled from the selected case or recording. Version history keeps saved instructions separate from the editable draft. The model and evidence scope are in Configuration.",
     preview:
-      "Choose a saved recording, inspect its evidence and rendered request, then run the judge. A preview consumes model usage. Typed fields and missing evidence remain explicit alongside the source recording.",
-    rules:
-      "Select or create a rule, choose its environment, run stage, sampling percentage and daily admission limit. Preview matches without calling the judge. Rules start disabled and assess future recorded evidence after activation.",
-    executions:
-      "Choose an execution from the history to inspect its accepted fields, supporting evidence, usage and safe errors. Preview jobs remain identifiable. Judge completion is separate from the quality values it returns.",
-    datasets:
-      "Connect a published evaluator version to an application dataset. Future experiments freeze these defaults and assess saved case results. Experiment setup can explicitly override the defaults.",
+      "Select a recording, inspect the filled variables and rendered request, then run the saved judge version or draft. Inspecting evidence makes no model call. Run preview consumes model usage and shows the verdict, reason, supporting evidence and reported cost.",
   },
 } satisfies DetailTabCopy;
 

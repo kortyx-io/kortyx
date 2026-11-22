@@ -134,6 +134,13 @@
       "when": 1795343209234,
       "tag": "0018_evaluator_scheduling",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795351041250,
+      "tag": "0019_judge_authoring",
+      "breakpoints": true
     }
   ]
 }
