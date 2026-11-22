@@ -322,3 +322,13 @@ it("explains the instruction reader without reading instruction content", () => 
     JSON.stringify(result.steps.map(({ content }) => content)),
   ).not.toContain("private");
 });
+
+it("explains an evaluator editor directly without asking for example records", () => {
+  const result = plan(
+    "/evaluators/new",
+    '<div data-evaluator-editor="true"><nav aria-label="Evaluator sections"></nav><fieldset><input id="evaluator-name" /></fieldset></div>',
+  );
+  expect(result.id).toBe("evaluators");
+  expect(result.empty).toBe(false);
+  expect(result.steps.map((step) => step.id)).toContain("content");
+});

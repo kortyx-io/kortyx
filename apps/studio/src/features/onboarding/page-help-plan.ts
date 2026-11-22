@@ -280,6 +280,32 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       );
     if (guide.kind === "list")
       add("records", "Inspect a record", guide.content, record());
+    if (id === "evaluators") {
+      add(
+        "tabs",
+        "Configure, preview and connect",
+        "Configuration saves a draft. Preview inspects recorded evidence and invokes the judge when requested. Rules selects production traffic. Executions preserves usage, failures and accepted fields. Datasets selects defaults for future experiments.",
+        find('[aria-label="Evaluator sections"]'),
+      );
+      add(
+        "content",
+        "Review the judge configuration",
+        "Select a saved prompt version, server-configured model, evidence scope and score group. Every group includes assessment text. Publish an immutable version after reviewing representative previews.",
+        find("#judge-score-group")?.closest<HTMLElement>("section") ??
+          find("#evaluator-name")?.closest<HTMLElement>("fieldset") ??
+          undefined,
+      );
+      add(
+        "records",
+        "Inspect evidence and results",
+        "Review captured evidence, omissions and rendered messages alongside the written assessment and typed fields. Missing evidence remains explicit. Previewing a judge consumes model usage; inspecting evidence and matching rules does not.",
+        find(
+          '[aria-label="Judge result"]',
+          '[aria-label="Preview evidence"]',
+          '[aria-label="Rule match preview"]',
+        ),
+      );
+    }
     const content = find(
       '[data-detail-tab-content][aria-hidden="false"]',
       '[data-tour-surface="eval-case-evidence"]',
@@ -423,6 +449,7 @@ export function createPageHelpPlan(url: URL): PageHelpPlan {
       );
   }
   const detail = find(
+    "[data-evaluator-editor]",
     "[data-run-detail-id]",
     "[data-session-detail-id]",
     "[data-interrupt-detail-id]",

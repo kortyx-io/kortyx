@@ -83,6 +83,15 @@ export const PAGE_GUIDES = {
       "Decision shows the request and recorded response. Timeline orders lifecycle events. Follow the execution link to confirm whether the workflow resumed and how it ended.",
     example: `/interrupts/${sample.interruptId}`,
   },
+  evaluators: {
+    title: "Evaluators",
+    kind: "list",
+    overview:
+      "Save a draft with a versioned prompt, configured model, evidence scope and score group. Assessment is the default group and produces a written conclusion.",
+    content:
+      "Preview against a recorded run or saved experiment case. Review evidence omissions, typed fields, tokens and cost. Publish an immutable version, then select dataset defaults or configure disabled production rules before activation.",
+    example: "/evaluators",
+  },
   prompts: {
     title: "Prompt library",
     kind: "list",
@@ -257,6 +266,7 @@ export function pageGuideId(path: string): PageGuideId {
     path.startsWith("/evals/")
   )
     return "evals";
+  if (path.startsWith("/evaluators")) return "evaluators";
   if (path.startsWith("/diagnostics/")) return "diagnostic";
   if (
     path.startsWith("/settings") ||
@@ -381,6 +391,7 @@ export const PAGE_DOCUMENTATION = {
   workflows: studioHelp.workflows,
   interrupts: studioHelp.interrupts,
   interrupt: studioHelp.interrupts,
+  evaluators: studioHelp.evaluators,
   prompts: studioHelp.prompts,
   prompt: studioHelp.prompts,
   "prompt-groups": studioHelp.prompts,

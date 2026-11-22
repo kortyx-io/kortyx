@@ -354,3 +354,10 @@ Server eval read failures use the existing maintainer usage telemetry/PostHog
 path with safe failure codes; customer payloads and raw errors are excluded.
 
 The Judge instructions view prefers the final execution's saved judge prompt or legacy instructions. If that snapshot is unavailable, it exposes exact messages from recorded grading requests, labelled **Recorded grading request**, with their case, attempt, step and criterion. Multiple grading calls remain separate. Completed step/case progress is sufficient even while a run is unfinished or after it is interrupted; final grading records supersede duplicate progress copies. An unfinished run without either source shows a pending snapshot message, while a terminal historical execution without either source shows **Instructions not recorded**. Neither the current configured judge nor queued configuration replaces missing execution evidence.
+
+
+## Additional evaluator assessments
+
+Published Studio evaluators can be connected to a dataset as defaults. Experiment setup displays those defaults and permits explicit replacement. The API's optional `evaluators` array selects exact `{ id, version }` references for the selected datasets. An empty array selects none. Omission resolves defaults at admission. Their prompt closure, score group, model and evidence configuration are saved with the dataset executions.
+
+The evaluator worker processes saved case observations after the application completes. Its score groups supplement existing checks and criterion verdicts. Saved results are available in evaluator execution history and the source dataset run's Configuration section. Assessment errors do not rewrite the original experiment verdict. Review both outcomes before drawing a release conclusion.

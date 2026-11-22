@@ -65,6 +65,7 @@ export {
   getEvaluation,
   listEvaluations,
 } from "./repositories/evaluations";
+export * from "./repositories/evaluators";
 export {
   listApplicableModelRateCards,
   seedDefaultModelRateCards,

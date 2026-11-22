@@ -45,6 +45,7 @@ const navSections = [
     items: [
       { title: "Datasets", url: "/datasets", icon: Database },
       { title: "Experiments", url: "/experiments", icon: FlaskConical },
+      { title: "Evaluators", url: "/evaluators", icon: FlaskConical },
     ],
   },
   {

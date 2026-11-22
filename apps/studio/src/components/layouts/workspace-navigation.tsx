@@ -12,6 +12,8 @@ const labels: Record<string, string> = {
   workflows: "Workflows",
   interrupts: "Interrupts",
   datasets: "Datasets",
+  evaluators: "Evaluators",
+  new: "New evaluator",
   experiments: "Experiments",
   judges: "Judge instructions",
   cases: "Cases",

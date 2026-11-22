@@ -14,6 +14,16 @@ const help = (
 
 /** Public customer concepts only. Cloud implementation details stay in its adapter. */
 export const studioHelp = {
+  evaluators: help(
+    "Evaluators",
+    "Reusable judges assess recorded evidence. Save a draft, preview representative recordings, then publish an immutable version for datasets and production rules.",
+    "evaluators",
+  ),
+  scoreGroups: help(
+    "Score groups",
+    "A judge fills the required assessment and every additional typed field in one response. Missing evidence may be an explicit abstention when the group permits it.",
+    "evaluators#score-groups",
+  ),
   sampleProject: help(
     "Sample project",
     "Fictional runs, prompts, and evaluations you can explore without connecting an app. The sample is read-only; it is separate from your real projects.",

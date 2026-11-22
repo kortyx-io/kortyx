@@ -40,7 +40,13 @@
       "label": "Evaluate changes",
       "position": 5,
       "description": "Run example conversations and compare their execution and answer quality.",
-      "pages": ["evals", "first-eval", "judging", "evaluation-results"]
+      "pages": [
+        "evals",
+        "first-eval",
+        "judging",
+        "evaluation-results",
+        "evaluators"
+      ]
     },
     {
       "slug": "reference",
