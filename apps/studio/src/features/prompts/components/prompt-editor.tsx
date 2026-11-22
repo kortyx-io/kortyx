@@ -20,6 +20,7 @@ import type { SuggestionProps } from "@tiptap/suggestion";
 import { exitSuggestion } from "@tiptap/suggestion";
 import {
   forwardRef,
+  type ReactNode,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -202,6 +203,8 @@ export function PromptEditor({
   onValidityChange,
   references = true,
   variables = [],
+  heading,
+  description,
 }: {
   id: string;
   label: string;
@@ -211,6 +214,8 @@ export function PromptEditor({
   names: Record<string, string>;
   ownKey?: string;
   references?: boolean;
+  heading?: ReactNode;
+  description?: string;
   variables?: readonly { path: string; label: string; description: string }[];
   disabled: boolean;
   onChange: (text: string, references: PromptContent["dependencies"]) => void;
@@ -496,50 +501,63 @@ export function PromptEditor({
         emitUpdate: false,
       });
   }, [editor, value, dependencies, names]);
+  const variablePicker =
+    !disabled && variables.length > 0 ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" size="xs" variant="ghost">
+            Insert variable
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="max-h-80 w-80 overflow-y-auto"
+          onCloseAutoFocus={(event) => {
+            if (insertedVariable.current) {
+              event.preventDefault();
+              insertedVariable.current = false;
+              editor?.commands.focus();
+            }
+          }}
+        >
+          {variables.map((variable) => (
+            <DropdownMenuItem
+              key={variable.path}
+              onSelect={() => {
+                insertedVariable.current = true;
+                editor
+                  ?.chain()
+                  .focus()
+                  .insertContent(`{{${variable.path}}}`)
+                  .run();
+              }}
+              className="flex-col items-start gap-1 py-2"
+            >
+              <span className="font-mono text-xs">{`{{${variable.path}}}`}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {variable.description}
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : null;
   return (
-    <div className="space-y-2">
+    <div className="flex min-w-0 flex-col gap-2">
+      {heading && (
+        <div className="flex min-h-6 items-center justify-between gap-3">
+          <div className="min-w-0">{heading}</div>
+          {variablePicker}
+        </div>
+      )}
+      {description && (
+        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+      )}
       <EditorContent editor={editor} />
       {!disabled && variables.length > 0 && (
         <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span>Variables are filled from the selected recording.</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" size="xs" variant="ghost">
-                Insert variable
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="max-h-80 w-80 overflow-y-auto"
-              onCloseAutoFocus={(event) => {
-                if (insertedVariable.current) {
-                  event.preventDefault();
-                  insertedVariable.current = false;
-                  editor?.commands.focus();
-                }
-              }}
-            >
-              {variables.map((variable) => (
-                <DropdownMenuItem
-                  key={variable.path}
-                  onSelect={() => {
-                    insertedVariable.current = true;
-                    editor
-                      ?.chain()
-                      .focus()
-                      .insertContent(`{{${variable.path}}}`)
-                      .run();
-                  }}
-                  className="flex-col items-start gap-1 py-2"
-                >
-                  <span className="font-mono text-xs">{`{{${variable.path}}}`}</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {variable.description}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!heading && variablePicker}
         </div>
       )}
       {!disabled && references && (

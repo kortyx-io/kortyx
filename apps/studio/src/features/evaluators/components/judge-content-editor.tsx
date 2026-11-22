@@ -30,51 +30,34 @@ export function JudgeContentEditor({
   return (
     <div className="flex min-w-0 flex-col gap-6 p-4 @lg:p-5">
       <section className="flex min-w-0 flex-col gap-2" data-judge-instructions>
-        <div className="flex items-center gap-1.5">
-          <h2 className="text-xs font-medium">Judge instructions</h2>
-          <HelpCircle help={studioHelp.evaluators} />
-        </div>
-        {editing ? (
-          <PromptEditor
-            id="judge-instructions"
-            label="Judge instructions"
-            value={value.content.instructions}
-            messageRole="system"
-            disabled={disabled}
-            dependencies={emptyDependencies}
-            names={emptyNames}
-            references={false}
-            variables={JUDGE_VARIABLES}
-            onInclude={noReferences}
-            onChange={(instructions) =>
-              change({ content: { ...value.content, instructions } })
-            }
-          />
-        ) : (
-          <PromptEditor
-            id="judge-instructions"
-            label="Judge instructions"
-            value={value.content.instructions}
-            messageRole="system"
-            disabled
-            dependencies={emptyDependencies}
-            names={emptyNames}
-            references={false}
-            onInclude={noReferences}
-            onChange={noReferences}
-          />
-        )}
+        <PromptEditor
+          id="judge-instructions"
+          label="Judge instructions"
+          heading={
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-xs font-medium">Judge instructions</h2>
+              <HelpCircle help={studioHelp.evaluators} />
+            </div>
+          }
+          value={value.content.instructions}
+          messageRole="system"
+          disabled={disabled}
+          dependencies={emptyDependencies}
+          names={emptyNames}
+          references={false}
+          variables={editing ? JUDGE_VARIABLES : []}
+          onInclude={noReferences}
+          onChange={(instructions) =>
+            change({ content: { ...value.content, instructions } })
+          }
+        />
       </section>
       <section className="flex min-w-0 flex-col gap-2" data-judge-context>
-        <h2 className="text-xs font-medium">Evaluation context</h2>
-        <p className="text-xs leading-5 text-muted-foreground">
-          Kortyx fills these variables for each judgment. Observations include
-          captured events and human pauses; unavailable optional inputs remain
-          explicit.
-        </p>
         <PromptEditor
           id="judge-context"
           label="Evaluation context"
+          heading={<h2 className="text-xs font-medium">Evaluation context</h2>}
+          description="Kortyx fills these variables for each judgment. Observations include captured events and human pauses; unavailable optional inputs remain explicit."
           value={value.content.context}
           messageRole="user"
           disabled={disabled}
