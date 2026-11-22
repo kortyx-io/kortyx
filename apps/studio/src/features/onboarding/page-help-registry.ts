@@ -394,7 +394,7 @@ export const DETAIL_TAB_HELP = {
     content:
       "Judge instructions define how to assess evidence. Evaluation context is an always-visible template whose variables are filled from the selected case or recording. Content-only version history keeps saved instructions separate from the editable draft. The header action menu edits the judge name and description. The model and evidence scope are in Configuration.",
     "score-group":
-      "Select one shared score-group version to define this judge’s output. Assessment is always available. Open a group in the next drawer to inspect fields. New score group and the row’s Edit action manage shared definitions independently of the judge. Save the judge to pin the selection.",
+      "Active marks the current group. Open a row’s actions menu and choose Score with this group to use its published version. This opens a judge draft automatically. Assessment is always available. Open a group in the next drawer to inspect fields. New score group and the row’s Edit, Rename, Duplicate and Archive actions manage shared definitions independently of the judge. Save the judge version to pin the selection. A group marked Draft needs its own saved version first.",
     preview:
       "Search the Recording picker or paste a full run ID; each result includes its environment. Selection loads captured input and response without a model call. Missing input is explicit; Final response only requires captured response content. Inspect the filled variables and rendered request, then run the saved judge version or draft. Run preview consumes model usage and shows the selected group’s typed values, reasons, supporting evidence and reported cost. Older judge versions retain their original verdict.",
   },

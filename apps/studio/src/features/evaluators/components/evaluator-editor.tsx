@@ -8,12 +8,13 @@ import {
   EvaluatorDetailSchema,
   type EvaluatorLibrary,
   EvaluatorSchema,
+  type ScoreGroupAsset,
   type ScoreGroupLibrary,
   type ScoreGroupVersion,
 } from "@kortyx/telemetry-contracts";
 import { Archive, MoreHorizontal, Pencil, Plus, Save, X } from "lucide-react";
 import { parseAsBoolean, parseAsInteger, parseAsStringLiteral } from "nuqs";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { DetailDrawer } from "@/components/detail/detail-drawer";
 import { DetailPage } from "@/components/detail/detail-page";
@@ -37,6 +38,8 @@ import { DETAIL_TAB_IDS } from "@/lib/detail-tab-contract";
 import { useStudioQueryStates } from "@/lib/nuqs";
 import { useRouter } from "@/lib/scoped-navigation";
 import { studioHelp } from "@/lib/studio-help";
+import { StudioQueryContext } from "@/lib/studio-query-context";
+import { studioPathname } from "@/lib/studio-routing";
 import { evaluatorRequest } from "../api/client";
 import type { EvaluatorPreviewData } from "../schema";
 import { AssetDetailsDialog } from "./asset-details-dialog";
@@ -135,8 +138,13 @@ function EvaluatorEditorContent({
     null,
   );
   const archived = detail?.evaluator.archived ?? false;
+  const [pendingGroupEdit, setPendingGroupEdit] = useState(false);
+  const liveQuery = useContext(StudioQueryContext);
   const editing =
-    (!detail || !detail.evaluator.publishedVersion || query.edit) &&
+    (!detail ||
+      !detail.evaluator.publishedVersion ||
+      query.edit ||
+      pendingGroupEdit) &&
     library.canEdit &&
     !archived;
   const dirty = JSON.stringify(draft) !== saved;
@@ -160,55 +168,89 @@ function EvaluatorEditorContent({
   const judgePath = detail
     ? `/evaluators/${detail.evaluator.id}`
     : "/evaluators/new";
-  const ownerState = useRef({ editing, draft });
-  ownerState.current = { editing, draft };
+  const canSelectGroup = library.canEdit && !archived && !busy;
+  const ownerState = useRef({
+    canSelectGroup,
+    editing,
+    hasDraft,
+    value,
+    metadata: { name: draft.name, description: draft.description },
+  });
+  ownerState.current = {
+    canSelectGroup,
+    editing,
+    hasDraft,
+    value,
+    metadata: { name: draft.name, description: draft.description },
+  };
+  const selectGroup = (version: ScoreGroupVersion, asset?: ScoreGroupAsset) => {
+    const current = ownerState.current;
+    if (!current.canSelectGroup) return;
+    setScoreVersions((previous) => [
+      version,
+      ...previous.filter(
+        (item) =>
+          item.groupId !== version.groupId || item.version !== version.version,
+      ),
+    ]);
+    if (asset)
+      setScoreGroups((previous) => ({
+        ...previous,
+        groups: [
+          asset,
+          ...previous.groups.filter((group) => group.id !== asset.id),
+        ],
+      }));
+    setDraft((previous) => ({
+      ...(!current.editing && !current.hasDraft
+        ? { ...structuredClone(current.value), ...current.metadata }
+        : previous),
+      scoreGroup: { id: version.groupId, version: version.version },
+    }));
+    if (!current.editing) setPendingGroupEdit(true);
+    setNotice(
+      `Selected ${asset?.draft.name ?? version.definition.name} · v${version.version}. Save the judge version to keep this selection.`,
+    );
+  };
+  const selectGroupRef = useRef(selectGroup);
+  selectGroupRef.current = selectGroup;
+  const currentPath = liveQuery?.pathname
+    ? studioPathname(liveQuery.pathname)
+    : judgePath;
+  useEffect(() => {
+    // A nested drawer returns through browser history. Keep the draft visible
+    // until the parent route owns its query again, then persist its edit state.
+    if (!pendingGroupEdit || currentPath !== judgePath) return;
+    void setQuery({ edit: true, v: null, tab: "score-group" }).then(() =>
+      setPendingGroupEdit(false),
+    );
+  }, [pendingGroupEdit, currentPath, judgePath, setQuery]);
+  const updateScoreGroup = (asset: ScoreGroupAsset) => {
+    if (asset.latest)
+      setScoreVersions((previous) => [
+        asset.latest as ScoreGroupVersion,
+        ...previous.filter(
+          (version) =>
+            version.groupId !== asset.id ||
+            version.version !== asset.latest?.version,
+        ),
+      ]);
+    setScoreGroups((previous) => ({
+      ...previous,
+      groups: [
+        asset,
+        ...previous.groups.filter((group) => group.id !== asset.id),
+      ],
+    }));
+  };
+  const updateScoreGroupRef = useRef(updateScoreGroup);
+  updateScoreGroupRef.current = updateScoreGroup;
   useEffect(
     () =>
       bridge?.register(judgePath, {
-        canUse: () => ownerState.current.editing,
-        saved: (asset) => {
-          if (asset.latest)
-            setScoreVersions((previous) => [
-              asset.latest as ScoreGroupVersion,
-              ...previous.filter(
-                (version) =>
-                  version.groupId !== asset.id ||
-                  version.version !== asset.latest?.version,
-              ),
-            ]);
-          setScoreGroups((previous) => ({
-            ...previous,
-            groups: [
-              asset,
-              ...previous.groups.filter((group) => group.id !== asset.id),
-            ],
-          }));
-        },
-        use: (version, asset) => {
-          if (!ownerState.current.editing) return;
-          setScoreVersions((previous) => [
-            version,
-            ...previous.filter(
-              (item) =>
-                item.groupId !== version.groupId ||
-                item.version !== version.version,
-            ),
-          ]);
-          setScoreGroups((previous) => ({
-            ...previous,
-            groups: [
-              asset,
-              ...previous.groups.filter((group) => group.id !== asset.id),
-            ],
-          }));
-          setDraft((previous) => ({
-            ...previous,
-            scoreGroup: { id: version.groupId, version: version.version },
-          }));
-          setNotice(
-            `Selected ${version.definition.name} · v${version.version}. Save the judge to keep this selection.`,
-          );
-        },
+        canUse: () => ownerState.current.canSelectGroup,
+        saved: (asset) => updateScoreGroupRef.current(asset),
+        use: (version, asset) => selectGroupRef.current(version, asset),
       }),
     [bridge, judgePath],
   );
@@ -528,17 +570,10 @@ function EvaluatorEditorContent({
                   }
                   judgePath={judgePath}
                   editing={editing}
+                  canSelect={canSelectGroup}
                   disabled={busy}
-                  onSelect={(version) => {
-                    setDraft((previous) => ({
-                      ...previous,
-                      scoreGroup: {
-                        id: version.groupId,
-                        version: version.version,
-                      },
-                    }));
-                    setNotice("");
-                  }}
+                  onSelect={selectGroup}
+                  onSaved={updateScoreGroup}
                 />
               ),
             },
